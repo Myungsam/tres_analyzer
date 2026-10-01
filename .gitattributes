@@ -1,0 +1,3 @@
+# cmd.exe needs CRLF in batch files; keep them byte for byte, also in a ZIP download
+*.bat -text
+*.ico binary

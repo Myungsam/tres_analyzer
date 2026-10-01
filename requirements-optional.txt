@@ -1,0 +1,12 @@
+# Optional extra: FLIM GPU acceleration (large download, Windows only).
+#
+# The ".opju" (OriginLab) export libraries - pandas, pywin32, originpro - are
+# now part of requirements.txt and are installed automatically by the launcher,
+# so this file only holds the heavyweight GPU stack. Install it into the SAME
+# environment the launcher built, and only if you want GPU:
+#
+#   "%LOCALAPPDATA%\TCSPC_analysis\venv\Scripts\python" -m pip install -r requirements-optional.txt
+#
+# Windows-native GPU needs CUDA 11.2 + cuDNN 8.1; the FLIM tab already runs on
+# the CPU without this. Uncomment the next line to enable GPU:
+# tensorflow==2.10.1

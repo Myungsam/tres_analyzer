@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+
+# measurement data and Origin projects - kept local, not published
+Data/
+*.phu
+*.ptu
+*.opju
+*.csv
+
+# frozen build output (SETUP.md has the rebuild command)
+release/
+build/
+dist/
+*.spec
+
+# pre-change backups, the machine-specific shortcut, scratch scripts
+TCSPC_analysis_pre_*.py
+*.lnk
+shot.py
+
+# other programs that live in this folder but are not part of this repository
+FLIM_Post_Process/
+TA_Analyzer_rev5/
+TRES_data_processing/
+
+# assistant working files
+.omc/
+.claude/

@@ -1,0 +1,25 @@
+# Core runtime for TCSPC_analysis (PHU/TRES + PTU/FLIM).
+# tkinter ships with the standard python.org CPython installer, so it is
+# not listed here. TCSPC_analysis.bat installs this file automatically on
+# the first run on a new computer.
+#
+# Install prebuilt wheels only: never fall back to a source build (which
+# would need a C/Fortran compiler and fails on a plain lab PC). pip then
+# skips any version that has no wheel yet for the local Python and picks
+# the newest one that does.
+--only-binary=:all:
+
+# --- viewing + fitting + CSV export ---------------------------------------
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+
+# --- ".opju" (OriginLab) export -------------------------------------------
+# Installed by default so a distributed copy can write .opju on a fresh
+# machine without any manual step. These only drive Origin over COM, so
+# actually writing .opju still needs OriginLab Origin installed on the PC;
+# without Origin the app runs fine and CSV export is unaffected. All three
+# ship Windows wheels for CPython 3.9-3.13, so no compiler is ever needed.
+pandas>=1.5
+pywin32>=305
+originpro>=1.1.3
