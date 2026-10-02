@@ -15,7 +15,8 @@ build/
 dist/
 *.spec
 
-# pre-change backups, the machine-specific shortcut, scratch scripts
+# pre-change backups (a finished one becomes a numbered version), the
+# machine-specific shortcut, scratch scripts
 TCSPC_analysis_pre_*.py
 *.lnk
 shot.py

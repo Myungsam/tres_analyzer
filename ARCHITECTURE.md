@@ -1,6 +1,6 @@
-# TCSPC_analysis.py 아키텍처
+# TCSPC_analysis_1.3ver.py 아키텍처
 
-`TCSPC_analysis.py`는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처리하는 데스크톱 GUI 프로그램이다. Tkinter 창 하나에 서로 독립적인 탭 두 개를 띄운다.
+`TCSPC_analysis_1.3ver.py`는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처리하는 데스크톱 GUI 프로그램이다. Tkinter 창 하나에 서로 독립적인 탭 두 개를 띄운다.
 
 | 탭 | 입력 파일 | 하는 일 |
 |---|---|---|
@@ -9,8 +9,8 @@
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상 파일: `TCSPC_analysis.py` (4,927줄, 단일 파일)
-- 실행: `python TCSPC_analysis.py [file.phu]`
+- 대상 파일: `TCSPC_analysis_1.3ver.py` (5,124줄, 단일 파일)
+- 실행: `python TCSPC_analysis_1.3ver.py [file.phu]`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
 ## 1. 파일 구성
@@ -19,16 +19,16 @@
 
 | 섹션 | 줄 범위 | 내용 | 주요 이름 |
 |---|---|---|---|
-| 1. `.phu` 리더 | 158–261 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
-| 2. 헬퍼 | 264–339 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
-| 2b. Origin 쓰기 | 342–419 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
-| 2c. FLIM PTU 처리 | 422–626 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
-| 2d. 피팅 커널 | 629–1134 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| 3. 모델 | 1137–1404 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
-| 4. 테마와 TRES 뷰어 | 1407–2799 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
-| 5. FLIM 뷰어 | 2802–3137 | FLIM 탭 화면 | `FLIMViewer` |
-| 6. 다이얼로그 | 3140–4890 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
-| 7. 애플리케이션 | 4893–4927 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
+| 1. `.phu` 리더 | 165–268 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
+| 2. 헬퍼 | 271–346 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
+| 2b. Origin 쓰기 | 349–426 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
+| 2c. FLIM PTU 처리 | 429–633 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
+| 2d. 피팅 커널 | 636–1141 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| 3. 모델 | 1144–1411 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
+| 4. 테마와 TRES 뷰어 | 1414–2806 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
+| 5. FLIM 뷰어 | 2809–3144 | FLIM 탭 화면 | `FLIMViewer` |
+| 6. 다이얼로그 | 3147–5087 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
+| 7. 애플리케이션 | 5090–5124 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
 ## 2. 계층 구조
 
@@ -167,7 +167,7 @@ classDiagram
 | `GlobalAnalysisDialog` | `_AnalysisDialog` | 맵 전체의 전역 피팅 | `fit_global_analysis`, `compute_eads_from_dads` 호출 |
 | `ComponentTable` | `ttk.Frame` | 성분별 τ 초기값, 고정 여부, stretched 여부, β를 입력받는 표 위젯 | 두 피팅 다이얼로그가 하나씩 포함 |
 
-다이얼로그는 측정 데이터를 `_AnalysisDialog.model` 프로퍼티로 읽는다. 이 프로퍼티가 `app.model`을 돌려주므로 항상 현재 로드된 파일의 모델을 본다. 다이얼로그가 직접 보관하는 것은 작업용 상태뿐이다: `CropDialog`의 미리보기 모델 둘(히트맵용 `_full`, steady-state용 `_pv`)과 아직 반영하지 않은 solvent와 비율(`_solvent`, `_scale`), 시각별 스펙트럼용 원시 카운트(`_raw0`)와 고른 시간 bin(`_slice_ti`, `_slice_pinned`), 두 피팅 다이얼로그의 마지막 피팅 결과(`_last`), `GlobalAnalysisDialog`가 피팅에 넘긴 데이터 사본(`_fit_D`, `_fit_t`, `_fit_wls`).
+다이얼로그는 측정 데이터를 `_AnalysisDialog.model` 프로퍼티로 읽는다. 이 프로퍼티가 `app.model`을 돌려주므로 항상 현재 로드된 파일의 모델을 본다. 다이얼로그가 직접 보관하는 것은 작업용 상태뿐이다: `CropDialog`의 미리보기 모델 둘(히트맵용 `_full`, steady-state용 `_pv`)과 아직 반영하지 않은 solvent와 비율(`_solvent`, `_scale`), 시각별 스펙트럼용 원시 카운트(`_raw0`)와 고른 시간 bin(`_slice_ti`, `_slice_pinned`), 맵을 보는 방식(`var_zlog`, `var_auto`, `var_tlog`, 드래그 중인 `_pan`), 두 피팅 다이얼로그의 마지막 피팅 결과(`_last`), `GlobalAnalysisDialog`가 피팅에 넘긴 데이터 사본(`_fit_D`, `_fit_t`, `_fit_wls`).
 
 ## 4. TRES 탭 파이프라인
 
@@ -299,12 +299,12 @@ solvent 차감은 4단계와 8단계 두 곳에서만 일어난다. solvent의 �
 
 | 창 | 여는 메서드 | 하는 일 | 모델과의 관계 | 사용하는 계산 함수 |
 |---|---|---|---|---|
-| `CropDialog` | `open_crop` | 전체 맵 미리보기 위에서 남길 파장·시간 범위 지정. solvent 파일을 불러와 차감 비율을 조절하며 미리보기. 맵에서 고른 시각의 스펙트럼 표시 | Apply 때 `crop_wl`, `t_min_ps`, `t_max_ps`, `solvent`, `solvent_scale`, `solvent_sub` 설정 후 `rebuild` | `read_phu`, `solvent_mismatch` |
+| `CropDialog` | `open_crop` | 전체 맵 미리보기 위에서 남길 파장·시간 범위 지정. solvent 파일을 불러와 차감 비율을 조절하며 미리보기. 맵에서 고른 시각의 스펙트럼 표시. 맵의 확대·이동과 색·시간축 스케일 전환(보기 전용) | Apply 때 `crop_wl`, `t_min_ps`, `t_max_ps`, `solvent`, `solvent_scale`, `solvent_sub` 설정 후 `rebuild` | `read_phu`, `solvent_mismatch` |
 | `MaskDialog` | `open_mask` | 제외할 파장 대역 목록 편집 | `masks` 설정 후 `rebuild` | 없음 |
 | `KineticsDialog` | `open_kinetics` | 한 파장 또는 평균 대역의 감쇠를 피팅하고 데이터·피팅·잔차 표시 | `E`, `times`, `wls` 읽기 | `fit_single_trace` |
 | `GlobalAnalysisDialog` | `open_global_analysis` | 맵 전체를 공통 수명으로 피팅하고 데이터·피팅·잔차 맵, DADS, EADS, kinetics 표시 | `E`, `times`, `wls`의 사본으로 계산 | `fit_global_analysis`, `compute_eads_from_dads` |
 
-`CropDialog`의 solvent 차감 미리보기는 다음과 같이 구성된다.
+`CropDialog`의 solvent 차감 미리보기와 맵 보기 조작은 다음과 같이 구성된다.
 
 ```mermaid
 flowchart TD
@@ -321,6 +321,15 @@ flowchart TD
     DC["맵 더블 클릭: _on_click"] --> TI
     TI --> DS["_draw_slice → 오른쪽 축의 굵은 선 3개, 맵의 시각 표시선"]
     UP --> DS
+    WH["휠: _on_scroll"] --> MVD["_moved → 새 보기 범위"]
+    RD["오른쪽 버튼 드래그: _on_click, _on_motion, _on_release"] --> MVD
+    MVD --> SV["_set_view → 축 범위, _fit_y"]
+    FIT["Fit 버튼: _fit_view"] --> SV
+    SV -->|"Auto color가 켜져 있을 때"| RC["_recolor → 맵의 norm (Auto color면 _view_max)"]
+    VC["Log color, Auto color: _on_color"] --> RC
+    UP --> RC
+    VT["Log time: _on_tscale"] --> YS["맵 y축 스케일"]
+    VT --> UP
 ```
 
 | 요소 | 담당 | 내용 |
@@ -328,16 +337,19 @@ flowchart TD
 | solvent 파일 열기 | `_load_solvent` | `read_phu`로 읽고 `solvent_mismatch`로 검사. 곡선 수, 파장 목록, 시간 해상도, bin 수 중 하나라도 다르면 받지 않음. 측정 시간만 다르면 알림을 띄우고 받음. 받으면 비율을 1로 되돌림 |
 | solvent 해제 | `_clear_solvent` | 다이얼로그의 solvent를 비우고 비율을 1로 되돌림 |
 | 비율 입력 | `_on_slider`, `_on_scale_entry`, `_set_scale` | 슬라이더는 0~2 범위를 0.01 단위로, 입력 칸은 0 이상의 임의의 값을 받음. 둘은 `_set_scale`로 서로 맞춰짐 |
-| 히트맵 | `_update_preview`, `_full` | 전체 레코드에서 비율 × solvent를 뺀 맵. 배경 제거 전 값이며 색상 범위는 차감 전 맵의 최댓값(`_vmax0`)으로 고정. solvent나 비율이 바뀔 때만 다시 계산 |
+| 히트맵 | `_update_preview`, `_full` | 전체 레코드에서 비율 × solvent를 뺀 맵. 배경 제거 전 값이며 색상 범위는 기본적으로 차감 전 맵의 최댓값(`_vmax0`)으로 고정. solvent나 비율이 바뀔 때만 다시 계산하고, 그때 `_recolor`로 색을 다시 입힘 |
 | steady-state 패널 | `_update_preview`, `_pv` | 차감 전(`sample`), 비율 × solvent(`s x solvent`), 차감 후(`subtracted`) 세 선. 왼쪽 y축에 반투명(alpha 0.5)으로 그림. `_pv`는 본 모델의 설정을 복사한 뒤 `_configure`로 현재 범위와 solvent를 넣어 계산하므로, `subtracted` 선은 Apply 후 본 화면의 정상상태 스펙트럼과 같은 값 |
 | 설정 쓰기 | `_configure` | 범위와 solvent 설정을 모델에 쓰는 유일한 함수. 미리보기(`_pv`)와 Apply(본 모델)가 함께 사용 |
 | 반영 | `_apply` | 본 모델에 범위와 solvent를 쓰고 차감을 켠 뒤 `rebuild`, `redraw`. 본 화면의 체크박스와 라벨은 `redraw` 안의 `_sync_solvent_ui`가 맞춤 |
 | 범위 초기화 | `_reset` | 범위만 전체로 되돌려 반영. 다이얼로그의 solvent는 본 모델에 쓰지 않음 |
 | 시각 선택 | `_on_motion`, `_on_leave`, `_on_click`, `_time_bin` | 맵 위에서 마우스가 가리키는 시간 bin을 `_slice_ti`에 둠. 맵을 벗어나면(다른 축으로 옮길 때의 `axes_leave_event`와 캔버스를 벗어날 때의 `figure_leave_event` 모두) 비움. 더블 클릭은 `_slice_pinned`를 뒤집어 그 시각에 고정하거나 풀며, 고정된 동안에는 마우스 이동을 무시 |
-| 시각별 스펙트럼 | `_draw_slice`, `ax_t` | 고른 시간 bin의 스펙트럼을 아래 패널의 오른쪽 보조 y축(`ax_t`)에 굵은 실선으로 그림. sample은 `_raw0`의 한 열, `s x solvent`는 비율 × `_full.S_raw`의 한 열, 차감 선은 그 둘의 차. 배경 제거 전 원시 카운트이며 0으로 자르지 않음. solvent가 없으면 sample 선만 그림. `_update_preview`가 끝에서 다시 불러 비율 변경을 따라감 |
-| 클릭 구분 | `_on_click`, `_crop_state`, `_undo_click` | 클릭 한 번은 범위 상자의 모서리 지정, 더블 클릭은 시각 고정. 더블 클릭은 클릭 한 번 뒤에 오므로, 바로 앞의 클릭이 맵 안에서 바꾼 범위 상태를 `_undo_click`으로 되돌린 뒤 고정을 처리. 마지막 전환 후 0.5초 안에 온 더블 클릭은 무시(`_pin_time`) |
+| 시각별 스펙트럼 | `_draw_slice`, `ax_t` | 고른 시간 bin의 스펙트럼을 아래 패널의 오른쪽 보조 y축(`ax_t`)에 굵은 실선으로 그림. sample은 `_raw0`의 한 열, `s x solvent`는 비율 × `_full.S_raw`의 한 열, 차감 선은 그 둘의 차. 배경 제거 전 원시 카운트이며 0으로 자르지 않음. solvent가 없으면 sample 선만 그림. `_update_preview`가 끝에서 다시 불러 비율 변경을 따라감. 두 y축의 범위는 `_fit_y`가 보이는 파장 범위 안의 값으로 맞춤 |
+| 클릭 구분 | `_on_click`, `_crop_state`, `_undo_click` | 왼쪽 버튼만 해당. 클릭 한 번은 범위 상자의 모서리 지정, 더블 클릭은 시각 고정. 더블 클릭은 클릭 한 번 뒤에 오므로, 바로 앞의 클릭이 맵 안에서 바꾼 범위 상태를 `_undo_click`으로 되돌린 뒤 고정을 처리. 마지막 전환 후 0.5초 안에 온 더블 클릭은 무시(`_pin_time`) |
+| 보기 범위 | `_on_scroll`, `_zoomed`, `_on_click`, `_on_motion`, `_on_release`, `_moved`, `_set_view`, `_fit_view`, `_view_full` | 맵 축의 범위가 곧 보기 범위. 휠은 포인터 위치를 중심으로 `ZOOM_STEP` 배씩 확대·축소(Ctrl은 시간축만, Shift는 파장축만). 오른쪽 버튼을 누르면 그때의 범위를 `_pan`에 두고, 누른 채 움직이면 그만큼 옮기며, 떼면 비움. `_pan`이 있는 동안에는 휠과 왼쪽 클릭을 받지 않음. 버튼을 뗀 이벤트를 받지 못한 경우에는 버튼이 눌려 있지 않은 이동 이벤트에서 `_pan`을 비움. `_zoomed`는 최소 범위(곡선 2개, 시간 bin 4개)보다 좁아지는 확대 입력을 들어맞는 만큼만 적용하고, 축소 입력은 그대로 적용. `_moved`가 새 범위를 계산해 전체 범위(`_view_full`) 안에 두고, 로그 시간축에서는 로그 값으로 계산. 아래 패널은 파장축을 공유하므로 같은 파장 범위를 따름. 범위 상자와 Apply에는 쓰이지 않음 |
+| 색 스케일 | `var_zlog`, `var_auto`, `_on_color`, `_recolor`, `_view_max` | `var_zlog`는 linear/log 선택으로, 창을 열 때 본 화면의 `var_log` 값에서 시작하고 본 화면에는 되쓰지 않음. `_recolor`가 `preview_norm_cmap`으로 맵의 norm을 다시 만듦. 색 범위의 최댓값은 `var_auto`가 꺼져 있으면 `_vmax0`, 켜져 있으면 보이는 범위 안 최댓값(`_view_max`)이며 보기 범위나 solvent가 바뀔 때마다 다시 계산 |
+| 시간축 스케일 | `var_tlog`, `_on_tscale` | 맵 y축을 linear/log로 전환. 시간 값은 그대로(기록 시작이 0)이고, 로그축의 아래 끝은 첫 시간 bin의 가운데. 전환 뒤 `_update_overlay`를 불러 범위 상자와 덮개를 새 축에 맞춰 다시 그림 |
 
-범위 입력과 슬라이더 이동은 `_schedule`이 130 ms 뒤로 미룬 `_update_overlay`에서 한 번에 처리된다. 마우스 이동에 따른 시각별 스펙트럼 갱신은 이 지연을 거치지 않고, 시간 bin이 바뀔 때마다 `_draw_slice` 뒤 `draw_idle`로 그린다.
+범위 입력과 슬라이더 이동은 `_schedule`이 130 ms 뒤로 미룬 `_update_overlay`에서 한 번에 처리된다. 마우스 이동에 따른 시각별 스펙트럼 갱신은 이 지연을 거치지 않고, 시간 bin이 바뀔 때마다 `_draw_slice` 뒤 `draw_idle`로 그린다. 휠과 드래그에 따른 보기 범위 변경도 `_set_view`에서 바로 `draw_idle`로 그린다. 보기 범위와 두 스케일은 다이얼로그 객체에만 있어서 창을 닫으면 사라진다.
 
 ### 4.5 피팅 커널
 

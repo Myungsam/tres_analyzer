@@ -74,7 +74,7 @@ want GPU-accelerated FLIM:
   manual `pip install -r requirements.txt` line it prints.
 - **The console window stays open** behind the app. That is normal — it shows
   any error messages. Close it after quitting the app. To launch with no
-  console, run `...\venv\Scripts\pythonw.exe TCSPC_analysis.py` instead.
+  console, run `...\venv\Scripts\pythonw.exe TCSPC_analysis_1.3ver.py` instead.
 
 The launcher already handles the two things that usually break a portable
 Python GUI, so you should not have to:
@@ -104,7 +104,7 @@ icon embedded, no console window). Copy it anywhere and double-click it; a
 - FLIM GPU (TensorFlow) is not part of the frozen build; the FLIM tab runs on
   the CPU.
 
-To rebuild it after changing `TCSPC_analysis.py`, from this folder (the
+To rebuild it after changing `TCSPC_analysis_1.3ver.py`, from this folder (the
 `set` lines let PyInstaller find the venv's Tcl/Tk; build files go to
 `%LOCALAPPDATA%` so nothing but the finished .exe lands in a synced folder):
 
@@ -118,7 +118,7 @@ set "TK_LIBRARY=%BP%\tcl\tk8.6"
 "%VENV%\Scripts\python" -m PyInstaller --noconfirm --clean --onefile --windowed ^
     --icon "%CD%\TCSPC_analysis.ico" --name TCSPC_analysis ^
     --workpath "%BUILD%\work" --specpath "%BUILD%" --distpath "%BUILD%\dist" ^
-    --collect-submodules originpro --collect-all OriginExt TCSPC_analysis.py
+    --collect-submodules originpro --collect-all OriginExt TCSPC_analysis_1.3ver.py
 if not exist release mkdir release
 copy /y "%BUILD%\dist\TCSPC_analysis.exe" release\
 ```
