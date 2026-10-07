@@ -1,6 +1,6 @@
-# TCSPC_analysis_1.3ver.py 아키텍처
+# TCSPC_analysis_1.4ver.py 아키텍처
 
-`TCSPC_analysis_1.3ver.py`는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처리하는 데스크톱 GUI 프로그램이다. Tkinter 창 하나에 서로 독립적인 탭 두 개를 띄운다.
+`TCSPC_analysis_1.4ver.py`는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처리하는 데스크톱 GUI 프로그램이다. Tkinter 창 하나에 서로 독립적인 탭 두 개를 띄운다.
 
 | 탭 | 입력 파일 | 하는 일 |
 |---|---|---|
@@ -9,8 +9,8 @@
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상 파일: `TCSPC_analysis_1.3ver.py` (5,124줄, 단일 파일)
-- 실행: `python TCSPC_analysis_1.3ver.py [file.phu]`
+- 대상 파일: `TCSPC_analysis_1.4ver.py` (5,309줄, 단일 파일)
+- 실행: `python TCSPC_analysis_1.4ver.py [file.phu]`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
 ## 1. 파일 구성
@@ -19,16 +19,16 @@
 
 | 섹션 | 줄 범위 | 내용 | 주요 이름 |
 |---|---|---|---|
-| 1. `.phu` 리더 | 165–268 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
-| 2. 헬퍼 | 271–346 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
-| 2b. Origin 쓰기 | 349–426 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
-| 2c. FLIM PTU 처리 | 429–633 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
-| 2d. 피팅 커널 | 636–1141 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| 3. 모델 | 1144–1411 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
-| 4. 테마와 TRES 뷰어 | 1414–2806 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
-| 5. FLIM 뷰어 | 2809–3144 | FLIM 탭 화면 | `FLIMViewer` |
-| 6. 다이얼로그 | 3147–5087 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
-| 7. 애플리케이션 | 5090–5124 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
+| 1. `.phu` 리더 | 167–270 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
+| 2. 헬퍼 | 273–348 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
+| 2b. Origin 쓰기 | 351–428 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
+| 2c. FLIM PTU 처리 | 431–635 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
+| 2d. 피팅 커널 | 638–1143 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| 3. 모델 | 1146–1413 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
+| 4. 테마와 TRES 뷰어 | 1416–2813 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
+| 5. FLIM 뷰어 | 2816–3151 | FLIM 탭 화면 | `FLIMViewer` |
+| 6. 다이얼로그 | 3154–5133 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
+| 7. 애플리케이션 | 5136–5309 | 창과 탭을 만들고 이벤트 루프 시작, 멈춤 기록 | `FreezeLog`, `main` |
 
 ## 2. 계층 구조
 
@@ -69,7 +69,7 @@ flowchart TD
 
 | 계층 | 구성 요소 | 책임 | 사용하는 대상 |
 |---|---|---|---|
-| 애플리케이션 | `main` | Tk 창, 테마, 탭 두 개 생성 | `TRESViewer`, `FLIMViewer`, `apply_theme` |
+| 애플리케이션 | `main`, `FreezeLog` | Tk 창, 테마, 탭 두 개 생성. 주 루프가 멈춘 위치와 콜백 예외를 로그 파일에 기록 | `TRESViewer`, `FLIMViewer`, `apply_theme` |
 | 화면 | `TRESViewer` | TRES 탭의 위젯, 그림, 마우스 이벤트, 내보내기 | `TRESModel`, `read_phu`, Origin 쓰기 함수, 다이얼로그 |
 | 화면 | `FLIMViewer` | FLIM 탭의 위젯, 그림, 워커 스레드 관리 | FLIM PTU 처리 함수 |
 | 화면 | `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` | 전처리·분석 팝업 창 | `TRESModel`, 피팅 커널, `read_phu`와 `solvent_mismatch`(solvent 파일 열기), `TRESViewer`의 `redraw`와 내보내기 메서드, Origin 쓰기 함수(`_origin_fill_table`) |
@@ -163,7 +163,7 @@ classDiagram
 | `_AnalysisDialog` | 없음 | 팝업 창의 공통 기반. `Toplevel` 생성, 열림 상태(`alive`) 추적, `app.model` 접근 제공 | `app` 속성으로 `TRESViewer`를 참조 |
 | `CropDialog` | `_AnalysisDialog` | 파장·시간 사각 영역 선택, solvent 파일 불러오기와 차감 비율 조절 | 모델의 `crop_wl`, `t_min_ps`, `t_max_ps`, `solvent`, `solvent_scale`, `solvent_sub`를 설정 |
 | `MaskDialog` | `_AnalysisDialog` | 제외할 파장 대역 추가·삭제 | 모델의 `masks`를 설정 |
-| `KineticsDialog` | `_AnalysisDialog` | 한 파장의 감쇠 피팅 | `fit_single_trace` 호출 |
+| `KineticsDialog` | `_AnalysisDialog` | 한 파장의 감쇠 피팅 | 워커 스레드에서 `fit_single_trace` 호출 |
 | `GlobalAnalysisDialog` | `_AnalysisDialog` | 맵 전체의 전역 피팅 | `fit_global_analysis`, `compute_eads_from_dads` 호출 |
 | `ComponentTable` | `ttk.Frame` | 성분별 τ 초기값, 고정 여부, stretched 여부, β를 입력받는 표 위젯 | 두 피팅 다이얼로그가 하나씩 포함 |
 
@@ -295,7 +295,7 @@ solvent 차감은 4단계와 8단계 두 곳에서만 일어난다. solvent의 �
 
 ### 4.4 전처리·분석 다이얼로그
 
-네 창 모두 `TRESViewer`의 버튼으로 열리고, 종류별로 하나만 유지된다. 이미 열려 있으면 `lift_and_refresh`로 앞으로 가져온다. `CropDialog`와 `MaskDialog`는 모델 설정을 바꾼 뒤 `TRESViewer.redraw`를 불러 본 화면을 갱신하고, `CropDialog`는 열려 있는 `MaskDialog`의 미리보기도 함께 갱신한다.
+네 창 모두 `TRESViewer`의 버튼으로 열리고, 종류별로 하나만 유지된다. 이미 열려 있으면 `lift_and_refresh`로 앞으로 가져온다. 새 파일을 열면 `TRESViewer.load`가 `_close_dialogs`로 네 창을 모두 닫는다. 각 창의 미리보기, 시간 범위, 피팅 결과가 열 때의 파일에 묶여 있기 때문이며, `GlobalAnalysisDialog`는 닫히면서 돌고 있던 피팅에 중단 신호를 보낸다. `CropDialog`와 `MaskDialog`는 모델 설정을 바꾼 뒤 `TRESViewer.redraw`를 불러 본 화면을 갱신하고, `CropDialog`는 열려 있는 `MaskDialog`의 미리보기도 함께 갱신한다.
 
 | 창 | 여는 메서드 | 하는 일 | 모델과의 관계 | 사용하는 계산 함수 |
 |---|---|---|---|---|
@@ -355,7 +355,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    KD["KineticsDialog.run_fit"] --> FS["fit_single_trace"]
+    KD["KineticsDialog.run_fit → _worker"] --> FS["fit_single_trace"]
     GD["GlobalAnalysisDialog._worker"] --> FG["fit_global_analysis"]
     GD2["GlobalAnalysisDialog._on_done"] --> EA["compute_eads_from_dads"]
     FS --> EX["exp_irf_conv"]
@@ -377,7 +377,7 @@ flowchart TD
 | `stretched_irf_conv` | stretched exponential. IRF를 수치 컨볼루션하거나 생략 | `fit_single_trace`, `fit_global_analysis` |
 | `build_ga_basis` | 여러 τ에 대한 기저 행렬 (시간 x 성분) | `fit_global_analysis` |
 | `_lsqminnorm` | 선형 최소제곱으로 진폭 계산 | 두 피팅 함수 |
-| `fit_single_trace` | 곡선 하나 피팅. 비선형 파라미터는 Nelder-Mead, 진폭은 선형 풀이 | `KineticsDialog.run_fit` |
+| `fit_single_trace` | 곡선 하나 피팅. 비선형 파라미터는 Nelder-Mead, 진폭은 선형 풀이 | `KineticsDialog._worker` |
 | `fit_global_analysis` | 맵 전체 피팅. 비선형 파라미터는 TRF 또는 Nelder-Mead, 파장별 진폭은 선형 풀이 | `GlobalAnalysisDialog._worker` |
 | `compute_eads_from_dads` | 병렬 모델의 DADS를 순차 모델의 EADS로 변환 | `GlobalAnalysisDialog._on_done` |
 | `_ensure_scipy` | scipy를 처음 필요할 때 로드 | `exp_irf_conv`, `fit_single_trace`, `fit_global_analysis` |
@@ -484,15 +484,27 @@ sequenceDiagram
     M->>M: 결과 저장 후 그림 다시 그리기
 ```
 
-다이어그램은 두 작업에 공통인 골격이다. 워커에 넘기는 입력과 큐 메시지 종류는 작업마다 다르며 아래 표에 적었다.
+다이어그램은 세 작업에 공통인 골격이다. 워커에 넘기는 입력과 큐 메시지 종류는 작업마다 다르며 아래 표에 적었다.
 
 | 작업 | 시작 지점 | 워커 함수 | 워커에 넘기는 입력 | 큐 메시지 | 폴링 | 중단 수단 |
 |---|---|---|---|---|---|---|
 | FLIM 레코드 처리 | `FLIMViewer.on_process` | `_process_worker` | 파일 경로 (워커가 직접 읽음) | `status`, `progress`, `error`, `done` | `_poll_queue`, 100 ms | 없음 |
 | Global analysis 피팅 | `GlobalAnalysisDialog.run_fit` | `_worker` | 피팅 구간으로 자르고 마스크된 파장을 뺀 `E`, `times`의 사본과 피팅 설정 | `done`, `stopped`, `error` | `_poll_queue`, 150 ms | `_stop` 이벤트. 목적 함수가 `stop_check`를 확인하고 `GlobalAnalysisStopped`를 던짐 |
+| Kinetics 피팅 | `KineticsDialog.run_fit` | `_worker` | 피팅 구간의 시간과 곡선 사본, 피팅 설정, 결과 표시에 쓸 값(전체 곡선, 파장, 보고서 항목) | `done`, `error` | `_poll_queue`, 100 ms | 없음. 창이 닫히면 결과를 버림 |
 | GPU 감지 | `start_gpu_detection` | `detect_gpu` | 없음 | 큐 없음. `_GPU_DONE` 이벤트로 완료 표시 | `FLIMViewer._poll_gpu`, 200 ms | 없음 |
 
-Kinetics 피팅(`KineticsDialog.run_fit`)과 `.opju` 쓰기는 메인 스레드에서 바로 실행되며, 그동안 마우스 커서가 대기 모양으로 바뀐다.
+`.opju` 쓰기는 메인 스레드에서 바로 실행된다.
+
+이와 별도로 `FreezeLog`가 감시 스레드 하나를 둔다. 메인 스레드는 `_beat`에서 0.5초마다 시각을 적고, 감시 스레드(`_watch`)는 그 시각이 `LIMIT_S`(5초) 넘게 갱신되지 않으면 `sys._current_frames`로 모든 스레드의 호출 스택을 읽어 로그에 쓴다. 감시 스레드는 Tk를 건드리지 않는다.
+
+| 기록 | 쓰는 쪽 | 조건 |
+|---|---|---|
+| 멈춘 위치 | `_watch` (감시 스레드) | 콜백 실행 중 메인 루프가 `LIMIT_S` 넘게 조용함. 콜백 없이 Tk 자체 루프에 있을 때는 `IDLE_S`(30초)부터. 한 번의 멈춤에 한 번 |
+| 복귀 | `_beat` (메인 스레드) | 기록된 멈춤 뒤 메인 루프가 다시 돎 |
+| 콜백 예외 | `_callback_error` (`report_callback_exception`으로 등록) | Tk 콜백에서 예외 발생 |
+| 인터프리터 덤프 | `faulthandler` | 치명적 오류, 또는 메인 루프가 `HARD_S`(60초) 조용함. `_beat`가 매번 다시 예약 |
+
+로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 프로그램 옆에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다.
 
 ## 7. 외부 의존성
 
@@ -508,7 +520,7 @@ Kinetics 피팅(`KineticsDialog.run_fit`)과 `.opju` 쓰기는 메인 스레드�
 | pandas | 선택 | `.opju` 쓰기 시 | `TRESViewer._require_pandas` | `.opju` 내보내기 |
 | originpro, pywin32 | 선택 | `.opju` 쓰기 시 | `TRESViewer._opju_write_tabs` | `.opju` 내보내기 (Origin 설치 필요) |
 
-표준 라이브러리는 `struct`(바이너리 파싱), `threading`과 `queue`(워커 스레드), `glob`과 `os`(파일 경로), `warnings`를 쓴다.
+표준 라이브러리는 `struct`(바이너리 파싱), `threading`과 `queue`(워커 스레드), `glob`과 `os`(파일 경로), `warnings`, `faulthandler`와 `traceback`(멈춤 기록)을 쓴다.
 
 ## 8. 코드 출처
 
@@ -529,6 +541,7 @@ Kinetics 피팅(`KineticsDialog.run_fit`)과 `.opju` 쓰기는 메인 스레드�
 | 1 | 명령줄에서 `.phu` 경로를 읽고 파일이 있는지 확인 |
 | 2 | `tk.Tk` 창을 만들고 `apply_theme`로 테마 적용 |
 | 3 | `ttk.Notebook`에 탭 프레임 두 개 추가 |
-| 4 | 첫 탭에 `TRESViewer`를 만들고 경로가 있으면 바로 로드 |
-| 5 | 둘째 탭에 `FLIMViewer`를 만듦 (이때 GPU 감지 스레드 시작) |
-| 6 | `mainloop` 진입 |
+| 4 | `FreezeLog`를 만들어 로그 파일을 열고 감시 시작 |
+| 5 | 첫 탭에 `TRESViewer`를 만들고 경로가 있으면 바로 로드 |
+| 6 | 둘째 탭에 `FLIMViewer`를 만듦 (이때 GPU 감지 스레드 시작) |
+| 7 | `mainloop` 진입. 창이 닫히면 `FreezeLog.close` |

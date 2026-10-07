@@ -90,7 +90,7 @@ if not defined TK_LIBRARY for /d %%D in ("%BP%\tcl\tk8*" "%BP%\tcl\tk9*") do if 
 
 REM ---- 5) launch the app --------------------------------------
 :run
-"%VPY%" "%~dp0TCSPC_analysis_1.3ver.py" %*
+"%VPY%" "%~dp0TCSPC_analysis_1.4ver.py" %*
 set "rc=%errorlevel%"
 if not "%rc%"=="0" (
     echo.

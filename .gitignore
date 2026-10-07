@@ -29,3 +29,6 @@ TRES_data_processing/
 # assistant working files
 .omc/
 .claude/
+
+# written by the program when its window stops answering
+TCSPC_analysis_freeze.log
