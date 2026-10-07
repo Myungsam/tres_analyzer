@@ -76,6 +76,15 @@ Two preprocessing tools live under "PREP", each in its own pop-up:
             list. Masks apply inside the current crop.
 Both feed the whole pipeline through the model, so the map, the spectra, the
 CSV / .opju export and the Kinetics / Global-analysis fits all follow along.
+Opening another file closes all four pop-up windows (Crop, Mask, Kinetics,
+Global analysis): each shows the file it was opened on, so export a fit you
+want to keep first.
+
+If the window stops answering for more than 5 seconds, or a step fails
+without a message, where the program was at that moment is noted in
+TCSPC_analysis_freeze.log next to the program - code locations and the name
+of the open file, no measured data. Slow but healthy steps (starting Origin
+for an .opju export) show up there too.
 
 Move the pointer over the map to update the decay (at the cursor wavelength)
 and the spectrum (at the cursor delay) in real time. Click to pin a position.
@@ -141,6 +150,7 @@ import faulthandler
 import glob
 import os
 import queue
+import re
 import struct
 import sys
 import threading
@@ -3258,7 +3268,7 @@ class ComponentTable(ttk.Frame):
 
 
 class _AnalysisDialog:
-    """Common plumbing for the two pop-up analysis windows.
+    """Common plumbing for the pop-up preprocessing and analysis windows.
 
     Wraps a dark Toplevel, tracks whether it is still open (so the launcher can
     raise an existing one instead of stacking duplicates), and exposes the live
@@ -4213,6 +4223,7 @@ class KineticsDialog(_AnalysisDialog):
         self._last = None                   # last fit_single_trace result dict
         self._q = queue.Queue()             # worker -> main-thread messages
         self._running = False
+        self._job = 0                       # bumped when a running fit goes stale
         self._build()
         self._refresh_plot(replot_data=True)
         self.win.after(100, self._poll_queue)
@@ -4358,6 +4369,7 @@ class KineticsDialog(_AnalysisDialog):
         if key == self._wl_key:
             return
         self._wl_key = key
+        self._job += 1                      # a fit still running is for the old λ
         if self._last is not None:
             self._last = None
             self.var_status.set("λ changed - run the fit again.")
@@ -4408,6 +4420,7 @@ class KineticsDialog(_AnalysisDialog):
         self.var_irf_mode.set("numerical")
         self._t_full()
         self._last = None
+        self._job += 1
         self.var_status.set("Reset to defaults.")
         self.txt.delete("1.0", "end")
         self._refresh_plot(replot_data=True)
@@ -4456,25 +4469,27 @@ class KineticsDialog(_AnalysisDialog):
         extra = {"_t_fit": t_full[sel], "_y_fit": y_full[sel],
                  "_t_full": t_full, "_y_full": y_full,
                  "_wl": wl_actual, "_n_avg": n_avg,
-                 "_stretch": st, "_has_inf": self.var_inf.get()}
+                 "_stretch": st, "_has_inf": self.var_inf.get(),
+                 "_t0_fixed": self.var_t0_fix.get(), "_fwhm_fixed": self.var_fw_fix.get()}
         report = (wl_actual, n_avg, t_lo, t_hi, n_in)
         # the fit runs on the boxes as they are now; remember them so a later
         # bare focus-out on the λ entry does not discard it
-        wl_key = (self.var_wl.get().strip(), self.var_hw.get().strip())
+        self._wl_key = (self.var_wl.get().strip(), self.var_hw.get().strip())
+        self._job += 1
 
         self._running = True
         self.btn_run.configure(state="disabled")
         self.win.configure(cursor="watch")
         self.var_status.set("Fitting...")
         threading.Thread(target=self._worker,
-                         args=(t_full[sel], y_full[sel], params, extra, report, wl_key),
+                         args=(t_full[sel], y_full[sel], params, extra, report, self._job),
                          daemon=True).start()
 
-    def _worker(self, t, y, params, extra, report, wl_key):
+    def _worker(self, t, y, params, extra, report, job):
         try:
             res = fit_single_trace(t, y, **params)
             res.update(extra)
-            self._q.put(("done", (res, report, wl_key)))
+            self._q.put(("done", (res, report, job)))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
             self._q.put(("error", str(exc)))
 
@@ -4496,9 +4511,11 @@ class KineticsDialog(_AnalysisDialog):
             if self.alive:
                 self.win.after(100, self._poll_queue)
 
-    def _on_done(self, res, report, wl_key):
+    def _on_done(self, res, report, job):
+        if job != self._job:        # λ was changed or Reset pressed meanwhile
+            self.var_status.set("Fit dropped - the setup changed while it ran.")
+            return
         self._last = res
-        self._wl_key = wl_key
         self._report(res, *report)
         self.var_status.set(f"Fit done - RMS = {res['info']['rms']:.3g}")
         self._refresh_plot()
@@ -4518,9 +4535,9 @@ class KineticsDialog(_AnalysisDialog):
         if res["_has_inf"]:
             L.append(f"  ∞   {'':10}  {'':6}  {res['A'][-1]:10.4g}  (offset)")
         L += ["", f"t₀ = {res['t0']:.4g} ps"
-              + ("  (fixed)" if self.var_t0_fix.get() else ""),
+              + ("  (fixed)" if res["_t0_fixed"] else ""),
               f"FWHM = {res['fwhm']:.4g} ps"
-              + ("  (fixed)" if self.var_fw_fix.get() else "")]
+              + ("  (fixed)" if res["_fwhm_fixed"] else "")]
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "\n".join(L))
 
@@ -4919,8 +4936,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                     messagebox.showerror("Fit error", str(payload))
         except queue.Empty:
             pass
-        if self.alive:
-            self.win.after(150, self._poll_queue)
+        finally:                # an error above must not end the polling
+            if self.alive:
+                self.win.after(150, self._poll_queue)
 
     def _finish_run(self, status):
         self._running = False
@@ -5149,15 +5167,20 @@ class FreezeLog:
     - the main loop marks the time every half second; a watcher thread
       notices when that stops for LIMIT_S and writes the call stack of every
       thread - the main thread's is where the program is stuck;
-    - an exception in a Tk callback, with its traceback;
-    - Python's own dump if the interpreter crashes, or if the main loop stays
-      silent for HARD_S (written by faulthandler, which needs no Python
-      thread and so also works when the watcher cannot run).
+    - an exception in a Tk callback, with its traceback (it still goes to the
+      console as well, when there is one);
+    - Python's own dump if the main loop stays silent for HARD_S (written by
+      faulthandler, which needs no Python thread and so also works when the
+      watcher cannot run).
 
     File dialogs and message boxes keep the main loop running and are not
-    reported. A window being dragged by its title bar is Tk waiting inside
-    its own loop, not in the program: that only counts after IDLE_S.
-    No measured data is written, only the name of the open file.
+    reported. With no callback running the program itself is not stuck - Tk
+    is waiting inside its own loop - so that only counts after IDLE_S.
+    Slow but healthy work on the main thread (starting Origin for an .opju
+    export) is reported like any other stall; the stack says what it was.
+    No measured data is written, only the name of the open file, and the
+    user's home folder is cut out of every path the program writes itself
+    (faulthandler's dump shows source paths as Python has them).
     """
 
     NAME = "TCSPC_analysis_freeze.log"
@@ -5171,6 +5194,9 @@ class FreezeLog:
         self.root = root
         self.describe = describe    # one line on what is loaded; main thread only
         self.path, self._fh = self._open()
+        home = [re.escape(p) for p in re.split(r"[\\/]+", os.path.expanduser("~")) if p]
+        # the home folder however it is spelt: either slash, doubled in a repr, any case
+        self._home = re.compile(r"[\\/]+".join(home), re.IGNORECASE)
         self._lock = threading.Lock()
         self._note = ""
         self._seen = time.monotonic()
@@ -5181,7 +5207,6 @@ class FreezeLog:
         self.write(f"started, version {APP_VERSION}, "
                    f"{'exe' if getattr(sys, 'frozen', False) else 'source'}, "
                    f"Python {sys.version.split()[0]}")
-        faulthandler.enable(file=self._fh)
         root.report_callback_exception = self._callback_error
         self._beat()
         threading.Thread(target=self._watch, daemon=True).start()
@@ -5206,7 +5231,9 @@ class FreezeLog:
 
     def write(self, text):
         """Append a time-stamped entry; the user's home folder is left out of it."""
-        text = text.replace(os.path.expanduser("~"), "~")
+        if self._fh is None:
+            return
+        text = self._home.sub("~", text)
         with self._lock:
             try:
                 self._fh.write(f"==== {time.strftime('%Y-%m-%d %H:%M:%S')}  {text}\n")
@@ -5261,12 +5288,14 @@ class FreezeLog:
     def _callback_error(self, exc, val, tb):
         self.write("error in a callback\n"
                    + "".join(traceback.format_exception(exc, val, tb)).rstrip())
+        if sys.stderr is not None:              # as Tk does without the log
+            print("Exception in Tkinter callback", file=sys.stderr)
+            traceback.print_exception(exc, val, tb)
 
     def close(self):
         self._closed.set()
         if self._fh is not None:
             faulthandler.cancel_dump_traceback_later()
-            faulthandler.disable()
             with self._lock:
                 self._fh.close()
 

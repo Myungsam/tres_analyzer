@@ -9,7 +9,7 @@
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상 파일: `TCSPC_analysis_1.4ver.py` (5,309줄, 단일 파일)
+- 대상 파일: `TCSPC_analysis_1.4ver.py` (5,338줄, 단일 파일)
 - 실행: `python TCSPC_analysis_1.4ver.py [file.phu]`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -19,16 +19,16 @@
 
 | 섹션 | 줄 범위 | 내용 | 주요 이름 |
 |---|---|---|---|
-| 1. `.phu` 리더 | 167–270 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
-| 2. 헬퍼 | 273–348 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
-| 2b. Origin 쓰기 | 351–428 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
-| 2c. FLIM PTU 처리 | 431–635 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
-| 2d. 피팅 커널 | 638–1143 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| 3. 모델 | 1146–1413 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
-| 4. 테마와 TRES 뷰어 | 1416–2813 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
-| 5. FLIM 뷰어 | 2816–3151 | FLIM 탭 화면 | `FLIMViewer` |
-| 6. 다이얼로그 | 3154–5133 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
-| 7. 애플리케이션 | 5136–5309 | 창과 탭을 만들고 이벤트 루프 시작, 멈춤 기록 | `FreezeLog`, `main` |
+| 1. `.phu` 리더 | 177–280 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
+| 2. 헬퍼 | 283–358 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
+| 2b. Origin 쓰기 | 361–438 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
+| 2c. FLIM PTU 처리 | 441–645 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
+| 2d. 피팅 커널 | 648–1153 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| 3. 모델 | 1156–1423 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
+| 4. 테마와 TRES 뷰어 | 1426–2823 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
+| 5. FLIM 뷰어 | 2826–3161 | FLIM 탭 화면 | `FLIMViewer` |
+| 6. 다이얼로그 | 3164–5151 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
+| 7. 애플리케이션 | 5154–5338 | 창과 탭을 만들고 이벤트 루프 시작, 멈춤 기록 | `FreezeLog`, `main` |
 
 ## 2. 계층 구조
 
@@ -490,7 +490,7 @@ sequenceDiagram
 |---|---|---|---|---|---|---|
 | FLIM 레코드 처리 | `FLIMViewer.on_process` | `_process_worker` | 파일 경로 (워커가 직접 읽음) | `status`, `progress`, `error`, `done` | `_poll_queue`, 100 ms | 없음 |
 | Global analysis 피팅 | `GlobalAnalysisDialog.run_fit` | `_worker` | 피팅 구간으로 자르고 마스크된 파장을 뺀 `E`, `times`의 사본과 피팅 설정 | `done`, `stopped`, `error` | `_poll_queue`, 150 ms | `_stop` 이벤트. 목적 함수가 `stop_check`를 확인하고 `GlobalAnalysisStopped`를 던짐 |
-| Kinetics 피팅 | `KineticsDialog.run_fit` | `_worker` | 피팅 구간의 시간과 곡선 사본, 피팅 설정, 결과 표시에 쓸 값(전체 곡선, 파장, 보고서 항목) | `done`, `error` | `_poll_queue`, 100 ms | 없음. 창이 닫히면 결과를 버림 |
+| Kinetics 피팅 | `KineticsDialog.run_fit` | `_worker` | 피팅 구간의 시간과 곡선 사본, 피팅 설정, 결과 표시에 쓸 값(전체 곡선, 파장, 보고서 항목), 작업 번호 `_job` | `done`, `error` | `_poll_queue`, 100 ms | 없음. 창이 닫히면 결과를 버리고, 피팅 중 파장을 바꾸거나 Reset을 누르면 `_job`이 달라져 결과를 표시하지 않음 |
 | GPU 감지 | `start_gpu_detection` | `detect_gpu` | 없음 | 큐 없음. `_GPU_DONE` 이벤트로 완료 표시 | `FLIMViewer._poll_gpu`, 200 ms | 없음 |
 
 `.opju` 쓰기는 메인 스레드에서 바로 실행된다.
@@ -502,9 +502,9 @@ sequenceDiagram
 | 멈춘 위치 | `_watch` (감시 스레드) | 콜백 실행 중 메인 루프가 `LIMIT_S` 넘게 조용함. 콜백 없이 Tk 자체 루프에 있을 때는 `IDLE_S`(30초)부터. 한 번의 멈춤에 한 번 |
 | 복귀 | `_beat` (메인 스레드) | 기록된 멈춤 뒤 메인 루프가 다시 돎 |
 | 콜백 예외 | `_callback_error` (`report_callback_exception`으로 등록) | Tk 콜백에서 예외 발생 |
-| 인터프리터 덤프 | `faulthandler` | 치명적 오류, 또는 메인 루프가 `HARD_S`(60초) 조용함. `_beat`가 매번 다시 예약 |
+| 인터프리터 덤프 | `faulthandler` | 메인 루프가 `HARD_S`(60초) 조용함. `_beat`가 매번 다시 예약 |
 
-로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 프로그램 옆에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다.
+로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 프로그램 옆에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다. `_callback_error`는 콘솔이 있으면 예외를 콘솔에도 출력한다.
 
 ## 7. 외부 의존성
 

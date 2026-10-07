@@ -104,7 +104,9 @@ icon embedded, no console window). Copy it anywhere and double-click it; a
   **next to the .exe** (next to the source file when run from source; in
   `%LOCALAPPDATA%\TCSPC_analysis\` if that folder cannot be written). The log
   holds code locations and the name of the open file, no measured data - it is
-  the file to send along with a bug report.
+  the file to send along with a bug report. A slow but healthy step is noted
+  the same way (starting Origin for an `.opju` export easily takes longer
+  than 5 seconds); such an entry names the export and is not a fault.
 - `.opju` export still needs OriginLab Origin installed on that PC; the
   `originpro` / `pywin32` drivers are inside the .exe.
 - FLIM GPU (TensorFlow) is not part of the frozen build; the FLIM tab runs on
