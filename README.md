@@ -57,7 +57,7 @@ PicoQuant PicoHarp 300 TCSPC 측정 파일을 후처리하는 데스크톱 GUI �
 - **소스에서**: `TCSPC_analysis.bat`을 실행합니다. 첫 실행 때 가상 환경을 만들고 시험에 쓴 버전의 패키지(`requirements-lock.txt`)를 설치합니다. Python 3.9 이상이 필요합니다.
 - 1.4까지의 버전을 직접 실행하려면 `python TCSPC_analysis_1.2ver.py [file.phu]`처럼 파일을 지정합니다. 패키지는 이 폴더에서 `python -B run_tcspc_analysis.py [file.phu]` 또는 `python -B -m tcspc_analysis [file.phu]`로 실행합니다. `-B`는 이 폴더(OneDrive로 동기화될 수 있음)에 `__pycache__`가 생기지 않게 합니다. 런처가 만든 가상 환경의 Python으로 직접 실행할 때 필요한 설정은 `SETUP.md`의 Troubleshooting에 있습니다.
 
-설치와 빌드 방법은 `SETUP.md`, 프로그램 구조는 `ARCHITECTURE.md`에 있습니다.
+설치와 빌드 방법은 `SETUP.md`, 프로그램 구조는 `ARCHITECTURE.md`에 있습니다. 회귀 시험과 돌리는 방법은 `tests/README.md`에 있습니다(측정 파일 두 개가 따로 필요합니다).
 
 ## PTU · FLIM 탭
 

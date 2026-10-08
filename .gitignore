@@ -32,3 +32,7 @@ TRES_data_processing/
 
 # written by the program when its window stops answering
 TCSPC_analysis_freeze.log
+
+# regression tests: their outputs and the names of the local sample records
+tests/out/
+tests/samples.json
