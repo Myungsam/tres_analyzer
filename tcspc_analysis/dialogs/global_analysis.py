@@ -366,7 +366,10 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._report_global(res)
         self._finish_run(f"Fit done - RMS = {res['info']['rms']:.4g} "
                          f"({res['info']['iters']} evals)"
-                         + ("" if res["info"]["success"] else "  (not converged)"))
+                         + ("" if res["info"]["success"] else "  (not converged)")
+                         + (f"  ({len(res['info']['warnings'])} warning"
+                            f"{'s' if len(res['info']['warnings']) > 1 else ''}, "
+                            f"see the report)" if res["info"]["warnings"] else ""))
         self._draw_all()
 
     def _report_global(self, res):
@@ -388,6 +391,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             L.append("  ∞   (constant offset)")
         if res["_eads"] is None:
             L += ["", f"EADS not available: {res['_eads_note']}"]
+        if res["info"]["warnings"]:
+            L += [""] + [f"Warning: {w}" for w in res["info"]["warnings"]]
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "\n".join(L))
 

@@ -187,6 +187,43 @@ def _check_start(t, tau, beta, stretch_on, fwhm, tau_limits):
             raise ValueError(f"β {i + 1} must be above 0 and at most 2 (it is {bv:g}).")
 
 
+def _fit_warnings(t, tau, fwhm, A, data, tau_limits):
+    """What in a result should not be read as a fitted lifetime, in words.
+
+    Nothing is changed by this - it only looks at the numbers: a lifetime on
+    one of the global fit's internal limits (tau_limits), below one time bin,
+    or beyond the fit range, and amplitudes far above the data (components
+    cancelling each other).
+    """
+    notes = []
+    t = np.asarray(t, float).ravel()
+    span = float(t.max() - t.min())
+    dt = float(np.median(np.diff(t))) if t.size > 1 else 0.0
+    shortest = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0))) / 4.0
+    for i, tv in enumerate(np.asarray(tau, float).ravel()):
+        name = f"τ {i + 1} = {tv:.4g} ps"
+        if tau_limits and tv <= shortest * (1.0 + 1e-3):
+            notes.append(f"{name} is on the lower limit of the fit (FWHM / 9.42 "
+                         f"= {shortest:.4g} ps): not a fitted lifetime.")
+        elif tau_limits and tv >= 100.0 * span * (1.0 - 1e-3):
+            notes.append(f"{name} is on the upper limit of the fit (100 x the "
+                         f"fit range): not a fitted lifetime.")
+        elif tv < dt:
+            notes.append(f"{name} is shorter than one time bin ({dt:.4g} ps): "
+                         f"it cannot be resolved.")
+        elif tv > span:
+            notes.append(f"{name} is longer than the fit range ({span:.4g} ps): "
+                         f"it acts as an offset.")
+    data = np.asarray(data, float)
+    top = float(np.nanmax(np.abs(data))) if np.isfinite(data).any() else 0.0
+    A = np.asarray(A, float)
+    if top > 0 and A.size and np.isfinite(A).any() \
+            and float(np.nanmax(np.abs(A))) > 1e3 * top:
+        notes.append("An amplitude is more than 1000 x the largest data value: "
+                     "components are cancelling each other.")
+    return notes
+
+
 def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                         tau_fixed, t0_fixed, fwhm_fixed, has_inf,
                         beta_init=None, beta_fixed=None, stretch_on=None,
@@ -399,6 +436,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         "rss": loss, "iters": iters, "nfev": n_fev, "method": method_used,
         "success": verdict[0], "status": verdict[1], "message": verdict[2],
         "n_objective": n_model[0],
+        "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True),
         "rms": float(np.sqrt(loss / n_cells[0])),
         "initialLoss": init_loss,
         "initialRMS": float(np.sqrt(init_loss / init_cells)),
@@ -587,5 +625,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
         "info": {"iters": iters, "fval": fval, "rms": rms,
                  "mask": mask, "irf_mode": irf_mode,
                  "success": verdict[0], "status": verdict[1],
-                 "message": verdict[2], "nfev": verdict[3]},
+                 "message": verdict[2], "nfev": verdict[3],
+                 "warnings": _fit_warnings(t, cur["tau"], cur["fwhm"], A_final,
+                                           y[mask], False)},
     }

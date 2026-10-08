@@ -321,8 +321,11 @@ class KineticsDialog(_AnalysisDialog):
             return
         self._last = res
         self._report(res, *report)
+        n_warn = len(res["info"]["warnings"])
         self.var_status.set(f"Fit done - RMS = {res['info']['rms']:.3g}"
-                            + ("" if res["info"]["success"] else "  (not converged)"))
+                            + ("" if res["info"]["success"] else "  (not converged)")
+                            + (f"  ({n_warn} warning{'s' if n_warn > 1 else ''}, "
+                               f"see the report)" if n_warn else ""))
         self._refresh_plot()
 
     def _report(self, res, wl, n_avg, t_lo, t_hi, n_in):
@@ -346,6 +349,8 @@ class KineticsDialog(_AnalysisDialog):
               + ("  (fixed)" if res["_t0_fixed"] else ""),
               f"FWHM = {res['fwhm']:.4g} ps"
               + ("  (fixed)" if res["_fwhm_fixed"] else "")]
+        if info["warnings"]:
+            L += [""] + [f"Warning: {w}" for w in info["warnings"]]
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "\n".join(L))
 
