@@ -848,7 +848,8 @@ class TRESViewer:
                 f"counts   {val:>8,.0f}"
                 + ("\nPINNED - click to release" if self.pinned else "")
             )
-            self.txt.set_color(PIN if self.pinned else INK)
+            # the card under it is dark whatever the UI theme: light text
+            self.txt.set_color(PIN if self.pinned else READOUT_FG)
 
         self.canvas.restore_region(self._bg["hist"])
         self.ax_hist.draw_artist(self.ln_decay)
