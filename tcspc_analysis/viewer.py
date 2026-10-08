@@ -391,22 +391,37 @@ class TRESViewer:
         self._show_loaded(phu, path)
 
     def _show_loaded(self, phu, path):
+        # The new model is built completely before anything of the old file is
+        # given up: a file that cannot be shown leaves the window as it was.
+        old, old_tmax = self.model, self.var_tmax.get()
+        old_bg = (self.var_bg_lo.get(), self.var_bg_hi.get())
+        try:
+            model = TRESModel(phu)
+            # A .phu header has no IRF flag, so whether curve 0 is an IRF-only
+            # measurement is the user's call via the "First curve is IRF" checkbox.
+            model.first_is_irf = self.var_irf.get()
+            model.t0_align = self.var_t0.get()
+            model.rebin = dict(BIN_CHOICES)[self.var_bin.get()]
+            model.bg_sub = self.var_bgsub.get()
+            # the offset calibrates the spectrograph, not the file, so it carries over
+            model.wl_offset = self._float_var(self.var_offset, 0.0)
+            # open on everything that was actually recorded, empty tail trimmed
+            model.t_max_ps = model.t_data_ps
+            model.rebuild()
+            self.model = model
+            self.var_tmax.set(f"{model.t_max_ps:.0f}")
+            self._set_bg_window(model.t_lo, model.t_lo + 100.0)
+        except Exception as exc:        # noqa: BLE001 - whatever the file trips over
+            self.model = old
+            self.var_tmax.set(old_tmax)
+            self.var_bg_lo.set(old_bg[0]); self.var_bg_hi.set(old_bg[1])
+            messagebox.showerror(
+                "Could not read file",
+                f"{os.path.basename(path)} was read but cannot be shown:\n"
+                f"{type(exc).__name__}: {exc}")
+            return
         # the pop-up windows belong to the old file's data - drop them
         self._close_dialogs()
-        self.model = TRESModel(phu)
-        # A .phu header has no IRF flag, so whether curve 0 is an IRF-only
-        # measurement is the user's call via the "First curve is IRF" checkbox.
-        self.model.first_is_irf = self.var_irf.get()
-        self.model.t0_align = self.var_t0.get()
-        self.model.rebin = dict(BIN_CHOICES)[self.var_bin.get()]
-        self.model.bg_sub = self.var_bgsub.get()
-        # the offset calibrates the spectrograph, not the file, so it carries over
-        self.model.wl_offset = self._float_var(self.var_offset, 0.0)
-        # open on everything that was actually recorded, empty tail trimmed
-        self.model.t_max_ps = self.model.t_data_ps
-        self.var_tmax.set(f"{self.model.t_max_ps:.0f}")
-        self.model.rebuild()
-        self._set_bg_window(self.model.t_lo, self.model.t_lo + 100.0)
         # (a solvent belongs to the sample it was matched against, so the new
         # model starts without one and redraw() disables the checkbox again)
 
