@@ -112,6 +112,7 @@ Analysis (top bar, each opens its own window)
                        a sum of IRF-convolved exponentials - number of
                        components, per-component fixed/stretched flags, IRF t0
                        and FWHM, and a fit window; shows data + fit + residual.
+                       Runs in a background thread with a Stop button.
     Global analysis... one VARPRO fit of the whole map to a shared set of
                        exponentials; shows the data / fit / residual maps, the
                        DADS and (sequential) EADS spectra, and the kinetics at

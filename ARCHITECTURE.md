@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,188줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,261줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -19,24 +19,24 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 | 모듈 | 줄 수 | 내용 | 주요 이름 |
 |---|---|---|---|
-| `__init__.py` | 153 | 프로그램 설명(모듈 docstring), matplotlib 백엔드 선택 | — |
+| `__init__.py` | 154 | 프로그램 설명(모듈 docstring), matplotlib 백엔드 선택 | — |
 | `__main__.py` | 5 | `python -m tcspc_analysis`로 실행할 때의 시작점 | — |
 | `version.py` | 2 | 버전 문자열 | `APP_VERSION` |
 | `paths.py` | 37 | 프로그램이 놓인 폴더(exe의 폴더, 또는 패키지의 부모 폴더)와 프로그램이 스스로 쓰는 폴더 찾기 | `program_dir`, `user_dir` |
-| `phu.py` | 149 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
+| `phu.py` | 153 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
 | `util.py` | 82 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
 | `origin.py` | 86 | Origin 쓰기: 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
-| `fitting.py` | 639 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| `fitting.py` | 653 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
 | `model.py` | 280 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
 | `theme.py` | 110 | 색상 상수, ttk 테마, 그림 축 꾸미기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap` |
 | `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
 | `dialogs/__init__.py` | 0 | (비어 있음) | — |
-| `dialogs/common.py` | 258 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
-| `dialogs/crop.py` | 848 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
+| `dialogs/common.py` | 276 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
+| `dialogs/crop.py` | 854 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
 | `dialogs/mask.py` | 157 | Mask 창 | `MaskDialog` |
-| `dialogs/kinetics.py` | 495 | Kinetics 창 | `KineticsDialog` |
-| `dialogs/global_analysis.py` | 584 | Global analysis 창 | `GlobalAnalysisDialog` |
-| `viewer.py` | 1539 | TRES 탭 화면과 내보내기 | `TRESViewer` |
+| `dialogs/kinetics.py` | 498 | Kinetics 창 | `KineticsDialog` |
+| `dialogs/global_analysis.py` | 591 | Global analysis 창 | `GlobalAnalysisDialog` |
+| `viewer.py` | 1559 | TRES 탭 화면과 내보내기 | `TRESViewer` |
 | `freezelog.py` | 160 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 45 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
@@ -513,16 +513,17 @@ sequenceDiagram
     M->>M: 결과 저장 후 그림 다시 그리기
 ```
 
-다이어그램은 세 작업에 공통인 골격이다. 워커에 넘기는 입력과 큐 메시지 종류는 작업마다 다르며 아래 표에 적었다.
+다이어그램은 아래 작업들에 공통인 골격이다. 워커에 넘기는 입력과 큐 메시지 종류는 작업마다 다르며 아래 표에 적었다.
 
 | 작업 | 시작 지점 | 워커 함수 | 워커에 넘기는 입력 | 큐 메시지 | 폴링 | 중단 수단 |
 |---|---|---|---|---|---|---|
 | FLIM 레코드 처리 | `FLIMViewer.on_process` | `_process_worker` | 파일 경로 (워커가 직접 읽음) | `status`, `progress`, `error`, `done` | `_poll_queue`, 100 ms | 없음 |
 | Global analysis 피팅 | `GlobalAnalysisDialog.run_fit` | `_worker` | 피팅 구간으로 자르고 마스크된 파장을 뺀 `E`, `times`의 사본과 피팅 설정 | `done`, `stopped`, `error` | `_poll_queue`, 150 ms | `_stop` 이벤트. 목적 함수가 `stop_check`를 확인하고 `GlobalAnalysisStopped`를 던짐 |
-| Kinetics 피팅 | `KineticsDialog.run_fit` | `_worker` | 피팅 구간의 시간과 곡선 사본, 피팅 설정, 결과 표시에 쓸 값(전체 곡선, 파장, 보고서 항목), 작업 번호 `_job` | `done`, `error` | `_poll_queue`, 100 ms | 없음. 창이 닫히면 결과를 버리고, 피팅 중 파장을 바꾸거나 Reset을 누르면 `_job`이 달라져 결과를 표시하지 않음 |
+| Kinetics 피팅 | `KineticsDialog.run_fit` | `_worker` | 피팅 구간의 시간과 곡선 사본, 피팅 설정, 결과 표시에 쓸 값(전체 곡선, 파장, 보고서 항목), 작업 번호 `_job` | `done`, `stopped`, `error` | `_poll_queue`, 100 ms | 실행마다 만드는 `_stop` 이벤트. 목적 함수가 `stop_check`를 확인하고 `FitStopped`를 던짐. Stop 버튼, Reset, 창 닫기가 신호를 보내고, 피팅 중 파장을 바꾸면 `_job`이 달라져 결과를 표시하지 않음 |
+| 파일 읽기 (Open 버튼) | `TRESViewer.load_async` | `read_phu` | 파일 경로 | 큐 없음. 스레드가 끝났는지를 확인 | `load_async` 안의 `poll`, 50 ms | 없음. 읽는 동안 Open, 내보내기, 그림 저장을 받지 않음 |
 | GPU 감지 | `start_gpu_detection` | `detect_gpu` | 없음 | 큐 없음. `_GPU_DONE` 이벤트로 완료 표시 | `FLIMViewer._poll_gpu`, 200 ms | 없음 |
 
-`.opju` 쓰기는 메인 스레드에서 바로 실행된다.
+`.opju` 쓰기는 메인 스레드에서 바로 실행된다. 그동안 `_origin_busy`가 Export 버튼을 끄고 정보 줄에 진행 문구를 띄우며, 겹친 내보내기 요청은 받지 않는다. 명령줄 인자로 받은 파일과 `load`는 스레드 없이 바로 읽는다.
 
 이와 별도로 `FreezeLog`가 감시 스레드 하나를 둔다. 메인 스레드는 `_beat`에서 0.5초마다 시각을 적고, 감시 스레드(`_watch`)는 그 시각이 `LIMIT_S`(5초) 넘게 갱신되지 않으면 `sys._current_frames`로 모든 스레드의 호출 스택을 읽어 로그에 쓴다. 감시 스레드는 Tk를 건드리지 않는다.
 
