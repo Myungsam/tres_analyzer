@@ -1,6 +1,7 @@
 """The PHU / TRES tab."""
 import contextlib
 import glob
+import math
 import os
 import sys
 import threading
@@ -426,9 +427,12 @@ class TRESViewer:
 
     @staticmethod
     def _float_var(var, default):
-        """Read a Tk entry as a float, rewriting it when it does not parse."""
+        """Read a Tk entry as a finite float, rewriting it when it is not one."""
         try:
-            return float(var.get())
+            value = float(var.get())
+            if not math.isfinite(value):
+                raise ValueError
+            return value
         except ValueError:
             var.set(f"{default:g}")
             return default
@@ -450,7 +454,7 @@ class TRESViewer:
         m = self.model
         try:
             tmax = float(self.var_tmax.get())
-            if tmax <= 0:
+            if not tmax > 0:            # also catches nan
                 raise ValueError
         except ValueError:
             tmax = m.t_data_ps          # unreadable entry falls back to the default
