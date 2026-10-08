@@ -18,7 +18,9 @@ class TRESModel:
                 "bg_lo_ps", "bg_hi_ps", "wl_offset", "t_min_ps", "crop_wl",
                 "masks", "solvent", "solvent_scale", "solvent_sub")
 
-    def __init__(self, phu):
+    def __init__(self, phu, build=True):
+        # build=False: the caller sets its settings first and calls rebuild()
+        # itself - a default build would be thrown away
         self.phu = phu
         self.rebin = 4
         self.t_max_ps = self.t_data_ps   # as far as the counts go, until changed
@@ -47,7 +49,8 @@ class TRESModel:
         self.solvent = None
         self.solvent_scale = 1.0
         self.solvent_sub = False
-        self.rebuild()
+        if build:
+            self.rebuild()
 
     @property
     def solvent_active(self):

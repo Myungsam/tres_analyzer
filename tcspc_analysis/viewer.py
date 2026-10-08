@@ -429,7 +429,7 @@ class TRESViewer:
         old, old_tmax = self.model, self.var_tmax.get()
         old_bg = (self.var_bg_lo.get(), self.var_bg_hi.get())
         try:
-            model = TRESModel(phu)
+            model = TRESModel(phu, build=False)     # built once, below, with the settings
             # A .phu header has no IRF flag, so whether curve 0 is an IRF-only
             # measurement is the user's call via the "First curve is IRF" checkbox.
             model.first_is_irf = self.var_irf.get()
