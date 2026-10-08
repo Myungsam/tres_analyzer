@@ -7,19 +7,20 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Rectangle
-from matplotlib.ticker import EngFormatter, LogFormatterSciNotation, MaxNLocator
+from matplotlib.ticker import EngFormatter, MaxNLocator
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 
-from ..phu import read_phu
-from ..util import short_name
-from ..model import TRESModel, solvent_mismatch
-from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN, preview_norm_cmap, style_plot_ax
+from ..model import TRESModel
+from ..theme import ACCENT, BG, INK_DIM, INK_FAINT, LINE, PANEL, PIN, preview_norm_cmap, style_plot_ax
 from .common import _AnalysisDialog
+from .crop_view import _CropView
+from .crop_slice import _CropSlice
+from .crop_solvent import _CropSolvent
 
 
-class CropDialog(_AnalysisDialog):
+class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
     """Pick a rectangular (wavelength, time) window to keep.
 
     The whole-dataset heatmap is drawn once; editing the range only nudges the
@@ -45,8 +46,6 @@ class CropDialog(_AnalysisDialog):
     colour and the time axis between linear and log. All of it is forgotten
     when the window closes.
     """
-
-    ZOOM_STEP = 1.25        # per wheel notch
 
     def __init__(self, app):
         super().__init__(app, "Crop data", "1000x920", (780, 680))
@@ -326,80 +325,6 @@ class CropDialog(_AnalysisDialog):
         self._draw_slice()
         self.canvas.draw_idle()
 
-    def _time_bin(self, t_ps):
-        """Index of the heatmap's time bin that holds ``t_ps`` (from record start)."""
-        return int(np.clip(t_ps // self._full.dt_ps, 0, self._full.n_t - 1))
-
-    def _draw_slice(self):
-        """Fill in the bold spectra of time bin _slice_ti, or hide them."""
-        ti, has = self._slice_ti, self._solvent is not None
-        lines = (self.ln_t_sample, self.ln_t_solv, self.ln_t_sub)
-        shown = () if ti is None else lines if has else lines[:1]
-        for ln in lines:
-            ln.set_visible(ln in shown)
-        self.hl_t.set_visible(ti is not None)
-        if ti is None:
-            if self._slice_leg is not None:
-                self._slice_leg.remove()
-                self._slice_leg = self._slice_key = None
-            return
-
-        f = self._full
-        sample = self._raw0[:, ti]
-        self.ln_t_sample.set_data(f.wls, sample)
-        if has:
-            scaled = self._scale * f.S_raw[:, ti]
-            self.ln_t_solv.set_data(f.wls, scaled)
-            self.ln_t_sub.set_data(f.wls, sample - scaled)
-        self._fit_y(self.ax_t, lines)
-
-        t = (ti + 0.5) * f.dt_ps
-        self.hl_t.set_ydata([t, t])
-        self.hl_t.set_linestyle("-" if self._slice_pinned else "--")
-        self.hl_t.set_color(PIN if self._slice_pinned else "w")
-        # one legend for as long as the same lines are shown; only its title
-        # changes with the pointer
-        if self._slice_key != shown:
-            if self._slice_leg is not None:
-                self._slice_leg.remove()
-            leg = self.ax_t.legend(
-                handles=list(shown), loc="upper left", fontsize=7.5, frameon=False,
-                ncol=3, title=" ", title_fontsize=8, alignment="left")
-            leg.set_animated(True)
-            for txt in (*leg.get_texts(), leg.get_title()):
-                txt.set_color(INK)
-            self._slice_leg, self._slice_key = leg, shown
-        self._slice_leg.set_title(
-            f"t = {t:,.0f} ps" + ("  (pinned)" if self._slice_pinned else ""))
-
-    def _on_draw(self, event):
-        """The figure was drawn (without the slice, which is animated): keep
-        that picture, then put the slice on it."""
-        if event.canvas is not self.canvas or self.canvas.is_saving():
-            return                  # a savefig draws everything itself
-        self._bg = self.canvas.copy_from_bbox(self.fig.bbox)
-        self._paint_slice()
-
-    def _paint_slice(self):
-        at = self.ax_t
-        if self.hl_t.get_visible():
-            self.ax.draw_artist(self.hl_t)
-        for ln in (self.ln_t_sample, self.ln_t_solv, self.ln_t_sub):
-            if ln.get_visible():
-                at.draw_artist(ln)
-        at.draw_artist(at.yaxis)
-        if self._slice_leg is not None:
-            at.draw_artist(self._slice_leg)
-        self.canvas.blit(self.fig.bbox)
-
-    def _show_slice(self):
-        """After _draw_slice(): show it, without drawing the figure again."""
-        if self._bg is None:        # nothing drawn yet: the first draw shows it
-            self.canvas.draw_idle()
-            return
-        self.canvas.restore_region(self._bg)
-        self._paint_slice()
-
     def _update_preview(self, box):
         """Redraw what the solvent subtraction would give, without applying it.
 
@@ -498,146 +423,6 @@ class CropDialog(_AnalysisDialog):
         selects them (TRESModel.rebuild), tolerance included."""
         wls = self._full.wls
         return int(((wls >= wl_lo - 1e-6) & (wls <= wl_hi + 1e-6)).sum())
-
-    # -- view: zoom, colour and time scale ---------------------------------
-    def _view_full(self):
-        """((wl_lo, wl_hi), (t_lo, t_hi)) of the whole map.
-
-        A log time axis has no 0: there the map starts in the middle of the
-        first time bin.
-        """
-        t_lo = 0.5 * self._full.dt_ps if self.var_tlog.get() else 0.0
-        return self._full.wl_edges, (t_lo, self.t_full[1])
-
-    def _fit_y(self, ax, lines):
-        """Scale ``ax`` to what the visible ``lines`` show in the wavelengths in view."""
-        x0, x1 = self.ax.get_xlim()
-        vals = [np.empty(0)]
-        for ln in lines:
-            if ln.get_visible():
-                x, y = (np.asarray(a, float) for a in ln.get_data())
-                vals.append(y[(x >= x0) & (x <= x1)])
-        vals = np.concatenate(vals)
-        vals = vals[np.isfinite(vals)]
-        lo = min(float(vals.min()), 0.0) if vals.size else 0.0
-        hi = max(float(vals.max()), 1.0) if vals.size else 1.0
-        pad = 0.08 * (hi - lo)
-        ax.set_ylim(lo - pad, hi + pad)
-
-    def _view_max(self):
-        """Largest count among the map cells that are in view, 0 if there is none."""
-        f = self._full
-        (w_lo, w_hi), (x0, x1), (y0, y1) = f.wl_edges, self.ax.get_xlim(), self.ax.get_ylim()
-        dw = (w_hi - w_lo) / f.n_cols
-        i0 = int(np.clip(np.floor((x0 - w_lo) / dw), 0, f.n_cols - 1))
-        i1 = int(np.clip(np.ceil((x1 - w_lo) / dw), i0 + 1, f.n_cols))
-        j0 = int(np.clip(np.floor(y0 / f.dt_ps), 0, f.n_t - 1))
-        j1 = int(np.clip(np.ceil(y1 / f.dt_ps), j0 + 1, f.n_t))
-        block = f.on_grid(f.E)[i0:i1, j0:j1]
-        block = block[np.isfinite(block)]
-        return float(block.max()) if block.size else 0.0
-
-    def _recolor(self):
-        """Give the map its colour scale: linear or log, up to the maximum of
-        the whole unsubtracted map or, with Auto color, of the part in view."""
-        vmax = self._view_max() if self.var_auto.get() else self._vmax0
-        self._transform, norm, _ = preview_norm_cmap(
-            vmax, self.var_zlog.get(), self.app.var_cmap.get())
-        self._base_im.set_norm(norm)
-        self._base_im.set_data(self._transform(self._full.on_grid(self._full.E).T))
-
-    def _set_view(self, xlim, ylim):
-        """Show that part of the map; the panel below shares the wavelength range."""
-        self.ax.set_xlim(*xlim)
-        self.ax.set_ylim(*ylim)
-        if self.var_auto.get():
-            self._recolor()
-        self._fit_y(self.ax_ss, (self.ln_sample, self.ln_solv, self.ln_sub))
-        self._fit_y(self.ax_t, (self.ln_t_sample, self.ln_t_solv, self.ln_t_sub))
-        self.canvas.draw_idle()
-
-    def _fit_view(self):
-        self._set_view(*self._view_full())
-
-    def _on_color(self):
-        self._recolor()
-        self.canvas.draw_idle()
-
-    def _on_tscale(self):
-        """Switch the time axis between linear and log, keeping the range in view."""
-        y0, y1 = self.ax.get_ylim()
-        self.ax.set_yscale("log" if self.var_tlog.get() else "linear")
-        if self.var_tlog.get():
-            # zoomed in there may be no full decade in view: label 2, 5 ... too
-            self.ax.yaxis.set_minor_formatter(LogFormatterSciNotation(
-                labelOnlyBase=False, minor_thresholds=(2.5, 1.0)))
-            self.ax.tick_params(axis="y", which="minor", colors=INK_FAINT, labelsize=7)
-        f_lo, f_hi = self._view_full()[1]
-        if y0 <= 0.5 * self._full.dt_ps:    # was at the bottom: stay there
-            y0 = f_lo
-        self.ax.set_ylim(y0, min(y1, f_hi))
-        self._update_overlay()              # the box is drawn from the axis bottom
-
-    def _moved(self, lim, full, log, k=1.0, at=None, shift=0.0):
-        """``lim`` scaled by ``k`` about ``at`` and moved by ``shift`` of its
-        width, kept inside ``full``. On a log axis all of that is done in decades,
-        so the point under the pointer stays where it is."""
-        to, back = (np.log10, lambda v: 10.0 ** v) if log else (float, float)
-        lo, hi, f_lo, f_hi = to(lim[0]), to(lim[1]), to(full[0]), to(full[1])
-        c = lo if at is None else to(at)
-        lo, hi = c - (c - lo) * k, c + (hi - c) * k
-        lo, hi = lo + shift * (hi - lo), hi + shift * (hi - lo)
-        width = hi - lo
-        if width >= f_hi - f_lo:
-            return full
-        if lo < f_lo:               # pushed back in, that end exactly on the edge
-            return full[0], float(back(f_lo + width))
-        if hi > f_hi:
-            return float(back(f_hi - width)), full[1]
-        return max(float(back(lo)), full[0]), min(float(back(hi)), full[1])
-
-    def _zoomed(self, lim, full, log, step, at, least):
-        """``lim`` after ``step`` wheel notches about ``at``. Zooming in stops
-        at ``least``: a step that would go below it is cut back to the part
-        that fits. Zooming out is never held back - a drag on the log axis can
-        leave a view narrower than ``least``, and the wheel must get out of it."""
-        def after(notches):
-            return self._moved(lim, full, log, self.ZOOM_STEP ** -notches, at)
-
-        new = after(step)
-        if step <= 0 or new[1] - new[0] >= least:
-            return new
-        fits, over, best = 0.0, step, lim
-        for _ in range(12):         # bisect between no step and the whole one
-            part = 0.5 * (fits + over)
-            new = after(part)
-            if new[1] - new[0] >= least:
-                fits, best = part, new
-            else:
-                over = part
-        return best
-
-    def _on_scroll(self, event):
-        """Wheel over the map: zoom about the pointer. Ctrl zooms the time axis
-        only, Shift the wavelength axis only."""
-        if (event.inaxes is not self.ax or event.xdata is None
-                or self._pan is not None):      # a drag owns the view until released
-            return
-        f = self._full
-        step = float(np.clip(event.step, -20, 20))  # a free-spinning wheel sends many at once
-        xlim, ylim = self.ax.get_xlim(), self.ax.get_ylim()
-        full_x, full_y = self._view_full()
-        if "ctrl" not in event.modifiers:           # never closer than two curves ...
-            xlim = self._zoomed(xlim, full_x, False, step, event.xdata,
-                                2 * (full_x[1] - full_x[0]) / f.n_w)
-        if "shift" not in event.modifiers:          # ... or four time bins
-            ylim = self._zoomed(ylim, full_y, self.var_tlog.get(), step, event.ydata,
-                                4 * f.dt_ps)
-        self._set_view(xlim, ylim)
-
-    def _on_release(self, event):
-        if event.button == 3:
-            self._pan = None
 
     # -- helpers ---------------------------------------------------------
     def _read(self):
@@ -775,100 +560,6 @@ class CropDialog(_AnalysisDialog):
         self.var_t_lo.set(f"{self.t_full[0]:g}")
         self.var_t_hi.set(f"{self.t_full[1]:g}")
         self._update_overlay()
-
-    # -- solvent ---------------------------------------------------------
-    def _sync_solvent_controls(self):
-        """File-name label and SCALE widgets follow whether a solvent is loaded."""
-        loaded = self._solvent is not None
-        self.var_solv_name.set(short_name(self._solvent["path"]) if loaded
-                               else "none")
-        self.scale.state(["!disabled"] if loaded else ["disabled"])
-        self.ent_scale.configure(state="normal" if loaded else "disabled")
-
-    def _set_scale(self, v, from_slider=False):
-        """Take ``v`` as the scale and mirror it into the entry and the slider.
-
-        Setting a ttk.Scale fires its command, so _busy keeps that from coming
-        back in as a slider move; a value past the slider's range parks it at 2.
-        """
-        self._scale = v
-        self.var_scale.set(f"{v:g}")
-        if not from_slider:
-            self._busy = True
-            try:
-                self.scale.set(min(v, 2.0))
-            finally:
-                self._busy = False
-
-    def _on_slider(self, value):
-        if self._busy:
-            return
-        v = round(float(value), 2)      # the widget reports 0.8532110091743119
-        if v != self._scale:
-            self._set_scale(v, from_slider=True)
-            self._schedule()
-
-    def _on_scale_entry(self):
-        """Read the SCALE box; anything but a finite number >= 0 is put back."""
-        if not self.alive:
-            return
-        try:
-            v = float(self.var_scale.get())
-        except ValueError:
-            v = None
-        if v is None or not np.isfinite(v) or v < 0:
-            self.var_scale.set(f"{self._scale:g}")
-            return
-        if v != self._scale:
-            self._set_scale(v)
-            self._update_overlay()
-
-    def _load_solvent(self):
-        """Pick the solvent .phu; it is only taken if it sits on the sample's grid."""
-        path = filedialog.askopenfilename(
-            parent=self.win, title="Open the solvent measurement",
-            filetypes=[("PicoQuant histogram", "*.phu"), ("All files", "*.*")])
-        if not path:
-            return
-        try:
-            solvent = read_phu(path)
-        except Exception as exc:
-            messagebox.showerror("Could not read file", str(exc), parent=self.win)
-            return
-        errors, notes = solvent_mismatch(self.model.phu, solvent)
-        if errors:
-            messagebox.showerror(
-                "Solvent does not match the sample",
-                "The solvent is subtracted bin for bin, so it has to be measured "
-                "on the same grid as the sample.\n\n"
-                + "\n".join(f"- {e}" for e in errors), parent=self.win)
-            return
-        if notes:
-            messagebox.showwarning(
-                "Solvent measured differently",
-                "\n".join(f"- {n}" for n in notes)
-                + "\n\nIt is loaded with the scale at 1 - adjust the scale to "
-                  "make up for the difference.", parent=self.win)
-        self._solvent = solvent
-        self._sync_solvent_controls()   # enable the slider before moving it
-        self._set_scale(1.0)
-        self._update_overlay()
-
-    def _clear_solvent(self):
-        if self._solvent is None:
-            return
-        self._solvent = None
-        self._set_scale(1.0)
-        self._sync_solvent_controls()
-        self._update_overlay()
-
-    def _left_off(self):
-        """The subtraction was switched off in the main window, and neither the
-        solvent nor its scale was touched here: Apply is about the crop then,
-        and must not switch it back on."""
-        m = self.model
-        return (m.solvent is not None and not m.solvent_sub
-                and self._solvent is m.solvent and self._scale == m.solvent_scale)
 
     def _configure(self, model, box, with_solvent=True, sub=True):
         """Write this window's crop box - and solvent - into ``model``.

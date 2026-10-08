@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,856줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 23개, 6,880줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -31,11 +31,14 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `theme.py` | 110 | 색상 상수, ttk 테마, 그림 축 꾸미기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap` |
 | `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
 | `dialogs/__init__.py` | 0 | (비어 있음) | — |
-| `dialogs/common.py` | 339 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
-| `dialogs/crop.py` | 923 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
+| `dialogs/common.py` | 511 | 팝업 창의 공통 기반, 두 피팅 창의 공통 기반, 성분 표 위젯, 피팅 결과 CSV 쓰기 | `ComponentTable`, `_AnalysisDialog`, `_FitDialog`, `write_fit_csv` |
+| `dialogs/crop_view.py` | 155 | Crop 창의 일부: 지도의 확대·이동, 색 척도, 시간 척도 | `_CropView` |
+| `dialogs/crop_slice.py` | 85 | Crop 창의 일부: 마우스 위치의 시각별 스펙트럼(보관한 그림 위에 얹어 그림) | `_CropSlice` |
+| `dialogs/crop_solvent.py` | 109 | Crop 창의 일부: solvent 파일과 scale | `_CropSolvent` |
+| `dialogs/crop.py` | 614 | Crop 창 (범위 선택, solvent 차감 미리보기, Apply). 위 세 모듈의 클래스를 물려받음 | `CropDialog` |
 | `dialogs/mask.py` | 160 | Mask 창 | `MaskDialog` |
-| `dialogs/kinetics.py` | 505 | Kinetics 창 | `KineticsDialog` |
-| `dialogs/global_analysis.py` | 614 | Global analysis 창 | `GlobalAnalysisDialog` |
+| `dialogs/kinetics.py` | 411 | Kinetics 창 | `KineticsDialog` |
+| `dialogs/global_analysis.py` | 520 | Global analysis 창 | `GlobalAnalysisDialog` |
 | `viewer.py` | 1675 | TRES 탭 화면과 내보내기 | `TRESViewer` |
 | `freezelog.py` | 216 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 78 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
@@ -48,7 +51,10 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `model.py` | `util.py` |
 | `flim.py` | `theme.py` |
 | `dialogs/common.py` | `fitting.py`, `theme.py` |
-| `dialogs/crop.py` | `phu.py`, `util.py`, `model.py`, `theme.py`, `dialogs/common.py` |
+| `dialogs/crop_view.py` | `theme.py` |
+| `dialogs/crop_slice.py` | `theme.py` |
+| `dialogs/crop_solvent.py` | `phu.py`, `util.py`, `model.py` |
+| `dialogs/crop.py` | `model.py`, `theme.py`, `dialogs/common.py`, `dialogs/crop_view.py`, `dialogs/crop_slice.py`, `dialogs/crop_solvent.py` |
 | `dialogs/mask.py` | `theme.py`, `dialogs/common.py` |
 | `dialogs/kinetics.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
 | `dialogs/global_analysis.py` | `origin.py`, `fitting.py`, `model.py`, `theme.py`, `dialogs/common.py` |
