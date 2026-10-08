@@ -308,7 +308,13 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             while True:
                 kind, payload = self._q.get_nowait()
                 if kind == "done":
-                    self._on_done(payload)
+                    try:
+                        self._on_done(payload)
+                    except Exception:
+                        # the fit is over either way: free the buttons, then
+                        # let the error go on to the callback handler (the log)
+                        self._finish_run("Fit done, but showing the result failed.")
+                        raise
                 elif kind == "stopped":
                     self._finish_run("Stopped by user.")
                 elif kind == "error":
