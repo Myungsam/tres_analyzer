@@ -53,9 +53,7 @@ class FreezeLog:
         self.root = root
         self.describe = describe    # one line on what is loaded; main thread only
         self.path, self._fh = self._open()
-        home = [re.escape(p) for p in re.split(r"[\\/]+", os.path.expanduser("~")) if p]
-        # the home folder however it is spelt: either slash, doubled in a repr, any case
-        self._home = re.compile(r"[\\/]+".join(home), re.IGNORECASE)
+        self._home = self._home_pattern()
         self._lock = threading.Lock()
         self._note = ""
         self._seen = time.monotonic()
@@ -69,6 +67,28 @@ class FreezeLog:
         root.report_callback_exception = self._callback_error
         self._beat()
         threading.Thread(target=self._watch, daemon=True).start()
+
+    @staticmethod
+    def _home_pattern():
+        """A pattern for the user's home folder however it is spelt: either
+        slash, doubled in a repr, any case, with or without the drive letter,
+        and in its 8.3 short form (C:\\Users\\LONGNA~1) when it has one."""
+        spellings = [os.path.expanduser("~")]
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(1024)
+            if ctypes.windll.kernel32.GetShortPathNameW(spellings[0], buf, 1024):
+                spellings.append(buf.value)
+        except (AttributeError, OSError):       # not Windows
+            pass
+        alts = []
+        for text in dict.fromkeys(spellings):
+            drive, rest = os.path.splitdrive(text)
+            parts = [re.escape(p) for p in re.split(r"[\\/]+", rest) if p]
+            if parts:
+                alts.append((f"(?:{re.escape(drive)})?" if drive else "")
+                            + r"[\\/]+" + r"[\\/]+".join(parts) + r"(?![^\\/\s\"'])")
+        return re.compile("|".join(alts) or r"(?!x)x", re.IGNORECASE)
 
     @classmethod
     def _open(cls):
