@@ -773,6 +773,10 @@ class TRESViewer:
             "spec": self.canvas.copy_from_bbox(self.ax_spec.bbox),
             "cax": self.canvas.copy_from_bbox(self.cax.bbox),
         }
+        # the crosshair and the live curves are animated artists: a draw does
+        # not paint them, so put them back on the fresh backgrounds (a resize
+        # or an uncovered window draws without going through redraw())
+        self.update_cursor()
 
     def update_cursor(self):
         """Update the live slices by blitting - fast enough for every mouse move."""
