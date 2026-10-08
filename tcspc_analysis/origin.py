@@ -66,7 +66,7 @@ def _origin_fill_steady(ws, df, tab_name):
     ws.from_df(data)
     ws.cols = 3
     ws.set_label(0, "Wavelength", "L"); ws.set_label(0, "nm", "U");    ws.set_label(0, "", "C")
-    ws.set_label(1, "Counts", "L");     ws.set_label(1, "nm", "U");    ws.set_label(1, tab_name, "C")
+    ws.set_label(1, "Counts", "L");     ws.set_label(1, "counts", "U"); ws.set_label(1, tab_name, "C")
     ws.set_label(2, "Nor.", "L");       ws.set_label(2, "a. u.", "U"); ws.set_label(2, tab_name, "C")
 
 
