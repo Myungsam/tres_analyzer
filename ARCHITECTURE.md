@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 23개, 6,880줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 25개, 6,905줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -39,7 +39,9 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `dialogs/mask.py` | 160 | Mask 창 | `MaskDialog` |
 | `dialogs/kinetics.py` | 411 | Kinetics 창 | `KineticsDialog` |
 | `dialogs/global_analysis.py` | 520 | Global analysis 창 | `GlobalAnalysisDialog` |
-| `viewer.py` | 1675 | TRES 탭 화면과 내보내기 | `TRESViewer` |
+| `viewer_figure.py` | 528 | TRES 탭의 일부: 그림(지도, decay, spectrum, steady state, 컬러바)을 그리는 일과 마우스 조작(커서, 고정, 확대 사각형) | `_MapFigure` |
+| `viewer_export.py` | 611 | TRES 탭의 일부: 지도 그림, 지도·steady-state CSV, Origin 프로젝트 쓰기, 피팅 창의 내보내기가 거치는 경로 | `_Export`, `CSV_NUMBER` |
+| `viewer.py` | 561 | TRES 탭: 설정 줄, 파일 열기, 설정 적용, 팝업 창 관리. 위 두 모듈의 클래스를 물려받음 | `TRESViewer` |
 | `freezelog.py` | 216 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 78 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
@@ -58,7 +60,9 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `dialogs/mask.py` | `theme.py`, `dialogs/common.py` |
 | `dialogs/kinetics.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
 | `dialogs/global_analysis.py` | `origin.py`, `fitting.py`, `model.py`, `theme.py`, `dialogs/common.py` |
-| `viewer.py` | `paths.py`, `phu.py`, `util.py`, `origin.py`, `model.py`, `theme.py`, `dialogs/crop.py`, `dialogs/mask.py`, `dialogs/kinetics.py`, `dialogs/global_analysis.py` |
+| `viewer_figure.py` | `util.py`, `theme.py` |
+| `viewer_export.py` | `paths.py`, `origin.py`, `model.py`, `theme.py` |
+| `viewer.py` | `phu.py`, `util.py`, `model.py`, `theme.py`, `viewer_figure.py`, `viewer_export.py`, `dialogs/crop.py`, `dialogs/mask.py`, `dialogs/kinetics.py`, `dialogs/global_analysis.py` |
 | `freezelog.py` | `version.py`, `paths.py` |
 | `app.py` | `version.py`, `paths.py`, `theme.py`, `flim.py`, `viewer.py`, `freezelog.py` |
 
