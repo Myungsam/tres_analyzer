@@ -772,6 +772,24 @@ def build_ga_basis(t, tau_vec, t0, fwhm, has_inf):
     return C
 
 
+def _nm_fatol(data):
+    """Nelder-Mead's stop tolerance on the loss, for a fit of ``data``.
+
+    The loss is a sum of squared residuals, so its size follows the data: about
+    1e-6 for absorbance changes, 1e8 and more for photon counts. A fixed 1e-10
+    is then far below the rounding noise of the loss itself; the simplex could
+    only stop when all its corners happened to give the very same number, and
+    otherwise ran on to maxiter with nothing left to gain (seconds per fit,
+    and which of the two happened changed with the numpy / scipy build).
+    A 1e-12th of the data's own sum of squares is still well beyond the
+    precision of any fitted parameter, and never tighter than the old 1e-10
+    for small-valued data. Only finite values count, as in the loss.
+    """
+    data = np.asarray(data, float)
+    data = data[np.isfinite(data)]
+    return max(1e-10, 1e-12 * float(np.sum(np.square(data))))
+
+
 def _lsqminnorm(A, B):
     """Minimum-norm least-squares solve (numpy.linalg.lstsq wrapper)."""
     X, *_ = np.linalg.lstsq(A, B, rcond=None)
@@ -965,7 +983,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     else:
         init_loss, _, _ = objective(x0)
         res = _minimize(lambda x: objective(x)[0], x0, method="Nelder-Mead",
-                        options={"xatol": 1e-8, "fatol": 1e-10,
+                        options={"xatol": 1e-8, "fatol": _nm_fatol(D),
                                  "maxiter": 5000, "maxfev": 20000,
                                  "disp": False})
         loss, A_out, fit_out = objective(res.x)
@@ -1130,7 +1148,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
 
     if x0.size:
         res = _minimize(loss, x0, method="Nelder-Mead",
-                        options={"xatol": 1e-8, "fatol": 1e-10,
+                        options={"xatol": 1e-8, "fatol": _nm_fatol(y[mask]),
                                  "maxiter": 5000, "maxfev": 20000,
                                  "disp": False})
         A_final, fit_v = unpack(res.x)
@@ -5154,7 +5172,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
 # ==========================================================================
 # 7. Application - the two tabs in one window
 # ==========================================================================
-APP_VERSION = "1.4"
+APP_VERSION = "1.4.2"
 
 
 class FreezeLog:

@@ -9,7 +9,7 @@
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상 파일: `TCSPC_analysis_1.4ver.py` (5,338줄, 단일 파일)
+- 대상 파일: `TCSPC_analysis_1.4ver.py` (5,356줄, 단일 파일)
 - 실행: `python TCSPC_analysis_1.4ver.py [file.phu]`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -23,12 +23,12 @@
 | 2. 헬퍼 | 283–358 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
 | 2b. Origin 쓰기 | 361–438 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
 | 2c. FLIM PTU 처리 | 441–645 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
-| 2d. 피팅 커널 | 648–1153 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| 3. 모델 | 1156–1423 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
-| 4. 테마와 TRES 뷰어 | 1426–2823 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
-| 5. FLIM 뷰어 | 2826–3161 | FLIM 탭 화면 | `FLIMViewer` |
-| 6. 다이얼로그 | 3164–5151 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
-| 7. 애플리케이션 | 5154–5338 | 창과 탭을 만들고 이벤트 루프 시작, 멈춤 기록 | `FreezeLog`, `main` |
+| 2d. 피팅 커널 | 648–1171 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| 3. 모델 | 1174–1441 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
+| 4. 테마와 TRES 뷰어 | 1444–2841 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
+| 5. FLIM 뷰어 | 2844–3179 | FLIM 탭 화면 | `FLIMViewer` |
+| 6. 다이얼로그 | 3182–5169 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
+| 7. 애플리케이션 | 5172–5356 | 창과 탭을 만들고 이벤트 루프 시작, 멈춤 기록 | `FreezeLog`, `main` |
 
 ## 2. 계층 구조
 
@@ -378,6 +378,7 @@ flowchart TD
 | `build_ga_basis` | 여러 τ에 대한 기저 행렬 (시간 x 성분) | `fit_global_analysis` |
 | `_lsqminnorm` | 선형 최소제곱으로 진폭 계산 | 두 피팅 함수 |
 | `fit_single_trace` | 곡선 하나 피팅. 비선형 파라미터는 Nelder-Mead, 진폭은 선형 풀이 | `KineticsDialog._worker` |
+| `_nm_fatol` | Nelder-Mead의 손실 종료 허용값을 데이터의 제곱합에 비례해 정함(최소 1e-10) | `fit_single_trace`, `fit_global_analysis` |
 | `fit_global_analysis` | 맵 전체 피팅. 비선형 파라미터는 TRF 또는 Nelder-Mead, 파장별 진폭은 선형 풀이 | `GlobalAnalysisDialog._worker` |
 | `compute_eads_from_dads` | 병렬 모델의 DADS를 순차 모델의 EADS로 변환 | `GlobalAnalysisDialog._on_done` |
 | `_ensure_scipy` | scipy를 처음 필요할 때 로드 | `exp_irf_conv`, `fit_single_trace`, `fit_global_analysis` |
