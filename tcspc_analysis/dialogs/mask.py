@@ -41,6 +41,23 @@ class MaskDialog(_AnalysisDialog):
 
         mid = ttk.Frame(self.win)
         mid.pack(fill="both", expand=True)
+        # the side column first and, in it, the buttons first: in a small
+        # window the figure and the list give way, not the buttons
+        side = ttk.Frame(mid, padding=(4, 6))
+        side.pack(side="right", fill="y")
+        ttk.Label(side, text="Masked regions (NaN)").pack(anchor="w")
+        ttk.Button(side, text="Close",
+                   command=self._on_close).pack(side="bottom", fill="x", pady=(10, 1))
+        ttk.Button(side, text="Clear all",
+                   command=self._clear).pack(side="bottom", fill="x", pady=1)
+        ttk.Button(side, text="Remove selected",
+                   command=self._remove).pack(side="bottom", fill="x", pady=1)
+        self.listbox = tk.Listbox(side, width=20, height=14, bg=BG, fg=INK,
+                                  selectbackground=ACCENT, selectforeground=BG,
+                                  highlightthickness=1, highlightbackground=LINE,
+                                  activestyle="none", font=("TkFixedFont", 9))
+        self.listbox.pack(fill="y", expand=True, pady=3)
+
         self.fig = Figure(figsize=(7.6, 4.8), dpi=100, facecolor=PANEL)
         self.ax = self.fig.add_subplot(111)
         style_plot_ax(self.ax)
@@ -48,20 +65,6 @@ class MaskDialog(_AnalysisDialog):
         self.canvas.get_tk_widget().pack(side="left", fill="both", expand=True,
                                          padx=(8, 4), pady=4)
         self.canvas.mpl_connect("button_press_event", self._on_click)
-
-        side = ttk.Frame(mid, padding=(4, 6))
-        side.pack(side="left", fill="y")
-        ttk.Label(side, text="Masked regions (NaN)").pack(anchor="w")
-        self.listbox = tk.Listbox(side, width=20, height=14, bg=BG, fg=INK,
-                                  selectbackground=ACCENT, selectforeground=BG,
-                                  highlightthickness=1, highlightbackground=LINE,
-                                  activestyle="none", font=("TkFixedFont", 9))
-        self.listbox.pack(fill="y", expand=True, pady=3)
-        ttk.Button(side, text="Remove selected",
-                   command=self._remove).pack(fill="x", pady=1)
-        ttk.Button(side, text="Clear all", command=self._clear).pack(fill="x", pady=1)
-        ttk.Button(side, text="Close",
-                   command=self._on_close).pack(fill="x", pady=(10, 1))
 
     def _draw(self):
         self.ax.clear()

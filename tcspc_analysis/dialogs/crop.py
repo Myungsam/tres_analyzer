@@ -217,6 +217,21 @@ class CropDialog(_AnalysisDialog):
         ttk.Label(vrow, text="wheel zooms (Ctrl: time, Shift: λ)  |  right-drag moves",
                   foreground=INK_FAINT).pack(side="left", padx=(12, 0))
 
+        # the buttons first, at the bottom: packed after the figure they were
+        # the first thing a short window squeezed out
+        bar = ttk.Frame(self.win, padding=(8, 4, 8, 8))
+        bar.pack(side="bottom", fill="x")
+        ttk.Button(bar, text="Close", command=self._on_close).pack(side="right")
+        ttk.Button(bar, text="Reset (full)",
+                   command=self._reset).pack(side="right", padx=6)
+        ttk.Button(bar, text="Apply", command=self._apply).pack(side="right")
+        # what Apply would keep, then the tip: the tip is what gives way
+        ttk.Label(bar, textvariable=self.var_info,
+                  foreground=INK_DIM).pack(side="right", padx=12)
+        ttk.Label(bar, text="tip: click two opposite corners on the map to set the box"
+                            "  |  double-click pins the spectrum at that time",
+                  foreground=INK_FAINT).pack(side="left")
+
         self.fig = Figure(figsize=(8.8, 6.6), dpi=100, facecolor=PANEL)
         gs = GridSpec(2, 1, figure=self.fig, height_ratios=[3.0, 1.3],
                       left=0.09, right=0.915, top=0.975, bottom=0.085, hspace=0.07)
@@ -242,18 +257,6 @@ class CropDialog(_AnalysisDialog):
         self.canvas.mpl_connect("figure_leave_event", self._on_leave)
         self.canvas.mpl_connect("scroll_event", self._on_scroll)
         self.canvas.mpl_connect("button_release_event", self._on_release)
-
-        bar = ttk.Frame(self.win, padding=(8, 4, 8, 8))
-        bar.pack(fill="x")
-        ttk.Label(bar, text="tip: click two opposite corners on the map to set the box"
-                            "  |  double-click pins the spectrum at that time",
-                  foreground=INK_FAINT).pack(side="left")
-        ttk.Button(bar, text="Close", command=self._on_close).pack(side="right")
-        ttk.Button(bar, text="Reset (full)",
-                   command=self._reset).pack(side="right", padx=6)
-        ttk.Button(bar, text="Apply", command=self._apply).pack(side="right")
-        ttk.Label(bar, textvariable=self.var_info,
-                  foreground=INK_DIM).pack(side="right", padx=12)
 
     # -- preview ---------------------------------------------------------
     def _draw_base(self):
