@@ -291,6 +291,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         try:
             res = fit_global_analysis(
                 D, t, stop_check=self._stop.is_set, **params)
+            # what the result was fitted with - the box may be changed afterwards
+            res["has_inf"] = bool(params["has_inf"])
             self._q.put(("done", res))
         except GlobalAnalysisStopped:
             self._q.put(("stopped", None))
@@ -331,7 +333,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         # DADS = the amplitude spectra A (M x k); EADS from the sequential model
         A = res["A"]
         tau = res["tau"]
-        has_inf = self.var_inf.get()
+        has_inf = res["has_inf"]
         try:
             eads, tau_sorted, _ = compute_eads_from_dads(A, tau, has_inf)
         except Exception:
@@ -344,7 +346,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._draw_all()
 
     def _report_global(self, res):
-        has_inf = self.var_inf.get()
+        has_inf = res["has_inf"]
         L = [f"Global fit: RMS = {res['info']['rms']:.4g}  "
              f"(initial {res['info']['initialRMS']:.4g})",
              f"method = {res['info']['method']}, "
@@ -398,7 +400,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
     def _plot_spectra(self):
         res = self._last
         wl = self._fit_wls
-        has_inf = self.var_inf.get()
+        has_inf = res["has_inf"]
         A = res["A"]; eads = res["_eads"]
         tau = res["tau"]
         labels = [f"{tau[i]:.3g} ps" for i in range(len(tau))]
@@ -471,7 +473,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             tag = "stretched" if st[i] else "exp"
             lines.append(f"comp {i+1}: tau = {res['tau'][i]:.6g} ps, "
                          f"beta = {res['beta'][i]:.4g} ({tag})")
-        if self.var_inf.get():
+        if res["has_inf"]:
             lines.append("offset: tau = inf")
         return lines
 
@@ -492,7 +494,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         wl = np.asarray(self._fit_wls)
         A = np.asarray(res["A"]); eads = np.asarray(res["_eads"])
         tau = res["tau"]; tsort = res["_tau_sorted"]
-        inf = ["inf"] if self.var_inf.get() else []
+        inf = ["inf"] if res["has_inf"] else []
         dads_labels = [f"{tau[i]:.4g}ps" for i in range(len(tau))] + inf
         eads_labels = [f"{tsort[i]:.4g}ps" for i in range(len(tsort))] + inf
         preamble = self._param_summary(res)
