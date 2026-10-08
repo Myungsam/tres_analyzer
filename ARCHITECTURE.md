@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,261줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,352줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -32,13 +32,13 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
 | `dialogs/__init__.py` | 0 | (비어 있음) | — |
 | `dialogs/common.py` | 276 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
-| `dialogs/crop.py` | 854 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
-| `dialogs/mask.py` | 157 | Mask 창 | `MaskDialog` |
+| `dialogs/crop.py` | 860 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
+| `dialogs/mask.py` | 160 | Mask 창 | `MaskDialog` |
 | `dialogs/kinetics.py` | 498 | Kinetics 창 | `KineticsDialog` |
-| `dialogs/global_analysis.py` | 591 | Global analysis 창 | `GlobalAnalysisDialog` |
-| `viewer.py` | 1559 | TRES 탭 화면과 내보내기 | `TRESViewer` |
+| `dialogs/global_analysis.py` | 594 | Global analysis 창 | `GlobalAnalysisDialog` |
+| `viewer.py` | 1605 | TRES 탭 화면과 내보내기 | `TRESViewer` |
 | `freezelog.py` | 160 | 멈춤 기록 | `FreezeLog` |
-| `app.py` | 45 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
+| `app.py` | 78 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
 모듈 사이의 import는 모두 `from .phu import read_phu`처럼 이름을 직접 가져오는 형식이고, 방향은 아래 표에 있는 것뿐이다.
 
@@ -54,7 +54,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `dialogs/global_analysis.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
 | `viewer.py` | `paths.py`, `phu.py`, `util.py`, `origin.py`, `model.py`, `theme.py`, `dialogs/crop.py`, `dialogs/mask.py`, `dialogs/kinetics.py`, `dialogs/global_analysis.py` |
 | `freezelog.py` | `version.py`, `paths.py` |
-| `app.py` | `theme.py`, `flim.py`, `viewer.py`, `freezelog.py` |
+| `app.py` | `version.py`, `paths.py`, `theme.py`, `flim.py`, `viewer.py`, `freezelog.py` |
 
 패키지 밖에는 실행 스크립트 `run_tcspc_analysis.py`가 있다. `main`을 부르는 것이 전부이며, 런처(`TCSPC_analysis.bat`)와 exe 빌드가 이 파일에서 시작한다. 1.4까지의 버전은 버전마다 파일 하나(`TCSPC_analysis_1.0ver.py` ~ `TCSPC_analysis_1.4ver.py`)로 저장소에 그대로 남아 있고, 이 패키지는 1.4.2의 코드를 내용 변경 없이 모듈로 나눈 것이다(`tools/split_1_4.py`).
 
