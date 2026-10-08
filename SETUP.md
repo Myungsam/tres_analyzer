@@ -1,17 +1,21 @@
 # TCSPC_analysis — running it on another computer
 
 `TCSPC_analysis` is a Python GUI (PicoHarp 300 post-processing: **PHU/TRES** +
-**PTU/FLIM**). It is launched by **`TCSPC_analysis.bat`** (or the
-**`TCSPC_analysis.lnk`** shortcut, which shows the app icon).
+**PTU/FLIM**). It is launched by **`TCSPC_analysis.bat`**.
 
 ## First run on a new computer
 
 1. Install **Python 3.9 or newer** from <https://www.python.org/downloads/>.
    In the installer tick **“Add python.exe to PATH.”**
-2. Copy the whole `TCSPC_plot` folder to the new computer
-   (the `tcspc_analysis\` folder, `run_tcspc_analysis.py`, `.bat`, `requirements*.txt`,
-   `.ico`, `Data\`, …).
-3. Double-click **`TCSPC_analysis.bat`** (or the shortcut).
+2. Get the program folder onto the new computer: download or clone
+   <https://github.com/Myungsam/tres_analyzer>, or copy the folder from another
+   PC. What is needed is the `tcspc_analysis\` folder, `run_tcspc_analysis.py`,
+   `TCSPC_analysis.bat`, the `requirements*.txt` files and `TCSPC_analysis.ico`.
+   (Measurement data is not part of the repository; open your own files from
+   wherever they are.)
+3. Double-click **`TCSPC_analysis.bat`**. For a desktop icon, make a shortcut
+   to that file on the new computer (right-click → Send to → Desktop) - a
+   shortcut copied from another PC still points at that PC's folder.
    The first launch, with an internet connection, will automatically:
    - find Python,
    - build an isolated environment at
@@ -87,10 +91,8 @@ the launcher's environment; the .exe build excludes it in any case
   packages could not be installed, the launcher prints a note and starts the
   program anyway; everything but the `.opju` export works.
 - **The console window stays open** behind the app. That is normal — it shows
-  any error messages. Close it after quitting the app. To launch with no
-  console, run `...\venv\Scripts\pythonw.exe -B run_tcspc_analysis.py` from this
-  folder instead (`-B` keeps `__pycache__` out of it; see the last point below
-  for the two Tcl/Tk variables this needs).
+  any error messages. Close it after quitting the app. (The .exe build below
+  has no console window.)
 
 The launcher already handles the two things that usually break a portable
 Python GUI, so you should not have to:
