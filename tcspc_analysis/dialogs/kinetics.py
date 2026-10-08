@@ -14,11 +14,12 @@ from tkinter import messagebox, ttk
 
 from ..origin import _origin_fill_table
 from ..fitting import FitStopped, fit_single_trace
-from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN
-from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, fmt_ps, in_range, read_number
+from ..theme import ACCENT, INK, INK_DIM, LINE, PANEL, PIN
+from .common import (ComponentTable, _FitDialog, _dark_toolbar, _style_analysis_ax, in_range, ink_legend,
+                     read_number, set_time_scale, write_fit_csv)
 
 
-class KineticsDialog(_AnalysisDialog):
+class KineticsDialog(_FitDialog):
     """Fit the decay at one wavelength to a sum of IRF-convolved exponentials."""
 
     def __init__(self, app):
@@ -41,7 +42,6 @@ class KineticsDialog(_AnalysisDialog):
 
     # -- layout ----------------------------------------------------------
     def _build(self):
-        m = self.model
         outer = ttk.Frame(self.win, padding=8)
         outer.pack(fill="both", expand=True)
 
@@ -74,31 +74,14 @@ class KineticsDialog(_AnalysisDialog):
                    command=self._use_cursor).pack(side="left")
 
         # component count + inf offset
-        n_row = ttk.Frame(left); n_row.pack(fill="x", pady=(8, 4))
-        ttk.Label(n_row, text="Components").pack(side="left")
-        self.var_n = tk.StringVar(value="2")
-        cb = ttk.Combobox(n_row, textvariable=self.var_n, values=["1", "2", "3", "4"],
-                          width=4, state="readonly")
-        cb.pack(side="left", padx=(4, 10))
-        cb.bind("<<ComboboxSelected>>", lambda e: self.table.set_n(int(self.var_n.get())))
-        self.var_inf = tk.BooleanVar(value=False)
-        ttk.Checkbutton(n_row, text="Include τ = ∞ offset",
-                        variable=self.var_inf).pack(side="left")
+        self._components_row(left, default=2, most=4, pady=(8, 4))
 
         self.table = ComponentTable(left)
         self.table.pack(fill="x", pady=(2, 6))
         self.table.set_n(2)
 
         # IRF group
-        t0d, fwd = self._irf_defaults()
-        irf = ttk.Labelframe(left, text="IRF (Gaussian)", padding=6)
-        irf.pack(fill="x", pady=(2, 6))
-        self.var_t0 = tk.StringVar(value=fmt_ps(t0d))
-        self.var_t0_fix = tk.BooleanVar(value=True)
-        self.var_fw = tk.StringVar(value=f"{fwd:.4g}")
-        self.var_fw_fix = tk.BooleanVar(value=True)
-        self._irf_row(irf, "t₀ (ps)", self.var_t0, self.var_t0_fix)
-        self._irf_row(irf, "FWHM (ps)", self.var_fw, self.var_fw_fix)
+        irf = self._irf_box(left)
         mode_row = ttk.Frame(irf); mode_row.pack(fill="x", pady=(2, 0))
         ttk.Label(mode_row, text="Stretched-IRF mode").pack(side="left")
         self.var_irf_mode = tk.StringVar(value="numerical")
@@ -109,15 +92,7 @@ class KineticsDialog(_AnalysisDialog):
         # fit window
         win_row = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
         win_row.pack(fill="x", pady=(2, 6))
-        self.var_tmin = tk.StringVar(value=fmt_ps(m.times[0]))
-        self.var_tmax = tk.StringVar(value=fmt_ps(m.times[-1]))
-        ttk.Label(win_row, text="From").pack(side="left")
-        ttk.Entry(win_row, textvariable=self.var_tmin, width=9,
-                  font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
-        ttk.Label(win_row, text="To").pack(side="left")
-        ttk.Entry(win_row, textvariable=self.var_tmax, width=9,
-                  font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
-        ttk.Button(win_row, text="Full", command=self._t_full).pack(side="left")
+        self._range_entries(win_row)
 
         # scale + run
         run_row = ttk.Frame(left); run_row.pack(fill="x", pady=(2, 6))
@@ -127,28 +102,10 @@ class KineticsDialog(_AnalysisDialog):
                           values=["Log", "Linear"], width=8, state="readonly")
         sc.pack(side="left", padx=(4, 10))
         sc.bind("<<ComboboxSelected>>", lambda e: self._refresh_plot())
-        self.btn_run = ttk.Button(run_row, text="Run fit", command=self.run_fit)
-        self.btn_run.pack(side="left")
-        self.btn_stop = ttk.Button(run_row, text="Stop", command=self.stop_fit,
-                                   state="disabled")
-        self.btn_stop.pack(side="left", padx=(6, 0))
-        ttk.Button(run_row, text="Reset", command=self.reset).pack(side="left", padx=(6, 0))
-
-        exp_row = ttk.Frame(left); exp_row.pack(fill="x")
-        ttk.Label(exp_row, text="Export").pack(side="left")
-        ttk.Button(exp_row, text="Export results",
-                   command=self.export_results).pack(side="left", padx=(6, 0))
-        ttk.Label(exp_row, text="(formats chosen in the main window)",
-                  style="Val.TLabel", foreground=INK_FAINT).pack(side="left", padx=(6, 0))
-
-        self.var_status = tk.StringVar(value="Ready.")
-        ttk.Label(left, textvariable=self.var_status, style="Val.TLabel",
-                  foreground=ACCENT).pack(anchor="w", pady=(6, 2))
-        self.txt = tk.Text(left, height=12, width=48, bg=BG, fg=INK,
-                           insertbackground=INK, relief="flat",
-                           font=("TkFixedFont", 9), wrap="none")
-        self.txt.pack(fill="both", expand=True)
-        self.txt.insert("1.0", "Set up the fit on the left, then Run fit.")
+        self._run_buttons(run_row)
+        self._export_row(left, "(formats chosen in the main window)")
+        self._report_box(left, height=12, width=48,
+                         hint="Set up the fit on the left, then Run fit.")
 
         # right: plots
         right = ttk.Labelframe(outer, text="Trace, fit, residual", padding=6)
@@ -162,13 +119,6 @@ class KineticsDialog(_AnalysisDialog):
         tb = _dark_toolbar(self.canvas, right)
         tb.pack(fill="x")
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
-
-    def _irf_row(self, parent, label, var, fix_var):
-        row = ttk.Frame(parent); row.pack(fill="x", pady=1)
-        ttk.Label(row, text=label, width=10).pack(side="left")
-        ttk.Entry(row, textvariable=var, width=10,
-                  font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
-        ttk.Checkbutton(row, text="fixed", variable=fix_var).pack(side="left")
 
     def model_changed(self):
         """The data behind the window changed. When the time axis was
@@ -201,11 +151,6 @@ class KineticsDialog(_AnalysisDialog):
         self.var_wl.set(f"{self._cursor_wl():.2f}")
         self._on_wl_change()
 
-    def _t_full(self):
-        m = self.model
-        self.var_tmin.set(fmt_ps(m.times[0]))
-        self.var_tmax.set(fmt_ps(m.times[-1]))
-
     def _get_trace(self):
         """(t, y, wl_actual, n_avg) - the decay to fit/plot at the chosen wl."""
         m = self.model
@@ -236,9 +181,7 @@ class KineticsDialog(_AnalysisDialog):
     def reset(self):
         self.var_n.set("2"); self.table.set_n(2)
         self.var_inf.set(False)
-        t0d, fwd = self._irf_defaults()
-        self.var_t0.set(fmt_ps(t0d)); self.var_t0_fix.set(True)
-        self.var_fw.set(f"{fwd:.4g}"); self.var_fw_fix.set(True)
+        self._reset_irf()
         self.var_irf_mode.set("numerical")
         self._t_full()
         self._last = None
@@ -311,17 +254,7 @@ class KineticsDialog(_AnalysisDialog):
                          args=(t_full[sel], y_full[sel], params, extra, report,
                                self._job, stop),
                          daemon=True).start()
-        self._running = True
-        self.btn_run.configure(state="disabled")
-        self.btn_stop.configure(state="normal")
-        self.win.configure(cursor="watch")
-        self.var_status.set("Fitting...")
-
-    def stop_fit(self):
-        if self._running:
-            self._stop.set()
-            self.btn_stop.configure(state="disabled")
-            self.var_status.set("Stopping...")
+        self._started()
 
     def _worker(self, t, y, params, extra, report, job, stop):
         try:
@@ -333,38 +266,27 @@ class KineticsDialog(_AnalysisDialog):
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
             self._q.put(("error", (exc, extra["_wl"], job)))
 
-    def _poll_queue(self):
-        try:
-            while True:
-                kind, payload = self._q.get_nowait()
-                self._running = False
-                self.btn_run.configure(state="normal")
-                self.btn_stop.configure(state="disabled")
-                self.win.configure(cursor="")
-                if kind == "done":
-                    self._on_done(*payload)
-                elif kind == "stopped":
-                    # stopped by Reset or by a new λ: the status already says so
-                    if payload == self._job:
-                        self.var_status.set("Stopped by user.")
-                else:
-                    exc, wl, job = payload
-                    self.var_status.set("Fit failed.")
-                    # a result still shown for another wavelength no longer
-                    # goes with the boxes: show the trace that was asked for
-                    if (self._last is not None and job == self._job
-                            and abs(self._last["_wl"] - wl) > 1e-9):
-                        self._last = None
-                        self.txt.delete("1.0", "end")
-                        self._refresh_plot(replot_data=True)
-                    messagebox.showerror(
-                        "Fit error", f"Fit failed:\n{self._worker_failed(exc)}", parent=self.win)
-        except queue.Empty:
-            pass
-        finally:                # an error above must not end the polling
-            if self.alive:
-                self._watch_model()
-                self.win.after(100, self._poll_queue)
+    def _handle(self, kind, payload):
+        """One message of the worker (see _FitDialog._poll_queue)."""
+        self._finish_run()          # first: whatever follows, the buttons are back
+        if kind == "done":
+            self._on_done(*payload)
+        elif kind == "stopped":
+            # stopped by Reset or by a new λ: the status already says so
+            if payload == self._job:
+                self.var_status.set("Stopped by user.")
+        else:
+            exc, wl, job = payload
+            self.var_status.set("Fit failed.")
+            # a result still shown for another wavelength no longer
+            # goes with the boxes: show the trace that was asked for
+            if (self._last is not None and job == self._job
+                    and abs(self._last["_wl"] - wl) > 1e-9):
+                self._last = None
+                self.txt.delete("1.0", "end")
+                self._refresh_plot(replot_data=True)
+            messagebox.showerror(
+                "Fit error", f"Fit failed:\n{self._worker_failed(exc)}", parent=self.win)
 
     def _on_done(self, res, report, job):
         if job != self._job:        # λ was changed or Reset pressed meanwhile
@@ -430,19 +352,11 @@ class KineticsDialog(_AnalysisDialog):
                      color=PIN, markersize=2)
         ax.axhline(0, color=LINE, linestyle=":", linewidth=0.6)
         axR.axhline(0, color=LINE, linestyle=":", linewidth=0.6)
-        if self.var_scale.get() == "Log" and np.any(t > 0):
-            pos = t[t > 0]
-            ax.set_xscale("log"); axR.set_xscale("log")
-            ax.set_xlim(pos.min(), t.max()); axR.set_xlim(pos.min(), t.max())
-        else:
-            ax.set_xscale("linear"); axR.set_xscale("linear")
-            ax.set_xlim(t.min(), t.max()); axR.set_xlim(t.min(), t.max())
+        set_time_scale((ax, axR), t, self.var_scale.get() == "Log")
         ax.set_ylabel("Intensity"); axR.set_ylabel("Residual")
         axR.set_xlabel("Time (ps)")
         ax.set_title(f"λ = {wl:.2f} nm   (average of {n_avg} curves)")
-        leg = ax.legend(loc="best", fontsize=8, facecolor=PANEL, edgecolor=LINE)
-        for txt in leg.get_texts():
-            txt.set_color(INK)
+        ink_legend(ax.legend(loc="best", fontsize=8, facecolor=PANEL, edgecolor=LINE), INK)
         ax.grid(True, color=LINE, alpha=0.4); axR.grid(True, color=LINE, alpha=0.4)
         if draw:
             self.canvas.draw_idle()
@@ -482,17 +396,9 @@ class KineticsDialog(_AnalysisDialog):
         comment = f"{r['_wl']:.2f} nm; {taus}; RMS={r['info']['rms']:.4g}"
 
         def write_csv(path):
-            with open(path, "w", encoding="utf-8", newline="") as fh:
-                fh.write("# kinetics fit (single wavelength)\n")
-                fh.write(f'# source: {self.model.phu["path"]}\n')
-                for line in preamble:
-                    fh.write(f"# {line}\n")
-                # what was fitted, as it was when the fit was started
-                fh.write(f"# {r['_setup']}\n")
-                fh.write(f"# {r['_note']}\n")
-                fh.write("delay_ps,data,fit,residual\n")
-                np.savetxt(fh, np.column_stack([t, y, fit, resid]),
-                           delimiter=",", fmt="%.8g")
+            write_fit_csv(path, "kinetics fit (single wavelength)", self.model.phu["path"],
+                          preamble, r, "delay_ps,data,fit,residual",
+                          np.column_stack([t, y, fit, resid]))
 
         def fill_ws(ws):
             _origin_fill_table(ws, [t, y, fit, resid], [

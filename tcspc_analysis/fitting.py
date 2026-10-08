@@ -445,7 +445,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     conv = _column_memo()
 
     def objective(x):
-        nonlocal tau_cur, beta_cur, t0_cur, fwhm_cur
+        nonlocal t0_cur, fwhm_cur       # tau_cur / beta_cur are filled in place
         if stop_check is not None and stop_check():
             raise GlobalAnalysisStopped()
         n_cells[0] = D.size

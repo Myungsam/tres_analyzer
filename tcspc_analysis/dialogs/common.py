@@ -1,5 +1,6 @@
 """What the pop-up windows share."""
 import gc
+import queue
 
 import numpy as np
 
@@ -9,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from ..fitting import FitInputError
-from ..theme import BG, INK_DIM, INK_FAINT, LINE, PANEL
+from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL
 
 
 def read_number(var, name):
@@ -229,20 +230,6 @@ class _AnalysisDialog:
                 canvas.draw_idle()
         self.win.after(250, or_else)
 
-    def _worker_failed(self, exc):
-        """The message-box text for a fit whose worker raised ``exc``.
-
-        A FitInputError is the kernel refusing its input and carries a
-        sentence for the user. Anything else - numpy's own ValueError and
-        LinAlgError included - is a fault in the program: it is named, and its
-        traceback goes where a failing callback's does - the freeze log, the
-        console when there is one.
-        """
-        if isinstance(exc, FitInputError):
-            return str(exc)
-        self.win._root().report_callback_exception(type(exc), exc, exc.__traceback__)
-        return f"{type(exc).__name__}: {exc}"
-
     def _cancel_timers(self):
         """Cancel every after() still pending for this window or a widget in
         it (the queue polling, a debounced update, matplotlib's idle draw).
@@ -267,19 +254,162 @@ class _AnalysisDialog:
         window; a window that keeps a copy or a picture of it brings that up
         to date."""
 
-    def _follow_t0(self):
-        """Fit windows: shift t₀ and the fit range by a change of the model's
-        time origin since the window last looked."""
-        t0 = self.model.t0
-        shift = getattr(self, "_seen_t0", t0) - t0
-        self._seen_t0 = t0
-        if not shift:
-            return
-        for var in (self.var_t0, self.var_tmin, self.var_tmax):
-            try:
-                var.set(fmt_ps(float(var.get()) + shift))
-            except ValueError:
-                pass
+    def lift_and_refresh(self):
+        self.win.deiconify()
+        self.win.lift()
+        self.win.focus_force()
+        self.model_changed()        # another window may have changed the model
+
+
+class _FitDialog(_AnalysisDialog):
+    """What the Kinetics and the Global-analysis window have in common: the
+    pieces of the set-up panel, the worker thread's queue, the run / stop
+    state, what is kept with a result, and the CSV of a result.
+
+    A subclass sets ``_q`` (the queue), ``_running``, ``_stop``, ``_job`` and
+    ``_last`` in its __init__, builds its panel from the ``_..._row`` /
+    ``_..._box`` pieces below, and gives ``_handle(kind, payload)`` for what
+    its worker puts on the queue.
+    """
+
+    POLL_MS = 100           # how often the queue of the worker is looked at
+
+    # -- pieces of the set-up panel ----------------------------------------
+    def _components_row(self, parent, default, most, **pack):
+        """Number of components + the tau = inf tick. The table is the caller's."""
+        n_row = ttk.Frame(parent); n_row.pack(fill="x", **pack)
+        ttk.Label(n_row, text="Components").pack(side="left")
+        self.var_n = tk.StringVar(value=str(default))
+        cb = ttk.Combobox(n_row, textvariable=self.var_n,
+                          values=[str(k) for k in range(1, most + 1)], width=4, state="readonly")
+        cb.pack(side="left", padx=(4, 10))
+        cb.bind("<<ComboboxSelected>>", lambda e: self.table.set_n(int(self.var_n.get())))
+        self.var_inf = tk.BooleanVar(value=False)
+        ttk.Checkbutton(n_row, text="Include τ = ∞ offset",
+                        variable=self.var_inf).pack(side="left")
+
+    def _irf_row(self, parent, label, var, fix_var):
+        row = ttk.Frame(parent); row.pack(fill="x", pady=1)
+        ttk.Label(row, text=label, width=10).pack(side="left")
+        ttk.Entry(row, textvariable=var, width=10,
+                  font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
+        ttk.Checkbutton(row, text="fixed", variable=fix_var).pack(side="left")
+
+    def _irf_box(self, parent):
+        """The "IRF (Gaussian)" group: t0 and FWHM, each with its "fixed" tick."""
+        t0d, fwd = self._irf_defaults()
+        irf = ttk.Labelframe(parent, text="IRF (Gaussian)", padding=6)
+        irf.pack(fill="x", pady=(2, 6))
+        self.var_t0 = tk.StringVar(value=fmt_ps(t0d))
+        self.var_t0_fix = tk.BooleanVar(value=True)
+        self.var_fw = tk.StringVar(value=f"{fwd:.4g}")
+        self.var_fw_fix = tk.BooleanVar(value=True)
+        self._irf_row(irf, "t₀ (ps)", self.var_t0, self.var_t0_fix)
+        self._irf_row(irf, "FWHM (ps)", self.var_fw, self.var_fw_fix)
+        return irf
+
+    def _reset_irf(self):
+        t0d, fwd = self._irf_defaults()
+        self.var_t0.set(fmt_ps(t0d)); self.var_t0_fix.set(True)
+        self.var_fw.set(f"{fwd:.4g}"); self.var_fw_fix.set(True)
+
+    def _range_entries(self, parent):
+        """From / To / Full of the fit range, packed into ``parent``. -> the two entries"""
+        m = self.model
+        self.var_tmin = tk.StringVar(value=fmt_ps(m.times[0]))
+        self.var_tmax = tk.StringVar(value=fmt_ps(m.times[-1]))
+        ttk.Label(parent, text="From").pack(side="left")
+        e0 = ttk.Entry(parent, textvariable=self.var_tmin, width=9, font=("TkFixedFont", 9))
+        e0.pack(side="left", padx=(4, 8))
+        ttk.Label(parent, text="To").pack(side="left")
+        e1 = ttk.Entry(parent, textvariable=self.var_tmax, width=9, font=("TkFixedFont", 9))
+        e1.pack(side="left", padx=(4, 8))
+        ttk.Button(parent, text="Full", command=self._t_full).pack(side="left")
+        return e0, e1
+
+    def _t_full(self):
+        m = self.model
+        self.var_tmin.set(fmt_ps(m.times[0]))
+        self.var_tmax.set(fmt_ps(m.times[-1]))
+
+    def _run_buttons(self, parent):
+        self.btn_run = ttk.Button(parent, text="Run fit", command=self.run_fit)
+        self.btn_run.pack(side="left")
+        self.btn_stop = ttk.Button(parent, text="Stop", command=self.stop_fit,
+                                   state="disabled")
+        self.btn_stop.pack(side="left", padx=(6, 0))
+        ttk.Button(parent, text="Reset", command=self.reset).pack(side="left", padx=(6, 0))
+
+    def _export_row(self, parent, hint):
+        row = ttk.Frame(parent); row.pack(fill="x")
+        ttk.Label(row, text="Export").pack(side="left")
+        ttk.Button(row, text="Export results",
+                   command=self.export_results).pack(side="left", padx=(6, 0))
+        ttk.Label(row, text=hint, style="Val.TLabel",
+                  foreground=INK_FAINT).pack(side="left", padx=(6, 0))
+
+    def _report_box(self, parent, height, width, hint):
+        """The status line and the text box the result is written into."""
+        self.var_status = tk.StringVar(value="Ready.")
+        ttk.Label(parent, textvariable=self.var_status, style="Val.TLabel",
+                  foreground=ACCENT).pack(anchor="w", pady=(6, 2))
+        self.txt = tk.Text(parent, height=height, width=width, bg=BG, fg=INK,
+                           insertbackground=INK, relief="flat",
+                           font=("TkFixedFont", 9), wrap="none")
+        self.txt.pack(fill="both", expand=True)
+        self.txt.insert("1.0", hint)
+
+    # -- a run ---------------------------------------------------------------
+    def _started(self):
+        """The worker thread is running: Run off, Stop on, busy cursor."""
+        self._running = True
+        self.btn_run.configure(state="disabled")
+        self.btn_stop.configure(state="normal")
+        self.win.configure(cursor="watch")
+        self.var_status.set("Fitting...")
+
+    def _finish_run(self, status=None):
+        """The run is over, however it ended: the buttons and the cursor back."""
+        self._running = False
+        self.btn_run.configure(state="normal")
+        self.btn_stop.configure(state="disabled")
+        self.win.configure(cursor="")
+        if status is not None:
+            self.var_status.set(status)
+
+    def stop_fit(self):
+        if self._running:
+            self._stop.set()
+            self.btn_stop.configure(state="disabled")
+            self.var_status.set("Stopping...")
+
+    def _poll_queue(self):
+        """Take what the worker thread put on the queue; every widget is
+        touched from here, on the main thread."""
+        try:
+            while True:
+                kind, payload = self._q.get_nowait()
+                self._handle(kind, payload)
+        except queue.Empty:
+            pass
+        finally:                # an error above must not end the polling
+            if self.alive:
+                self._watch_model()
+                self.win.after(self.POLL_MS, self._poll_queue)
+
+    def _worker_failed(self, exc):
+        """The message-box text for a fit whose worker raised ``exc``.
+
+        A FitInputError is the kernel refusing its input and carries a
+        sentence for the user. Anything else - numpy's own ValueError and
+        LinAlgError included - is a fault in the program: it is named, and its
+        traceback goes where a failing callback's does - the freeze log, the
+        console when there is one.
+        """
+        if isinstance(exc, FitInputError):
+            return str(exc)
+        self.win._root().report_callback_exception(type(exc), exc, exc.__traceback__)
+        return f"{type(exc).__name__}: {exc}"
 
     # -- what a fit was made on ------------------------------------------
     STALE = ("The data in the main window changed after this fit was started "
@@ -313,11 +443,19 @@ class _AnalysisDialog:
             self._said_stale = res
             self.var_status.set(self.STALE)
 
-    def lift_and_refresh(self):
-        self.win.deiconify()
-        self.win.lift()
-        self.win.focus_force()
-        self.model_changed()        # another window may have changed the model
+    def _follow_t0(self):
+        """Fit windows: shift t₀ and the fit range by a change of the model's
+        time origin since the window last looked."""
+        t0 = self.model.t0
+        shift = getattr(self, "_seen_t0", t0) - t0
+        self._seen_t0 = t0
+        if not shift:
+            return
+        for var in (self.var_t0, self.var_tmin, self.var_tmax):
+            try:
+                var.set(fmt_ps(float(var.get()) + shift))
+            except ValueError:
+                pass
 
     # -- defaults pulled from the current model --------------------------
     def _irf_defaults(self):
@@ -337,3 +475,37 @@ class _AnalysisDialog:
         if self.app.cursor is not None:
             return float(m.wls[self.app.cursor[0]])
         return float(m.wls[m.n_w // 2])
+
+
+def write_fit_csv(path, title, source, preamble, result, header, table):
+    """The CSV of a fit result: what it is, the file it came from, the
+    parameters, what was fitted (as it was when the fit was started), then
+    the table."""
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        fh.write(f"# {title}\n")
+        fh.write(f"# source: {source}\n")
+        for line in preamble:
+            fh.write(f"# {line}\n")
+        fh.write(f"# {result['_setup']}\n")
+        fh.write(f"# {result['_note']}\n")
+        fh.write(header + "\n")
+        np.savetxt(fh, table, delimiter=",", fmt="%.8g")
+
+
+def ink_legend(legend, color):
+    """Give a legend's texts (and title) the theme's colour."""
+    if legend is not None:
+        for text in (*legend.get_texts(), legend.get_title()):
+            text.set_color(color)
+
+
+def set_time_scale(axes, t, log):
+    """A log or linear time axis over the delays ``t`` for each of ``axes``
+    (log needs a positive delay; without one the axis stays linear)."""
+    if log and np.any(t > 0):
+        lo = t[t > 0].min()
+        for ax in axes:
+            ax.set_xscale("log"); ax.set_xlim(lo, t.max())
+    else:
+        for ax in axes:
+            ax.set_xscale("linear"); ax.set_xlim(t.min(), t.max())
