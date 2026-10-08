@@ -356,9 +356,12 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         has_inf = res["has_inf"]
         try:
             eads, tau_sorted, _ = compute_eads_from_dads(A, tau, has_inf)
-        except Exception:
-            eads, tau_sorted = A.copy(), np.sort(tau)
+            note = ""
+        except Exception as exc:            # noqa: BLE001 - e.g. two equal lifetimes
+            # no sequential spectra, rather than DADS shown under that name
+            eads, tau_sorted, note = None, np.sort(tau), str(exc)
         res["_eads"] = eads
+        res["_eads_note"] = note
         res["_tau_sorted"] = tau_sorted
         self._report_global(res)
         self._finish_run(f"Fit done - RMS = {res['info']['rms']:.4g} "
@@ -383,6 +386,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             L.append(f"  {i+1}   {res['tau'][i]:11.5g}  {res['beta'][i]:6.3g}  ({tag})")
         if has_inf:
             L.append("  ∞   (constant offset)")
+        if res["_eads"] is None:
+            L += ["", f"EADS not available: {res['_eads_note']}"]
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "\n".join(L))
 
@@ -434,6 +439,14 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         if has_inf:
             elabels.append("∞")
         self._plot_spectrum_pair(self.ax_dads, self.ax_dads_n, wl, A, labels, "DADS")
+        if eads is None:
+            for ax, title in ((self.ax_eads, "EADS"), (self.ax_eads_n, "EADS (norm.)")):
+                ax.clear(); _style_analysis_ax(ax)
+                ax.set_title(title)
+            self.ax_eads.text(0.5, 0.5, "not available - see the report",
+                              transform=self.ax_eads.transAxes, ha="center",
+                              va="center", color=INK_DIM, fontsize=9)
+            return
         self._plot_spectrum_pair(self.ax_eads, self.ax_eads_n, wl, eads, elabels, "EADS")
 
     def _plot_spectrum_pair(self, ax, axn, wl, S, labels, kind):
@@ -515,7 +528,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         phu_base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]
         default_base = phu_base            # suffixes "DADS"/"EADS" complete the names
         wl = np.asarray(self._fit_wls)
-        A = np.asarray(res["A"]); eads = np.asarray(res["_eads"])
+        A = np.asarray(res["A"])
+        eads = None if res["_eads"] is None else np.asarray(res["_eads"])
         tau = res["tau"]; tsort = res["_tau_sorted"]
         inf = ["inf"] if res["has_inf"] else []
         dads_labels = [f"{tau[i]:.4g}ps" for i in range(len(tau))] + inf
@@ -549,8 +563,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                 _origin_fill_table(ws, df, specs)
             return _f
 
-        self.app.export_analysis(default_base, [
-            {"suffix": "DADS", "csv": make_csv(A, dads_labels, "DADS"),
-             "fill": make_fill(A, dads_labels, "DADS")},
-            {"suffix": "EADS", "csv": make_csv(eads, eads_labels, "EADS"),
-             "fill": make_fill(eads, eads_labels, "EADS")}])
+        items = [{"suffix": "DADS", "csv": make_csv(A, dads_labels, "DADS"),
+                  "fill": make_fill(A, dads_labels, "DADS")}]
+        if eads is not None:
+            items.append({"suffix": "EADS", "csv": make_csv(eads, eads_labels, "EADS"),
+                          "fill": make_fill(eads, eads_labels, "EADS")})
+        self.app.export_analysis(default_base, items)

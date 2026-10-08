@@ -415,11 +415,18 @@ def compute_eads_from_dads(DADS, tau_vec, has_inf):
     """Convert parallel DADS to sequential EADS (1 -> 2 -> ... -> N).
 
     Species are ordered by ascending tau. Returns (EADS, tau_sorted, Bmat).
+    The sequential model needs every rate to be different: two equal
+    lifetimes raise ValueError (the matrix below would divide by zero).
     """
     tau_vec = np.asarray(tau_vec, float).ravel()
     sort_idx = np.argsort(tau_vec)
     tau_sorted = tau_vec[sort_idx]
     n_decay = len(tau_sorted)
+    same = np.where(np.diff(tau_sorted) <= 1e-9 * tau_sorted[1:])[0]
+    if same.size:
+        raise ValueError(
+            "EADS need a different lifetime for every component; two of "
+            f"them are τ = {tau_sorted[int(same[0])]:.6g} ps.")
 
     if has_inf:
         k_vec = np.concatenate([1.0 / tau_sorted, [0.0]])
