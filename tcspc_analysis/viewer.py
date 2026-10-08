@@ -1349,19 +1349,31 @@ class TRESViewer:
         exists = os.path.exists(opju_path)
         try:
             pythoncom.CoInitialize()
+            com_started = True
         except Exception:
-            pass
+            com_started = False         # e.g. already initialised in another mode
         written = []
         try:
-            if exists:
-                if not op.open(opju_path):
-                    raise RuntimeError(f"Could not open the project: {opju_path}")
-            else:
-                if folder and not os.path.isdir(folder):
-                    os.makedirs(folder, exist_ok=True)
-                op.new()
+            try:
+                if exists:
+                    if not op.open(opju_path):
+                        raise RuntimeError(f"Could not open the project: {opju_path}")
+                else:
+                    if folder and not os.path.isdir(folder):
+                        os.makedirs(folder, exist_ok=True)
+                    op.new()
+                wb = _origin_book1(op)
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                # originpro only fails here, on its first real call, when there
+                # is no Origin to talk to - with a bare COM error
+                raise RuntimeError(
+                    "Origin could not be started or did not answer. The .opju "
+                    "export needs OriginLab Origin installed on this PC; CSV "
+                    "export works without it.\n\n"
+                    f"Details: {type(exc).__name__}: {exc}") from exc
 
-            wb = _origin_book1(op)
             for tab_name, fill_fn in tabs:
                 ws, _ = _origin_sheet(wb, tab_name, fresh=not exists)
                 fill_fn(ws)
@@ -1376,10 +1388,11 @@ class TRESViewer:
                 op.exit()
             except Exception:
                 pass
-            try:
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
+            if com_started:
+                try:
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
         return written
 
     def _write_opju(self, opju_path, stem):
