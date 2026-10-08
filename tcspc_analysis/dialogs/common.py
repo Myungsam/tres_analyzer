@@ -28,7 +28,7 @@ def read_number(var, name):
 # 6. Analysis dialogs - Kinetics + Global analysis, each its own window
 # ==========================================================================
 def _style_analysis_ax(ax):
-    """Paint a matplotlib axis in the shared dark palette (re-run after clear)."""
+    """Paint a matplotlib axis in the shared palette (re-run after clear)."""
     ax.set_facecolor(BG)
     for s in ax.spines.values():
         s.set_color(LINE)
@@ -39,7 +39,7 @@ def _style_analysis_ax(ax):
 
 
 def _dark_toolbar(canvas, master):
-    """A matplotlib navigation toolbar tinted to match the dark theme."""
+    """A matplotlib navigation toolbar tinted to match the theme."""
     tb = NavigationToolbar2Tk(canvas, master, pack_toolbar=False)
     tb.configure(bg=PANEL)
     for child in tb.winfo_children():
@@ -150,7 +150,7 @@ class ComponentTable(ttk.Frame):
 class _AnalysisDialog:
     """Common plumbing for the pop-up preprocessing and analysis windows.
 
-    Wraps a dark Toplevel, tracks whether it is still open (so the launcher can
+    Wraps a themed Toplevel, tracks whether it is still open (so the launcher can
     raise an existing one instead of stacking duplicates), and exposes the live
     viewer/model so the window always works on the file currently loaded.
     """

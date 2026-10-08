@@ -11,7 +11,7 @@ A tab bar at the top switches between:
                    (intensity image + lifetime map + per-pixel decay)
 
 The two tabs are independent - each opens its own file and does its own thing -
-so this file simply hosts both under a single window and a shared dark theme.
+so the program simply hosts both under a single window and a shared light theme.
 The rest of this docstring describes the PHU/TRES tab.
 
 TRES Viewer - PicoQuant PicoHarp 300 (.phu) time-resolved emission spectroscopy
