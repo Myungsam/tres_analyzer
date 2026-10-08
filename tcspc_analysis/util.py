@@ -34,16 +34,38 @@ def wavelength_to_rgb(wl):
 
 
 def fwhm_of(trace, res_ps):
-    """Peak position (ps) and FWHM (ps) of a histogram, at native resolution."""
+    """Peak position (ps) and FWHM (ps) of a histogram, at native resolution.
+
+    The width is measured above the baseline - the median of the trace: an
+    IRF is short, so most of its bins hold only background - and the two
+    half-height crossings are interpolated between the bins on either side
+    (counting whole bins read 4 to 20 % wide for an IRF of 30 to 60 ps at
+    4 ps per bin). A trace without a peak above its baseline gives 0. The
+    peak position is the left edge of the highest bin, as before.
+    """
+    trace = np.asarray(trace, float)
     pk = int(np.argmax(trace))
-    half = trace[pk] / 2.0
+    base = float(np.median(trace))
+    if not trace[pk] > base:
+        return pk * res_ps, 0.0
+    half = base + (trace[pk] - base) / 2.0
     lo = pk
     while lo > 0 and trace[lo] > half:
         lo -= 1
     hi = pk
     while hi < len(trace) - 1 and trace[hi] > half:
         hi += 1
-    return pk * res_ps, (hi - lo) * res_ps
+
+    def crossing(outer, inner):
+        # between a bin at or below half height and its neighbour above it;
+        # a walk that ran into the end of the trace stops there
+        if outer == inner or trace[outer] > half:
+            return float(outer)
+        return outer + (inner - outer) * (half - trace[outer]) / (trace[inner] - trace[outer])
+
+    left = crossing(lo, min(lo + 1, pk))
+    right = crossing(hi, max(hi - 1, pk))
+    return pk * res_ps, (right - left) * res_ps
 
 
 def solvent_mismatch(sample, solvent):
