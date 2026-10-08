@@ -435,7 +435,9 @@ class CropDialog(_AnalysisDialog):
                 else "NO CURVE in this range - nothing to keep")
         self.var_info.set(f"{kept},  {wl_lo:g}-{wl_hi:g} nm,  "
                           f"{t_lo:g}-{t_hi:g} ps"
-                          + ("" if clipped is None else f",  {clipped:.0%} of bins clipped to 0"))
+                          + (",  solvent subtraction is off in the main window (Apply leaves it off)"
+                             if self._left_off() else
+                             "" if clipped is None else f",  {clipped:.0%} of bins clipped to 0"))
         self.canvas.draw_idle()
 
     def _curves_in(self, wl_lo, wl_hi):
@@ -807,6 +809,14 @@ class CropDialog(_AnalysisDialog):
         self._sync_solvent_controls()
         self._update_overlay()
 
+    def _left_off(self):
+        """The subtraction was switched off in the main window, and neither the
+        solvent nor its scale was touched here: Apply is about the crop then,
+        and must not switch it back on."""
+        m = self.model
+        return (m.solvent is not None and not m.solvent_sub
+                and self._solvent is m.solvent and self._scale == m.solvent_scale)
+
     def _configure(self, model, box, with_solvent=True, sub=True):
         """Write this window's crop box - and solvent - into ``model``.
 
@@ -842,7 +852,7 @@ class CropDialog(_AnalysisDialog):
                 f"No curve lies between {box[0]:g} and {box[1]:g} nm. "
                 "Widen the wavelength range.", parent=self.win)
             return
-        self._configure(m, box, with_solvent=with_solvent)
+        self._configure(m, box, with_solvent=with_solvent, sub=not self._left_off())
         m.rebuild()
         # keep the main viewer's TIME SPAN box and derived state consistent
         self.app.var_tmax.set(f"{m.t_max_ps:.0f}")
