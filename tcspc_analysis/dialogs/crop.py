@@ -528,9 +528,10 @@ class CropDialog(_AnalysisDialog):
     def _read(self):
         def val(var, default):
             try:
-                return float(var.get())
+                v = float(var.get())
             except ValueError:
                 return default
+            return v if np.isfinite(v) else default     # "nan", "inf" are no range
         wl_lo, wl_hi = sorted((val(self.var_wl_lo, self.wl_full[0]),
                                val(self.var_wl_hi, self.wl_full[1])))
         t_lo, t_hi = sorted((val(self.var_t_lo, self.t_full[0]),

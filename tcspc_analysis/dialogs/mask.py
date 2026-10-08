@@ -1,4 +1,6 @@
 """The Mask window."""
+import numpy as np
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -105,11 +107,24 @@ class MaskDialog(_AnalysisDialog):
                                    "Enter numeric From / To wavelengths.",
                                    parent=self.win)
             return
+        if not (np.isfinite(lo) and np.isfinite(hi)):
+            messagebox.showwarning("Invalid range",
+                                   "From and To must be finite wavelengths.",
+                                   parent=self.win)
+            return
         if hi < lo:
             lo, hi = hi, lo
         if hi <= lo:
             messagebox.showwarning("Invalid range",
                                    "From must differ from To.", parent=self.win)
+            return
+        wls = self.model.wls
+        if not ((wls >= lo) & (wls <= hi)).any():
+            messagebox.showwarning(
+                "Invalid range",
+                f"No curve lies between {lo:g} and {hi:g} nm (the map covers "
+                f"{wls.min():g}-{wls.max():g} nm): nothing would be masked.",
+                parent=self.win)
             return
         self.model.masks.append((lo, hi))
         self._commit()
