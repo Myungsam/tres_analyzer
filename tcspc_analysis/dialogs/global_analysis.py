@@ -174,7 +174,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         tb.pack(fill="x")
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
         self.canvas.mpl_connect("button_press_event", self._on_map_click)
-        self.canvas.draw_idle()
+        self._draw_when_sized(self.canvas)
 
     def _irf_row(self, parent, label, var, fix_var):
         row = ttk.Frame(parent); row.pack(fill="x", pady=1)

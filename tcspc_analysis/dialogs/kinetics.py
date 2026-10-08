@@ -31,7 +31,8 @@ class KineticsDialog(_AnalysisDialog):
         self._stop = threading.Event()      # tells the worker to give up
         self._seen_t0 = self.model.t0       # the time origin the boxes are quoted in
         self._build()
-        self._refresh_plot(replot_data=True)
+        self._refresh_plot(replot_data=True, draw=False)
+        self._draw_when_sized(self.canvas)
         self.win.after(100, self._poll_queue)
 
     def _on_close(self):
@@ -407,7 +408,7 @@ class KineticsDialog(_AnalysisDialog):
         self.txt.insert("1.0", "\n".join(L))
 
     # -- plotting --------------------------------------------------------
-    def _refresh_plot(self, replot_data=False):
+    def _refresh_plot(self, replot_data=False, draw=True):
         ax, axR = self.ax_main, self.ax_res
         # drop back to linear before clearing so clear() never autoscales a
         # log axis (which would warn about the non-positive default limits)
@@ -443,7 +444,8 @@ class KineticsDialog(_AnalysisDialog):
         for txt in leg.get_texts():
             txt.set_color(INK)
         ax.grid(True, color=LINE, alpha=0.4); axR.grid(True, color=LINE, alpha=0.4)
-        self.canvas.draw_idle()
+        if draw:
+            self.canvas.draw_idle()
 
     # -- export ----------------------------------------------------------
     def _param_summary(self, r):

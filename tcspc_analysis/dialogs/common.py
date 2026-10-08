@@ -213,6 +213,22 @@ class _AnalysisDialog:
             setattr(self, name, None)
         gc.collect()        # the cycles just cut loose, finalised here
 
+    def _draw_when_sized(self, canvas):
+        """The first picture of a new window. Its figure is made at a made-up
+        size and takes the real one when the window appears - and that resize
+        draws it. Asking for a draw here as well meant drawing every new fit
+        window twice, the first time at the wrong size. So nothing is asked
+        for; only if no draw came after a moment (a window that never got a
+        size) is it drawn as it is."""
+        drawn = []
+        cid = canvas.mpl_connect("draw_event", lambda event: drawn.append(1))
+
+        def or_else():
+            canvas.mpl_disconnect(cid)
+            if self.alive and not drawn:
+                canvas.draw_idle()
+        self.win.after(250, or_else)
+
     def _worker_failed(self, exc):
         """The message-box text for a fit whose worker raised ``exc``.
 
