@@ -563,8 +563,16 @@ class TRESViewer:
         delta = new - m.wl_offset
         if delta == 0.0:
             return
+        at = None
+        if self.cursor:
+            wi, ti = self.cursor
+            at = (float(m.wls[wi]) + delta, float(m.times[ti]))
         m.wl_offset = new
         m.rebuild()          # the wavelengths come straight off the file each time
+        # the cursor follows its curve; a crop quoted in nm may now keep other
+        # curves (or fewer), so its old index can lie outside the map
+        if at:
+            self.cursor = self._cell_near(*at)
 
         # carry a zoom rectangle along, otherwise it would frame different lines
         if self.view:
