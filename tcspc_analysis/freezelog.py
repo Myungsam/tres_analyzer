@@ -82,12 +82,29 @@ class FreezeLog:
             path = os.path.join(folder, cls.NAME)
             try:
                 os.makedirs(folder, exist_ok=True)
-                big = os.path.exists(path) and os.path.getsize(path) > cls.MAX_BYTES
-                return path, open(path, "w" if big else "a", encoding="utf-8",
+                cls._trim(path)
+                return path, open(path, "a", encoding="utf-8",
                                   errors="replace", buffering=1)
             except OSError:
                 continue
         return None, None
+
+    @classmethod
+    def _trim(cls, path):
+        """Cut a log that has outgrown MAX_BYTES down to its newest half.
+
+        (It used to be emptied at the next start - together with the very
+        entries the user was about to send.)"""
+        if not os.path.exists(path) or os.path.getsize(path) <= cls.MAX_BYTES:
+            return
+        with open(path, "rb") as fh:
+            fh.seek(-(cls.MAX_BYTES // 2), os.SEEK_END)
+            tail = fh.read()
+        start = tail.find(b"\n====")          # the first whole entry of what is kept
+        tail = tail[start + 1:] if start >= 0 else b""
+        with open(path, "wb") as fh:
+            fh.write(b"==== (older entries dropped: the log had grown past "
+                     + str(cls.MAX_BYTES // 1024).encode() + b" kB)\n" + tail)
 
     def write(self, text):
         """Append a time-stamped entry; the user's home folder is left out of it."""
@@ -118,32 +135,51 @@ class FreezeLog:
 
     def _watch(self):
         """Watcher thread: report a main loop that has gone silent, once."""
-        main = threading.main_thread().ident
+        last = time.monotonic()
         while not self._closed.wait(1.0):
-            seen = self._seen
-            quiet = time.monotonic() - seen
-            if quiet < self.LIMIT_S or self._told is not None:
-                continue
-            frames = sys._current_frames()
-            at = frames.get(main)
-            if at is None:
-                continue
-            code = at.f_code                    # waiting in Tk's own loop?
-            idle = (code.co_name == "mainloop"
-                    and os.path.basename(os.path.dirname(code.co_filename)) == "tkinter")
-            if idle and quiet < self.IDLE_S:
-                continue
-            names = {t.ident: t.name for t in threading.enumerate()}
-            lines = [f"window not answering for {quiet:.0f} s"
-                     + (" (no callback running: Tk itself is busy, or the window is"
-                        " being moved)" if idle else ""),
-                     f"open: {self._note or '-'}"]
-            for ident, frame in frames.items():
-                lines.append(f"-- thread {names.get(ident, ident)}"
-                             + ("  <-- the window's thread" if ident == main else ""))
-                lines += [ln.rstrip() for ln in traceback.format_stack(frame)]
-            self._told = seen
-            self.write("\n".join(lines))
+            now = time.monotonic()
+            self._check(now - last)
+            last = now
+
+    WAKE_S = 10.0       # the watcher ticks every second; a gap like this is the PC asleep
+
+    def _check(self, tick_gap):
+        """One look at the main loop; True when a stall was written down.
+
+        ``tick_gap`` is how long ago the watcher last looked. When that is far
+        more than its one-second tick, nothing in the process ran - the
+        computer was asleep (the clock used here keeps counting through
+        sleep) - and the silence of the main loop means nothing: start over.
+        """
+        if tick_gap > self.WAKE_S:
+            self._seen = time.monotonic()
+            return False
+        main = threading.main_thread().ident
+        seen = self._seen
+        quiet = time.monotonic() - seen
+        if quiet < self.LIMIT_S or self._told is not None:
+            return False
+        frames = sys._current_frames()
+        at = frames.get(main)
+        if at is None:
+            return False
+        code = at.f_code                    # waiting in Tk's own loop?
+        idle = (code.co_name == "mainloop"
+                and os.path.basename(os.path.dirname(code.co_filename)) == "tkinter")
+        if idle and quiet < self.IDLE_S:
+            return False
+        names = {t.ident: t.name for t in threading.enumerate()}
+        lines = [f"window not answering for {quiet:.0f} s"
+                 + (" (no callback running: Tk itself is busy, or the window is"
+                    " being moved)" if idle else ""),
+                 f"open: {self._note or '-'}"]
+        for ident, frame in frames.items():
+            lines.append(f"-- thread {names.get(ident, ident)}"
+                         + ("  <-- the window's thread" if ident == main else ""))
+            lines += [ln.rstrip() for ln in traceback.format_stack(frame)]
+        self._told = seen
+        self.write("\n".join(lines))
+        return True
 
     def _callback_error(self, exc, val, tb):
         self.write("error in a callback\n"
