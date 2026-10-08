@@ -295,7 +295,7 @@ class KineticsDialog(_AnalysisDialog):
             res.update(extra)
             self._q.put(("done", (res, report, job)))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
-            self._q.put(("error", str(exc)))
+            self._q.put(("error", (str(exc), extra["_wl"], job)))
 
     def _poll_queue(self):
         try:
@@ -307,8 +307,16 @@ class KineticsDialog(_AnalysisDialog):
                 if kind == "done":
                     self._on_done(*payload)
                 else:
+                    msg, wl, job = payload
                     self.var_status.set("Fit failed.")
-                    messagebox.showerror("Fit error", f"Fit failed:\n{payload}")
+                    # a result still shown for another wavelength no longer
+                    # goes with the boxes: show the trace that was asked for
+                    if (self._last is not None and job == self._job
+                            and abs(self._last["_wl"] - wl) > 1e-9):
+                        self._last = None
+                        self.txt.delete("1.0", "end")
+                        self._refresh_plot(replot_data=True)
+                    messagebox.showerror("Fit error", f"Fit failed:\n{msg}")
         except queue.Empty:
             pass
         finally:                # an error above must not end the polling
