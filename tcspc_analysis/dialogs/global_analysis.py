@@ -437,7 +437,6 @@ class GlobalAnalysisDialog(_AnalysisDialog):
 
     def _plot_maps(self):
         res = self._last
-        wl = self._fit_wls
         t = self._fit_t
         D = self._fit_D
         fit = res["fit"]

@@ -13,8 +13,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from ..phu import read_phu
-from ..util import short_name, solvent_mismatch
-from ..model import TRESModel
+from ..util import short_name
+from ..model import TRESModel, solvent_mismatch
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN, preview_norm_cmap, style_plot_ax
 from .common import _AnalysisDialog
 

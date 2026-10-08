@@ -142,7 +142,6 @@ def read_phu(path):
                 f"Curve {i} has a time resolution of {res_i!r} s, curve 0 "
                 f"{res_s!r} s: curves with different time axes are not supported.")
     wl_map = many("ParValue0")
-    integrals = many("HistResDscr_IntegralCount")
 
     counts = np.zeros((ncurves, nbins), dtype=np.uint32)
     offsets = many("HistResDscr_DataOffset")
@@ -159,7 +158,6 @@ def read_phu(path):
     return dict(
         path=path, version=version, ncurves=ncurves, nbins=nbins,
         res_ps=res_ps, counts=counts, wls=wls,
-        integrals=np.array([integrals.get(i, 0) for i in range(ncurves)]),
         param_name=one("MeasDesc_Param_Name") or "Index",
         param_unit=one("MeasDesc_Param_Unit") or "",
         hw_type=one("HW_Type") or "", serial=one("HW_SerialNo") or "",

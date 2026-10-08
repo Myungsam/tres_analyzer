@@ -117,17 +117,30 @@ def stretched_irf_conv(t, tau, beta, t0, fwhm, mode="numerical"):
     return out
 
 
+def _basis(t, tau, beta, stretch_on, t0, fwhm, has_inf, irf_mode, conv):
+    """The model's columns, (N_t x k): one per component - a stretched one
+    through stretched_irf_conv(), a plain exponential through ``conv`` - and,
+    with ``has_inf``, the tau = inf offset last. ``conv(column, t, tau, t0,
+    fwhm)`` is exp_irf_conv() behind a memo (_column_memo) inside a fit.
+    Both kernels and build_ga_basis() build their model here."""
+    n = len(tau)
+    C = np.zeros((t.size, n + (1 if has_inf else 0)))
+    for j in range(n):
+        if stretch_on[j]:
+            C[:, j] = stretched_irf_conv(t, tau[j], beta[j], t0, fwhm, irf_mode)
+        else:
+            C[:, j] = conv(j, t, tau[j], t0, fwhm)
+    if has_inf:
+        C[:, -1] = conv("inf", t, np.inf, t0, fwhm)
+    return C
+
+
 def build_ga_basis(t, tau_vec, t0, fwhm, has_inf):
     """(N_t x k) basis of IRF-convolved plain exponentials."""
     tau_vec = np.asarray(tau_vec, float).ravel()
-    k = len(tau_vec) + (1 if has_inf else 0)
-    t_arr = np.asarray(t, float).ravel()
-    C = np.zeros((len(t_arr), k))
-    for j, tau in enumerate(tau_vec):
-        C[:, j] = exp_irf_conv(t_arr, tau, t0, fwhm)
-    if has_inf:
-        C[:, -1] = exp_irf_conv(t_arr, np.inf, t0, fwhm)
-    return C
+    return _basis(np.asarray(t, float).ravel(), tau_vec, np.ones(tau_vec.size),
+                  np.zeros(tau_vec.size, bool), t0, fwhm, has_inf, "",
+                  lambda column, *args: exp_irf_conv(*args))
 
 
 def _column_memo():
@@ -146,6 +159,10 @@ def _column_memo():
         return hit[1]
 
     return conv
+
+
+# What both kernels hand to Nelder-Mead besides fatol (which follows the data).
+NM_OPTIONS = {"xatol": 1e-8, "maxiter": 5000, "maxfev": 20000, "disp": False}
 
 
 def _nm_fatol(data):
@@ -427,21 +444,6 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
 
     conv = _column_memo()
 
-    def build_basis_local(tau_v, beta_v, t0_v, fwhm_v):
-        # the columns of build_ga_basis(), each recomputed only when its own
-        # arguments changed
-        n_cols = n_nl + (1 if has_inf else 0)
-        C = np.zeros((N, n_cols))
-        for j in range(n_nl):
-            if stretch_on[j]:
-                C[:, j] = stretched_irf_conv(
-                    t_arr, tau_v[j], beta_v[j], t0_v, fwhm_v, irf_mode)
-            else:
-                C[:, j] = conv(j, t_arr, tau_v[j], t0_v, fwhm_v)
-        if has_inf:
-            C[:, -1] = conv("inf", t_arr, np.inf, t0_v, fwhm_v)
-        return C
-
     def objective(x):
         nonlocal tau_cur, beta_cur, t0_cur, fwhm_cur
         if stop_check is not None and stop_check():
@@ -467,7 +469,9 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
             return 1e30, np.zeros((M, k_cols)), np.zeros((M, N))
 
         n_model[0] += 1
-        C = build_basis_local(tau_cur, beta_cur, t0_cur, fwhm_cur)
+        # each column is recomputed only when its own arguments changed
+        C = _basis(t_arr, tau_cur, beta_cur, stretch_on, t0_cur, fwhm_cur,
+                   has_inf, irf_mode, conv)
         col_norms = np.sqrt(np.nansum(C ** 2, axis=0))
         if np.any(col_norms < 1e-12) or not np.all(np.isfinite(C)):
             return 1e30, np.zeros((M, C.shape[1])), np.zeros((M, N))
@@ -554,9 +558,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         init_cells = n_cells[0]
         res = _minimize(lambda x: objective(x)[0], x0, method="Nelder-Mead",
                         bounds=limits,
-                        options={"xatol": 1e-8, "fatol": _nm_fatol(D),
-                                 "maxiter": 5000, "maxfev": 20000,
-                                 "disp": False})
+                        options=dict(NM_OPTIONS, fatol=_nm_fatol(D)))
         loss, A_out, fit_out = objective(res.x)
         iters = int(res.nit)
         n_fev = int(getattr(res, "nfev", iters))
@@ -721,16 +723,8 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
             return (np.zeros(n_cols), np.zeros_like(t))
         cur["refused"] = False
 
-        Mb = np.zeros((t.size, n_cols))
-        for j in range(n_nl):
-            if stretch_on[j]:
-                Mb[:, j] = stretched_irf_conv(
-                    t, cur["tau"][j], cur["beta"][j],
-                    cur["t0"], cur["fwhm"], irf_mode)
-            else:
-                Mb[:, j] = conv(j, t, cur["tau"][j], cur["t0"], cur["fwhm"])
-        if has_inf:
-            Mb[:, -1] = conv("inf", t, np.inf, cur["t0"], cur["fwhm"])
+        Mb = _basis(t, cur["tau"], cur["beta"], stretch_on, cur["t0"],
+                    cur["fwhm"], has_inf, irf_mode, conv)
 
         try:
             A = _lsqminnorm(Mb[mask, :], y[mask])
@@ -750,9 +744,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
 
     if x0.size:
         res = _minimize(loss, x0, method="Nelder-Mead", bounds=limits,
-                        options={"xatol": 1e-8, "fatol": _nm_fatol(y[mask]),
-                                 "maxiter": 5000, "maxfev": 20000,
-                                 "disp": False})
+                        options=dict(NM_OPTIONS, fatol=_nm_fatol(y[mask])))
         A_final, fit_v = unpack(res.x)
         iters = int(res.nit)
         fval = float(res.fun)

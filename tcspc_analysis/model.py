@@ -6,6 +6,36 @@ import numpy as np
 from .util import fwhm_of
 
 
+def solvent_mismatch(sample, solvent):
+    """Compare a solvent .phu against the sample it is to be subtracted from.
+
+    Returns (errors, notes), two lists of messages. The subtraction is bin for
+    bin, with no resampling, so any error - a different number of curves,
+    wavelength list, time resolution or bin count - means the solvent has to be
+    refused. A note (a different acquisition time) is only reported: the scale
+    factor can make up for it.
+    """
+    errors, notes = [], []
+    if solvent["ncurves"] != sample["ncurves"]:
+        errors.append(f'number of curves: {solvent["ncurves"]} (solvent) vs '
+                      f'{sample["ncurves"]} (sample)')
+    # only comparable once the counts agree - allclose cannot broadcast otherwise
+    elif not np.allclose(solvent["wls"], sample["wls"], rtol=0.0, atol=1e-6):
+        errors.append("wavelength list differs from the sample")
+    if solvent["nbins"] != sample["nbins"]:
+        errors.append(f'time bins: {solvent["nbins"]:,} (solvent) vs '
+                      f'{sample["nbins"]:,} (sample)')
+    if not np.isclose(solvent["res_ps"], sample["res_ps"], rtol=1e-9, atol=0.0):
+        errors.append(f'time resolution: {solvent["res_ps"]:g} ps (solvent) vs '
+                      f'{sample["res_ps"]:g} ps (sample)')
+
+    acq_v, acq_s = solvent.get("acq_ms"), sample.get("acq_ms")
+    if acq_v and acq_s and acq_v != acq_s:
+        notes.append(f"acquisition time per curve: {acq_v / 1000:g} s (solvent) vs "
+                     f"{acq_s / 1000:g} s (sample)")
+    return errors, notes
+
+
 def wavelength_grid(wls):
     """Where curves measured at ``wls`` (ascending nm) go in a map whose
     columns all have the same width: (column of each curve, number of
@@ -111,10 +141,11 @@ class TRESModel:
         span; the entry box still reaches t_full_ps if you want the tail.
         Falls back to the whole record when the file is empty everywhere.
         """
-        hit = np.nonzero(self.phu["counts"].any(axis=0))[0]
-        if not len(hit):
-            return self.t_full_ps
-        return min((int(hit[-1]) + 1) * self.phu["res_ps"], self.t_full_ps)
+        if getattr(self, "_t_data", None) is None:      # the file does not change
+            hit = np.nonzero(self.phu["counts"].any(axis=0))[0]
+            self._t_data = (self.t_full_ps if not len(hit) else
+                            min((int(hit[-1]) + 1) * self.phu["res_ps"], self.t_full_ps))
+        return self._t_data
 
     @property
     def dt_ps(self):
