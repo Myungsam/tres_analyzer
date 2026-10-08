@@ -112,6 +112,7 @@ class CropDialog(_AnalysisDialog):
         self._pan = None        # right-button drag: (x, y in pixels, xlim, ylim) at its start
 
         self._build_ui()
+        self.win.bind("<Escape>", lambda ev: self._cancel_corner())
         self._draw_base()
         self._update_overlay()
 
@@ -123,7 +124,7 @@ class CropDialog(_AnalysisDialog):
         def field(var):
             e = ttk.Entry(top, textvariable=var, width=8, font=("TkFixedFont", 9))
             e.pack(side="left", padx=2)
-            e.bind("<KeyRelease>", lambda ev: self._schedule())
+            e.bind("<KeyRelease>", lambda ev: self._on_typed())
             e.bind("<Return>", lambda ev: self._update_overlay())
             return e
 
@@ -346,6 +347,16 @@ class CropDialog(_AnalysisDialog):
             txt.set_color(INK_DIM)
         self._draw_slice()          # a pinned slice follows the scale as well
         return pv.clip_frac if sv is not None else None
+
+    def _on_typed(self):
+        self._corner = None         # a typed range replaces a half-picked box
+        self._schedule()
+
+    def _cancel_corner(self):
+        """Esc: forget a first corner that was clicked."""
+        if self._corner is not None:
+            self._corner = None
+            self._update_overlay()  # puts the range back into the info line
 
     def _schedule(self):
         if self._after is not None:
@@ -658,11 +669,13 @@ class CropDialog(_AnalysisDialog):
             self._update_overlay()
 
     def _full_wl(self):
+        self._corner = None
         self.var_wl_lo.set(f"{self.wl_full[0]:g}")
         self.var_wl_hi.set(f"{self.wl_full[1]:g}")
         self._update_overlay()
 
     def _full_t(self):
+        self._corner = None
         self.var_t_lo.set(f"{self.t_full[0]:g}")
         self.var_t_hi.set(f"{self.t_full[1]:g}")
         self._update_overlay()
@@ -776,6 +789,7 @@ class CropDialog(_AnalysisDialog):
         self._apply(with_solvent=False)
 
     def _apply(self, with_solvent=True):
+        self._corner = None
         self._on_scale_entry()      # a typed scale counts without Enter, too
         m = self.model
         box = self._read()
