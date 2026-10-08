@@ -132,8 +132,10 @@ class TRESModel:
         # -- time window: bins for [t_min_ps, t_max_ps], rebinned by rb. The
         #    first kept bin's true delay is t_off_ps, so cropping early bins
         #    slides the axis origin instead of relabelling the delays.
-        rb = max(1, int(self.rebin))
+        rb = min(max(1, int(self.rebin)), p["nbins"])
         b_lo = int(np.clip(round(self.t_min_ps / res), 0, p["nbins"] - 1))
+        # leave room for one whole rebinned bin before the end of the record
+        b_lo = min(b_lo, p["nbins"] - rb)
         b_hi = int(np.clip(round(self.t_max_ps / res), b_lo + 1, p["nbins"]))
         n_t = max(1, (b_hi - b_lo) // rb)
         b_hi = b_lo + n_t * rb
