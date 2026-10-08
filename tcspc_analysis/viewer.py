@@ -1384,13 +1384,13 @@ class TRESViewer:
             com_started = False         # e.g. already initialised in another mode
         written = []
         try:
+            if not exists and folder and not os.path.isdir(folder):
+                os.makedirs(folder, exist_ok=True)      # its own error, not Origin's
             try:
                 if exists:
                     if not op.open(opju_path):
                         raise RuntimeError(f"Could not open the project: {opju_path}")
                 else:
-                    if folder and not os.path.isdir(folder):
-                        os.makedirs(folder, exist_ok=True)
                     op.new()
                 wb = _origin_book1(op)
             except RuntimeError:
