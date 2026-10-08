@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,424줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,480줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -37,7 +37,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `dialogs/kinetics.py` | 498 | Kinetics 창 | `KineticsDialog` |
 | `dialogs/global_analysis.py` | 594 | Global analysis 창 | `GlobalAnalysisDialog` |
 | `viewer.py` | 1654 | TRES 탭 화면과 내보내기 | `TRESViewer` |
-| `freezelog.py` | 160 | 멈춤 기록 | `FreezeLog` |
+| `freezelog.py` | 216 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 78 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
 모듈 사이의 import는 모두 `from .phu import read_phu`처럼 이름을 직접 가져오는 형식이고, 방향은 아래 표에 있는 것뿐이다.
