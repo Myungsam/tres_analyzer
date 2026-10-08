@@ -3,7 +3,7 @@ import os
 import sys
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from .theme import apply_theme
 from .flim import FLIMViewer
@@ -25,7 +25,18 @@ def main():
             break
     if path and not os.path.exists(path):
         print(f"File not found: {path}", file=sys.stderr)
+        # the windowed .exe has no console: without a box a mistyped or moved
+        # path would just close the program
+        box = tk.Tk()
+        box.withdraw()
+        messagebox.showerror("File not found", f"There is no such file:\n{path}",
+                             parent=box)
+        box.destroy()
         sys.exit(1)
+    # a .ptu belongs to the other tab
+    ptu = path if path and path.lower().endswith(".ptu") else None
+    if ptu:
+        path = None
 
     root = tk.Tk()
     root.title("PicoHarp 300 post-processing - PHU/TRES + PTU/FLIM")
@@ -46,7 +57,10 @@ def main():
     tres = None
     log = FreezeLog(root, lambda: os.path.basename(tres.var_path.get()) if tres else "")
     tres = TRESViewer(phu_tab, path)
-    FLIMViewer(ptu_tab)
+    flim = FLIMViewer(ptu_tab)
+    if ptu:
+        flim.path_var.set(ptu)
+        nb.select(ptu_tab)
 
     root.mainloop()
     log.close()
