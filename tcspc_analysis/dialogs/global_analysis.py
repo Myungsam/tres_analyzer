@@ -274,26 +274,24 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             has_inf=self.var_inf.get(), beta_init=beta, beta_fixed=bfix,
             stretch_on=st, irf_mode=self.var_irf_mode.get(), method=method)
 
-        # snapshot exactly what the fit sees, so redraws never depend on the
-        # entry boxes the user may edit while / after the fit runs
-        self._fit_D = D
-        self._fit_t = t
-        self._fit_wls = wls_fit
         self._stop.clear()
         self._running = True
         self.btn_run.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.var_status.set("Fitting...")
-        threading.Thread(target=self._worker, args=(D, t, params),
+        threading.Thread(target=self._worker, args=(D, t, wls_fit, params),
                          daemon=True).start()
 
-    def _worker(self, D, t, params):
+    def _worker(self, D, t, wls_fit, params):
         try:
             res = fit_global_analysis(
                 D, t, stop_check=self._stop.is_set, **params)
             # what the result was fitted with - the box may be changed afterwards
             res["has_inf"] = bool(params["has_inf"])
-            self._q.put(("done", res))
+            # ... and exactly what the fit saw. It travels with the result, so
+            # a run that is stopped or fails leaves the previous result whole
+            # and redraws never depend on boxes edited while / after the fit.
+            self._q.put(("done", (res, D, t, wls_fit)))
         except GlobalAnalysisStopped:
             self._q.put(("stopped", None))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
@@ -328,7 +326,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.btn_stop.configure(state="disabled")
         self.var_status.set(status)
 
-    def _on_done(self, res):
+    def _on_done(self, payload):
+        res, self._fit_D, self._fit_t, self._fit_wls = payload
         self._last = res
         # DADS = the amplitude spectra A (M x k); EADS from the sequential model
         A = res["A"]
