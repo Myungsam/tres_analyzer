@@ -267,7 +267,10 @@ class CropDialog(_AnalysisDialog):
         self._base_im = self.ax.imshow(
             self._transform(f.E.T), aspect="auto", origin="lower", cmap=cmap,
             norm=norm, extent=[w_lo, w_hi, f.t_lo, f.t_hi],
-            interpolation="nearest")
+            # the map has several time bins per screen pixel (and far more on
+            # a log axis): average them, in data space, instead of showing one
+            # in a few - a narrow late feature would otherwise not be drawn
+            interpolation="antialiased", interpolation_stage="data")
         self.ax.set_xlim(w_lo, w_hi)
         self.ax.set_ylim(0.0, self.t_full[1])
         self.ax.set_ylabel("Time (ps from record start)", fontsize=9)
