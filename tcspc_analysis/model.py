@@ -114,7 +114,9 @@ class TRESModel:
     def rebuild(self):
         p = self.phu
         res = p["res_ps"]
-        self.irf_idx = 0 if self.first_is_irf else None
+        # a file with a single curve has no separate IRF measurement: that
+        # curve is the data, whatever the checkbox says
+        self.irf_idx = 0 if (self.first_is_irf and p["ncurves"] > 1) else None
 
         # -- wavelength window: drop the IRF curve, then any curve outside the
         #    crop range (compared in offset-applied nm, i.e. what the user
