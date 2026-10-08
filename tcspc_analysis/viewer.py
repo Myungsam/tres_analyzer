@@ -485,6 +485,12 @@ class TRESViewer:
             self.var_tmax.set(f"{tmax:.0f}")
 
         t0_before = m.t0
+        # where the cursor is, in wavelength and in delay from the start of
+        # the record - its indices mean something else after the rebuild
+        at = None
+        if self.cursor:
+            wi, ti = self.cursor
+            at = (float(m.wls[wi]), float(m.times[ti] + m.t0))
         m.t_max_ps = min(tmax, m.t_full_ps)
         if tmax > m.t_max_ps:           # asked for more delay than was measured
             self.var_tmax.set(f"{m.t_max_ps:.0f}")
@@ -514,10 +520,16 @@ class TRESViewer:
             self.clim = None
         self._clamp_view()
 
-        if self.cursor:
-            wi, ti = self.cursor
-            self.cursor = (min(wi, m.n_w - 1), min(ti, m.n_t - 1))
+        if at:
+            self.cursor = self._cell_near(at[0], at[1] - m.t0)
         self.redraw(full=True)
+
+    def _cell_near(self, wl, t_ps):
+        """The (wavelength, time) cell nearest to a point, clamped into the map."""
+        m = self.model
+        wi = int(np.argmin(np.abs(m.wls - wl)))
+        ti = int(np.clip((t_ps + m.t0 - m.t_off_ps) // m.dt_ps, 0, m.n_t - 1))
+        return wi, ti
 
     def _clamp_view(self):
         """Keep a zoom rectangle inside the axes after the model was rebuilt."""
