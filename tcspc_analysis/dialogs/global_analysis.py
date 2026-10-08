@@ -15,6 +15,7 @@ from tkinter import messagebox, ttk
 
 from ..origin import _origin_fill_table
 from ..fitting import GlobalAnalysisStopped, compute_eads_from_dads, fit_global_analysis
+from ..model import wavelength_grid
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL
 from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, fmt_ps, in_range, read_number
 
@@ -278,6 +279,11 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         # real spectra (they simply never appear in the global-analysis result).
         wls_fit = m.wls.copy()
         keep = ~np.isnan(D).any(axis=1)
+        # where the fitted curves sit on the map's wavelength axis, masked
+        # ones included: the three maps are drawn on that axis
+        col, n_cols, _ = wavelength_grid(m.wls)
+        axis = {"_cols": col[keep], "_n_cols": n_cols, "_wl_edges": tuple(m.wl_edges),
+                "_dt": float(m.dt_ps)}
         if not keep.all():
             D = D[keep]
             wls_fit = wls_fit[keep]
@@ -299,6 +305,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
 
         record = self._fit_record(lo, hi, int(tsel.sum()), self._fixed_names(
             fix, st, bfix, self.var_t0_fix.get(), self.var_fw_fix.get()))
+        record.update(axis)
         self._stop.clear()
         # started first: if that fails, the window is not left "running"
         threading.Thread(target=self._worker,
@@ -435,7 +442,18 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         D = self._fit_D
         fit = res["fit"]
         resid = D - fit
-        ext = [wl[0], wl[-1], t[-1], t[0]]
+        # On the wavelength axis of the map the fit was made from: a masked
+        # band stays an empty band instead of closing up, and every column is
+        # centred on its own wavelength. (The extent used to run from the
+        # centre of the first cell to the centre of the last, so a click near
+        # an edge - or anywhere beside a masked band - picked another curve.)
+        half = res["_dt"] / 2.0
+        ext = [res["_wl_edges"][0], res["_wl_edges"][1], t[-1] + half, t[0] - half]
+
+        def on_axis(Z):
+            out = np.full((res["_n_cols"], Z.shape[1]), np.nan)
+            out[res["_cols"]] = Z
+            return out
         cmap = self.app.var_cmap.get()
         vmax = float(np.nanmax(np.abs(D))) or 1.0
         rmax = float(np.nanmax(np.abs(resid))) or 1.0
@@ -444,11 +462,11 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                              (self.ax_resid, resid, "residual")):
             ax.clear(); _style_analysis_ax(ax)
             if title == "residual":
-                ax.imshow(Z.T, aspect="auto", extent=ext, cmap="RdBu_r",
+                ax.imshow(on_axis(Z).T, aspect="auto", extent=ext, cmap="RdBu_r",
                           vmin=-rmax, vmax=rmax, origin="upper",
                           interpolation="nearest")
             else:
-                ax.imshow(Z.T, aspect="auto", extent=ext, cmap=cmap,
+                ax.imshow(on_axis(Z).T, aspect="auto", extent=ext, cmap=cmap,
                           vmin=0, vmax=vmax, origin="upper",
                           interpolation="nearest")
             ax.set_title(title)
