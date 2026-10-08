@@ -114,12 +114,13 @@ def read_phu(path):
         raise ValueError(f"Bad header: the time resolution is {res_s!r} s.")
     res_ps = res_s * 1e12
     # one time axis for the whole map: every curve must have curve 0's
+    all_bins, all_res = many("HistResDscr_HistogramBins"), many("HistResDscr_MDescResolution")
     for i in range(1, ncurves):
-        bins_i = many("HistResDscr_HistogramBins").get(i, nbins)
+        bins_i = all_bins.get(i, nbins)
         if bins_i != nbins:
             raise ValueError(f"Curve {i} has {bins_i} bins, curve 0 has {nbins}: "
                              "curves with different time axes are not supported.")
-        res_i = many("HistResDscr_MDescResolution").get(i, res_s)
+        res_i = all_res.get(i, res_s)
         if not isinstance(res_i, float) or abs(res_i - res_s) > 1e-9 * res_s:
             raise ValueError(
                 f"Curve {i} has a time resolution of {res_i!r} s, curve 0 "
@@ -128,8 +129,11 @@ def read_phu(path):
     integrals = many("HistResDscr_IntegralCount")
 
     counts = np.zeros((ncurves, nbins), dtype=np.uint32)
+    offsets = many("HistResDscr_DataOffset")
     for i in range(ncurves):
-        off = whole(need("HistResDscr_DataOffset", i), f"data offset of curve {i}")
+        if offsets.get(i) is None:
+            raise ValueError(f"Missing header field HistResDscr_DataOffset[{i}].")
+        off = whole(offsets[i], f"data offset of curve {i}")
         if off < 0 or off + 4 * nbins > len(data):
             raise ValueError(f"Curve {i} data lies outside the file.")
         counts[i] = np.frombuffer(data[off:off + 4 * nbins], dtype="<u4")
