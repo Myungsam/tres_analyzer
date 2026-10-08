@@ -15,7 +15,7 @@ from tkinter import messagebox, ttk
 from ..origin import _origin_fill_table
 from ..fitting import FitStopped, fit_single_trace
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN
-from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax
+from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, read_number
 
 
 class KineticsDialog(_AnalysisDialog):
@@ -245,18 +245,24 @@ class KineticsDialog(_AnalysisDialog):
     def run_fit(self):
         if self._running:
             return
-        tau, fix, st, beta, bfix = self.table.read()
+        # every box is read here, and one that cannot be used is named: no
+        # stand-in value is fitted with instead
+        try:
+            tau, fix, st, beta, bfix = self.table.read_checked()
+            read_number(self.var_wl, "λ")
+            if read_number(self.var_hw, "The half-width") < 0:
+                raise ValueError("The half-width must not be negative.")
+            t_lo = read_number(self.var_tmin, "The start of the fit range")
+            t_hi = read_number(self.var_tmax, "The end of the fit range")
+            t0 = read_number(self.var_t0, "t₀")
+            fw = read_number(self.var_fw, "The IRF FWHM")
+        except ValueError as exc:
+            messagebox.showwarning("Invalid input", str(exc))
+            return
         if tau.size == 0:
             messagebox.showwarning("No components", "Add at least one component.")
             return
-        if np.any(tau <= 0):
-            messagebox.showwarning("Invalid input", "τ must be > 0.")
-            return
         t_full, y_full, wl_actual, n_avg = self._get_trace()
-        try:
-            t_lo = float(self.var_tmin.get()); t_hi = float(self.var_tmax.get())
-        except ValueError:
-            t_lo, t_hi = float(t_full[0]), float(t_full[-1])
         if t_lo > t_hi:
             t_lo, t_hi = t_hi, t_lo
         sel = (t_full >= t_lo) & (t_full <= t_hi)
@@ -265,11 +271,6 @@ class KineticsDialog(_AnalysisDialog):
         if n_in < n_min:
             messagebox.showwarning(
                 "Window too narrow", f"Need >= {n_min} delay points; got {n_in}.")
-            return
-        try:
-            t0 = float(self.var_t0.get()); fw = float(self.var_fw.get())
-        except ValueError:
-            messagebox.showwarning("Invalid IRF", "t₀ and FWHM must be numbers.")
             return
 
         params = dict(

@@ -16,7 +16,7 @@ from tkinter import messagebox, ttk
 from ..origin import _origin_fill_table
 from ..fitting import GlobalAnalysisStopped, compute_eads_from_dads, fit_global_analysis
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL
-from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax
+from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, read_number
 
 
 class GlobalAnalysisDialog(_AnalysisDialog):
@@ -241,15 +241,19 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         if self._running:
             return
         m = self.model
-        tau, fix, st, beta, bfix = self.table.read()
-        if tau.size == 0 or np.any(tau <= 0):
-            messagebox.showwarning("Invalid input", "τ must be > 0.")
-            return
+        # every box is read here, and one that cannot be used is named: no
+        # stand-in value is fitted with instead
         try:
-            t0 = float(self.var_t0.get()); fw = float(self.var_fw.get())
-            lo = float(self.var_tmin.get()); hi = float(self.var_tmax.get())
-        except ValueError:
-            messagebox.showwarning("Invalid input", "Check the IRF / t-range boxes.")
+            tau, fix, st, beta, bfix = self.table.read_checked()
+            t0 = read_number(self.var_t0, "t₀")
+            fw = read_number(self.var_fw, "The IRF FWHM")
+            lo = read_number(self.var_tmin, "The start of the fit range")
+            hi = read_number(self.var_tmax, "The end of the fit range")
+        except ValueError as exc:
+            messagebox.showwarning("Invalid input", str(exc))
+            return
+        if tau.size == 0:
+            messagebox.showwarning("Invalid input", "Add at least one component.")
             return
         if lo > hi:
             lo, hi = hi, lo

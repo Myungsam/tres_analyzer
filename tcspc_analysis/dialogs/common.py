@@ -11,6 +11,18 @@ from tkinter import ttk
 from ..theme import BG, INK_DIM, INK_FAINT, LINE, PANEL
 
 
+def read_number(var, name):
+    """The finite number in an entry box, or ValueError naming the box."""
+    text = var.get().strip()
+    try:
+        value = float(text)
+    except ValueError:
+        raise ValueError(f"{name} is not a number: {text!r}.") from None
+    if not np.isfinite(value):
+        raise ValueError(f"{name} must be a finite number (it is {text}).")
+    return value
+
+
 # ==========================================================================
 # 6. Analysis dialogs - Kinetics + Global analysis, each its own window
 # ==========================================================================
@@ -96,6 +108,23 @@ class ComponentTable(ttk.Frame):
         return [{"tau": r["tau"].get(), "tau_fixed": r["fix"].get(),
                  "stretched": r["st"].get(), "beta": r["beta"].get(),
                  "beta_fixed": r["bfix"].get()} for r in self.rows]
+
+    def read_checked(self):
+        """read(), but an entry that cannot be used raises ValueError naming
+        it instead of being replaced by a stand-in value: a lifetime must be a
+        number above 0, and the exponent of a stretched component a number
+        above 0 and at most 2."""
+        for i, r in enumerate(self.rows):
+            tau = read_number(r["tau"], f"τ of component {i + 1}")
+            if tau <= 0:
+                raise ValueError(f"τ of component {i + 1} must be above 0 ps "
+                                 f"(it is {tau:g}).")
+            if r["st"].get():
+                beta = read_number(r["beta"], f"β of component {i + 1}")
+                if not 0 < beta <= 2:
+                    raise ValueError(f"β of component {i + 1} must be above 0 "
+                                     f"and at most 2 (it is {beta:g}).")
+        return self.read()
 
     def read(self):
         tau, fix, st, beta, bfix = [], [], [], [], []
