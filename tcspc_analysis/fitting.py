@@ -153,8 +153,12 @@ def _lsqminnorm(A, B):
     return X
 
 
-class GlobalAnalysisStopped(Exception):
-    """Raised inside the GA objective when stop_check() reports a cancel."""
+class FitStopped(Exception):
+    """Raised inside a fit's objective when stop_check() reports a cancel."""
+
+
+class GlobalAnalysisStopped(FitStopped):
+    """The same, from the global fit."""
 
 
 def _check_start(t, tau, beta, stretch_on, fwhm, tau_limits):
@@ -498,11 +502,13 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                      beta_init=None, beta_fixed=None, stretch_on=None,
                      t0_init=0.0, t0_fixed=True,
                      fwhm_init=0.15, fwhm_fixed=True,
-                     has_inf=False, irf_mode="skip"):
+                     has_inf=False, irf_mode="skip", stop_check=None):
     """Fit one kinetic trace y(t) to a sum of (possibly stretched) exponentials
     convolved with a Gaussian IRF.  Linear amplitudes solved by VARPRO, the
     non-linear params by Nelder-Mead over a log parameterisation.  Returns a
     dict with keys tau, beta, t0, fwhm, A, fit, residual, info.
+    stop_check(), if given, is polled before every evaluation of the model;
+    when it returns true the fit ends with FitStopped.
     """
     _ensure_scipy()
     t = np.asarray(t, float).ravel()
@@ -595,6 +601,8 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
         return A, Mb @ A
 
     def loss(x):
+        if stop_check is not None and stop_check():
+            raise FitStopped()
         _, fv = unpack(x)
         r = (y - fv)[mask]
         L = float(np.sum(r ** 2))
