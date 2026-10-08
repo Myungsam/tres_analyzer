@@ -272,8 +272,9 @@ class KineticsDialog(_FitDialog):
         if kind == "done":
             self._on_done(*payload)
         elif kind == "stopped":
-            # stopped by Reset or by a new λ: the status already says so
-            if payload == self._job:
+            # stopped by Reset or by a new λ: the status already says so -
+            # unless Stop was pressed after that and it reads "Stopping..."
+            if payload == self._job or getattr(self, "_stop_asked", False):
                 self.var_status.set("Stopped by user.")
         else:
             exc, wl, job = payload

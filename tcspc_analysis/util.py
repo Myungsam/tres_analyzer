@@ -39,8 +39,10 @@ def wavelength_to_rgb(wl):
 def fwhm_of(trace, res_ps):
     """Peak position (ps) and FWHM (ps) of a histogram, at native resolution.
 
-    The width is measured above the baseline - the median of the trace: an
-    IRF is short, so most of its bins hold only background - and the two
+    The width is measured above the baseline - the median of the trace up to
+    its last bin with counts: an IRF is short, so most of those bins hold only
+    background (the empty rest of a record that is longer than the sync
+    period would make the median 0) - and the two
     half-height crossings are interpolated between the bins on either side
     (counting whole bins read 4 to 20 % wide for an IRF of 30 to 60 ps at
     4 ps per bin). A trace without a peak above its baseline gives 0. The
@@ -48,7 +50,8 @@ def fwhm_of(trace, res_ps):
     """
     trace = np.asarray(trace, float)
     pk = int(np.argmax(trace))
-    base = float(np.median(trace))
+    filled = np.nonzero(trace)[0]
+    base = float(np.median(trace[:filled[-1] + 1])) if filled.size else 0.0
     if not trace[pk] > base:
         return pk * res_ps, 0.0
     half = base + (trace[pk] - base) / 2.0

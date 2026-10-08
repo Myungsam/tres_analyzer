@@ -58,6 +58,7 @@ def _origin_put(ws, columns):
     object and is best effort: the data are numbers either way.
     """
     ws.clear()
+    ws.cols = len(columns)              # first: a format is set on a column that exists
     for j, values in enumerate(columns):
         try:
             from originpro.config import po
@@ -65,7 +66,6 @@ def _origin_put(ws, columns):
         except Exception:               # noqa: BLE001 - see the docstring
             pass
         ws.from_list(j, [float(v) for v in values])
-    ws.cols = len(columns)
 
 
 def _origin_fill_tres(ws, times, Z, wls):

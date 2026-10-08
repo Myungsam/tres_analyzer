@@ -177,7 +177,10 @@ class _AnalysisDialog:
         self.win.title(title)
         # the sizes are given for a display at 100 %
         self.win.geometry(scaled_geometry(self.win, geometry))
-        self.win.minsize(*(px(self.win, v) for v in minsize))
+        # ... and neither may ask for more than the screen has
+        room = (self.win.winfo_screenwidth() - px(self.win, 40),
+                self.win.winfo_screenheight() - px(self.win, 100))
+        self.win.minsize(*(min(px(self.win, v), r) for v, r in zip(minsize, room)))
         self.win.configure(bg=BG)
         self.alive = True
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -364,6 +367,7 @@ class _FitDialog(_AnalysisDialog):
     def _started(self):
         """The worker thread is running: Run off, Stop on, busy cursor."""
         self._running = True
+        self._stop_asked = False
         self.btn_run.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.win.configure(cursor="watch")
@@ -381,6 +385,7 @@ class _FitDialog(_AnalysisDialog):
     def stop_fit(self):
         if self._running:
             self._stop.set()
+            self._stop_asked = True         # the status now reads "Stopping..."
             self.btn_stop.configure(state="disabled")
             self.var_status.set("Stopping...")
 

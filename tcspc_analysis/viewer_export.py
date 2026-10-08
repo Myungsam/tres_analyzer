@@ -130,8 +130,8 @@ class _Export:
     def _extent_of(self, wls, times):
         """Pixel edges of the exported block, in data coordinates."""
         m = self.model
-        dw = wavelength_grid(wls)[2] if len(wls) > 1 else \
-            (m.wl_edges[1] - m.wl_edges[0])
+        # one curve alone: as wide as a column of the map (not as the map)
+        dw = wavelength_grid(wls)[2] if len(wls) > 1 else m.wl_step
         return [wls[0] - dw / 2, wls[-1] + dw / 2,
                 times[0] - m.dt_ps / 2, times[-1] + m.dt_ps / 2]
 

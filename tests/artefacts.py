@@ -162,21 +162,30 @@ class FakeSheet:
         self._log, self.name, self._columns = log, name, {}
 
     def __setattr__(self, key, value):
-        if key == "cols" and self._columns:
-            # Since 1.6 (D-27) the table arrives column by column (from_list) and the column count is set
-            # after it. It is recorded as the one table from_df() used to get - same shape, same hash of the
-            # numbers - so that the log stays comparable with a reference made before.
-            table = np.column_stack([self._columns[j] for j in sorted(self._columns)])
-            self._log.append(["sheet.from_df", self.name, {
-                "shape": list(table.shape),
-                "sha": hashlib.sha256(np.ascontiguousarray(table).tobytes()).hexdigest()}])
-            self._columns.clear()
-        if not key.startswith("_") and key != "name":
+        if key == "cols":
+            # Since 1.6 (D-27) the column count is set first and the table then arrives column by column
+            # (from_list). It is recorded as up to 1.5 - the one table from_df() got (same shape, same hash
+            # of the numbers), then the column count - so that the log stays comparable with a reference
+            # made before. Both entries are written when the labels start (set_label).
+            object.__setattr__(self, "_held_cols", ["sheet.set", self.name, key, digest(value)])
+        elif not key.startswith("_") and key != "name":
             self._log.append(["sheet.set", self.name, key, digest(value)])
         object.__setattr__(self, key, value)
 
     def from_list(self, j, data, *a, **k):
         self._columns[j] = np.asarray(data, float)
+
+    def _flush(self):
+        if self._columns:
+            table = np.column_stack([self._columns[j] for j in sorted(self._columns)])
+            self._log.append(["sheet.from_df", self.name, {
+                "shape": list(table.shape),
+                "sha": hashlib.sha256(np.ascontiguousarray(table).tobytes()).hexdigest()}])
+            self._columns.clear()
+        held = getattr(self, "_held_cols", None)
+        if held:
+            self._log.append(held)
+            object.__setattr__(self, "_held_cols", None)
 
     def clear(self):
         self._log.append(["sheet.clear", self.name])
@@ -185,6 +194,7 @@ class FakeSheet:
         self._log.append(["sheet.from_df", self.name, digest(df)])
 
     def set_label(self, j, text, kind):
+        self._flush()
         self._log.append(["sheet.set_label", self.name, j, text, kind])
 
 

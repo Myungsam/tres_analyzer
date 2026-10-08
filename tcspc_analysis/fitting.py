@@ -278,6 +278,40 @@ def _into(x0, limits):
     return np.clip(x0, lo, hi), lo, hi
 
 
+def _need_fwhm_start(fwhm_init, fwhm_fixed):
+    """A FWHM that is to be fitted needs a start the limits can be built
+    from. (A fixed one of 0 is refused at the end of the fit, by _refuse();
+    a free one of 0 used to be fitted with no limits at all, or stopped
+    scipy with a message of its own.)"""
+    if not fwhm_fixed and not (np.isfinite(fwhm_init) and fwhm_init > 0):
+        raise FitInputError(
+            f"The IRF FWHM must start above 0 ps (it is {fwhm_init:g}).")
+
+
+def _simplex(x0, lo, hi):
+    """Nelder-Mead's first simplex inside the limits: scipy's own - every
+    parameter in turn raised by 5 % (by 0.00025 from zero) - except that a
+    step which would leave the limits is taken the other way.
+
+    scipy cuts a corner outside the limits back onto the limit. For a start
+    ON the lower limit with a negative value - the log of a lifetime below
+    1 ps, i.e. time bins under 10 ps - 5 % "up" is further down, so that
+    corner landed on the start itself and the parameter never moved: the fit
+    ended on the limit and said it had converged.
+    """
+    x0 = np.asarray(x0, float)
+    sim = np.tile(x0, (x0.size + 1, 1))
+    for k in range(x0.size):
+        step = 0.05 * x0[k] if x0[k] != 0 else 0.00025
+        if not lo[k] <= x0[k] + step <= hi[k]:
+            step = -step
+        if not lo[k] <= x0[k] + step <= hi[k]:      # a range narrower than the step
+            far = hi[k] if hi[k] - x0[k] >= x0[k] - lo[k] else lo[k]
+            step = 0.5 * (far - x0[k])
+        sim[k + 1, k] = x0[k] + step
+    return sim
+
+
 def _refuse(t, tau, beta, stretch_on, fwhm, tau_limits):
     """Say, in words, why the model is not evaluated at these parameters.
 
@@ -399,6 +433,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         raise ValueError("beta_init / stretch_on / beta_fixed length "
                          "must match tau_init")
     any_stretched = bool(stretch_on.any())
+    _need_fwhm_start(fwhm_init, fwhm_fixed)
     if n_nl == 0 and not has_inf:
         raise FitInputError("Nothing to fit: no component and no τ = ∞ offset.")
 
@@ -437,8 +472,14 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     if skip_mask_active:
         skip_mask = t_arr > (float(t0_init) + 3.0 * float(fwhm_init)
                              / (2.0 * np.sqrt(2.0 * np.log(2.0))))
-        if int(skip_mask.sum()) <= n_nl + (1 if has_inf else 0):
-            skip_mask = np.ones(N, dtype=bool)
+        need = n_nl + (1 if has_inf else 0) + 1
+        if int(skip_mask.sum()) < need:
+            # as fit_single_trace does. (Up to 1.5 the whole range was fitted
+            # instead, rise included, with a model that has no IRF - silently.)
+            raise FitInputError(
+                f"Not enough data points for the fit (need >= {need}, have "
+                f'{int(skip_mask.sum())} after the IRF: mode "skip" leaves out '
+                f"the delays up to t₀ + 3σ).")
     n_model = [0]                   # times the model was really evaluated
     n_cells = [D.size]              # residuals in the loss of the latest call
 
@@ -558,7 +599,9 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         init_cells = n_cells[0]
         res = _minimize(lambda x: objective(x)[0], x0, method="Nelder-Mead",
                         bounds=limits,
-                        options=dict(NM_OPTIONS, fatol=_nm_fatol(D)))
+                        options=dict(NM_OPTIONS, fatol=_nm_fatol(D),
+                                     **({} if limits is None else
+                                        {"initial_simplex": _simplex(x0, x_lo, x_hi)})))
         loss, A_out, fit_out = objective(res.x)
         iters = int(res.nit)
         n_fev = int(getattr(res, "nfev", iters))
@@ -665,6 +708,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
     beta_fixed = np.asarray(beta_fixed, bool).ravel()
     stretch_on = np.asarray(stretch_on, bool).ravel()
 
+    _need_fwhm_start(fwhm_init, fwhm_fixed)
     mask = np.isfinite(y)
     if irf_mode.lower() == "skip" and stretch_on.any():
         sig = fwhm_init / (2.0 * np.sqrt(2.0 * np.log(2.0)))
@@ -693,7 +737,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
     limits = _limits(t, fwhm_init, free_tau_idx.size, free_beta_idx.size,
                      not t0_fixed, not fwhm_fixed)
     if limits is not None and x0.size:
-        x0 = _into(x0, limits)[0]
+        x0, x_lo, x_hi = _into(x0, limits)
 
     cur = {"tau": tau_init.copy(), "beta": beta_init.copy(),
            "t0": float(t0_init), "fwhm": float(fwhm_init)}
@@ -744,7 +788,9 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
 
     if x0.size:
         res = _minimize(loss, x0, method="Nelder-Mead", bounds=limits,
-                        options=dict(NM_OPTIONS, fatol=_nm_fatol(y[mask])))
+                        options=dict(NM_OPTIONS, fatol=_nm_fatol(y[mask]),
+                                     **({} if limits is None else
+                                        {"initial_simplex": _simplex(x0, x_lo, x_hi)})))
         A_final, fit_v = unpack(res.x)
         iters = int(res.nit)
         fval = float(res.fun)

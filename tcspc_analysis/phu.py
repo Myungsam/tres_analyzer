@@ -125,6 +125,9 @@ def read_phu(path):
     nbins = whole(need("HistResDscr_HistogramBins", 0), "bin count")
     if nbins <= 0:
         raise ValueError(f"Bad header: {nbins} time bins per curve.")
+    if ncurves * 4 * nbins > len(data):     # before anything is done once per curve
+        raise ValueError(f"Bad header: {ncurves} curves of {nbins} bins do not "
+                         f"fit into the file ({len(data):,} bytes).")
     res_s = need("HistResDscr_MDescResolution", 0)
     if not isinstance(res_s, float) or not np.isfinite(res_s) or res_s <= 0:
         raise ValueError(f"Bad header: the time resolution is {res_s!r} s.")
