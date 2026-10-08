@@ -266,10 +266,10 @@ class KineticsDialog(_AnalysisDialog):
             t0 = read_number(self.var_t0, "t₀")
             fw = read_number(self.var_fw, "The IRF FWHM")
         except ValueError as exc:
-            messagebox.showwarning("Invalid input", str(exc))
+            messagebox.showwarning("Invalid input", str(exc), parent=self.win)
             return
         if tau.size == 0:
-            messagebox.showwarning("No components", "Add at least one component.")
+            messagebox.showwarning("No components", "Add at least one component.", parent=self.win)
             return
         t_full, y_full, wl_actual, n_avg = self._get_trace()
         if t_lo > t_hi:
@@ -279,7 +279,7 @@ class KineticsDialog(_AnalysisDialog):
         n_min = int(tau.size) + (1 if self.var_inf.get() else 0) + 1
         if n_in < n_min:
             messagebox.showwarning(
-                "Window too narrow", f"Need >= {n_min} delay points; got {n_in}.")
+                "Window too narrow", f"Need >= {n_min} delay points; got {n_in}.", parent=self.win)
             return
 
         params = dict(
@@ -355,7 +355,7 @@ class KineticsDialog(_AnalysisDialog):
                         self.txt.delete("1.0", "end")
                         self._refresh_plot(replot_data=True)
                     messagebox.showerror(
-                        "Fit error", f"Fit failed:\n{self._worker_failed(exc)}")
+                        "Fit error", f"Fit failed:\n{self._worker_failed(exc)}", parent=self.win)
         except queue.Empty:
             pass
         finally:                # an error above must not end the polling
@@ -462,7 +462,7 @@ class KineticsDialog(_AnalysisDialog):
         fit parameters in the CSV preamble and the opju column comment.
         """
         if self._last is None:
-            messagebox.showwarning("No fit", "Run the fit first.")
+            messagebox.showwarning("No fit", "Run the fit first.", parent=self.win)
             return
         r = self._last
         phu_base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]

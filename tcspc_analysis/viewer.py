@@ -123,7 +123,7 @@ class TRESViewer:
     def open_kinetics(self):
         """Open (or raise) the single-wavelength kinetics-fit window."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.")
+            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
             return
         if self._kinetics_win is not None and self._kinetics_win.alive:
             self._kinetics_win.lift_and_refresh()
@@ -133,7 +133,7 @@ class TRESViewer:
     def open_global_analysis(self):
         """Open (or raise) the global-analysis window."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.")
+            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
             return
         if self._global_win is not None and self._global_win.alive:
             self._global_win.lift_and_refresh()
@@ -143,7 +143,7 @@ class TRESViewer:
     def open_crop(self):
         """Open (or raise) the crop window (wavelength + time window)."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.")
+            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
             return
         if self._crop_win is not None and self._crop_win.alive:
             self._crop_win.lift_and_refresh()
@@ -153,7 +153,7 @@ class TRESViewer:
     def open_mask(self):
         """Open (or raise) the wavelength-mask window."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.")
+            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
             return
         if self._mask_win is not None and self._mask_win.alive:
             self._mask_win.lift_and_refresh()
@@ -408,7 +408,7 @@ class TRESViewer:
             self.win.config(cursor="")
             self.var_meta.set(info)
             if "error" in got:
-                messagebox.showerror("Could not read file", str(got["error"]))
+                messagebox.showerror("Could not read file", str(got["error"]), parent=self.win)
             else:
                 self._show_loaded(got["phu"], path)
 
@@ -419,7 +419,7 @@ class TRESViewer:
         try:
             phu = read_phu(path)
         except Exception as exc:
-            messagebox.showerror("Could not read file", str(exc))
+            messagebox.showerror("Could not read file", str(exc), parent=self.win)
             return
         self._show_loaded(phu, path)
 
@@ -462,7 +462,7 @@ class TRESViewer:
             messagebox.showerror(
                 "Could not read file",
                 f"{os.path.basename(path)} was read but cannot be shown:\n"
-                f"{type(exc).__name__}: {exc}")
+                f"{type(exc).__name__}: {exc}", parent=self.win)
             return
         # the pop-up windows belong to the old file's data - drop them
         self._close_dialogs()
@@ -1031,7 +1031,7 @@ class TRESViewer:
         if self._busy_reading():
             return
         if not self.model:
-            messagebox.showinfo("Nothing to save", "Load a .phu file first.")
+            messagebox.showinfo("Nothing to save", "Load a .phu file first.", parent=self.win)
             return
 
         base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]
@@ -1048,7 +1048,7 @@ class TRESViewer:
         try:
             self._write_map_image(path, wls, times, Z)
         except Exception as exc:
-            messagebox.showerror("Save failed", str(exc))
+            messagebox.showerror("Save failed", str(exc), parent=self.win)
             return
 
         messagebox.showinfo(
@@ -1056,7 +1056,7 @@ class TRESViewer:
             f"{Z.shape[1]} wavelengths x {Z.shape[0]} time bins "
             f"({wls[0]:.0f}-{wls[-1]:.0f} nm, {times[0]:,.0f}-{times[-1]:,.0f} ps)"
             + ("  [current zoom]" if self.view else "") + "\n\n"
-            f"image  {path}")
+            f"image  {path}", parent=self.win)
 
     def _export_region(self):
         """The map as (wavelengths, times, Z[time, wavelength]), zoom applied."""
@@ -1240,7 +1240,7 @@ class TRESViewer:
         if self._loading:
             messagebox.showinfo(
                 "Reading a file",
-                "A file is being opened. Try again when it is on screen.")
+                "A file is being opened. Try again when it is on screen.", parent=self.win)
         return self._loading
 
     def export_data(self):
@@ -1253,14 +1253,14 @@ class TRESViewer:
         if self._exporting or self._busy_reading():
             return
         if not self.model:
-            messagebox.showinfo("Nothing to export", "Load a .phu file first.")
+            messagebox.showinfo("Nothing to export", "Load a .phu file first.", parent=self.win)
             return
         want_csv = self.var_out_csv.get()
         want_opju = self.var_out_opju.get()
         if not (want_csv or want_opju):
             messagebox.showwarning(
                 "No output selected",
-                "Tick at least one of CSV / .opju before exporting.")
+                "Tick at least one of CSV / .opju before exporting.", parent=self.win)
             return
 
         phu_base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]
@@ -1288,7 +1288,7 @@ class TRESViewer:
             folder = os.path.dirname(chosen) or data_dir or "."
             tres_csv = os.path.join(folder, f"{stem}_TRESmap.csv")
             steady_csv = os.path.join(folder, f"{stem}_steadystate.csv")
-            if not self._confirm_replace([tres_csv, steady_csv]):
+            if not self._confirm_replace([tres_csv, steady_csv], self.win):
                 return
 
         # -- which opju to write into --
@@ -1315,13 +1315,13 @@ class TRESViewer:
                 written.append(f".opju  {opju_path}\n    tabs: "
                                + ", ".join(tabs))
         except Exception as exc:
-            messagebox.showerror("Export failed", self._failure_text(exc, on_disk))
+            messagebox.showerror("Export failed", self._failure_text(exc, on_disk), parent=self.win)
             return
 
-        messagebox.showinfo("Export complete", "\n\n".join(written))
+        messagebox.showinfo("Export complete", "\n\n".join(written), parent=self.win)
 
     @staticmethod
-    def _confirm_replace(paths):
+    def _confirm_replace(paths, parent=None):
         """Ask before writing over files that exist. The file dialog can only
         ask about the base name typed into it, which is not one of the files
         that get written ({base}_TRESmap.csv, {base}_kinetics.csv, ...)."""
@@ -1331,7 +1331,7 @@ class TRESViewer:
         return messagebox.askyesno(
             "Replace existing files?",
             "These files already exist:\n\n" + "\n".join(have)
-            + "\n\nReplace them?")
+            + "\n\nReplace them?", parent=parent)
 
     @staticmethod
     def _failure_text(exc, on_disk):
@@ -1514,7 +1514,7 @@ class TRESViewer:
         if not (want_csv or want_opju):
             messagebox.showwarning(
                 "No output selected",
-                "Tick CSV and/or .opju on the main window before exporting.")
+                "Tick CSV and/or .opju on the main window before exporting.", parent=(owner or self.win))
             return
 
         data_dir = self._default_data_dir()
@@ -1546,7 +1546,7 @@ class TRESViewer:
             stem = base or default_base
             folder = os.path.dirname(chosen) or data_dir or "."
             files = [os.path.join(folder, f"{stem}_{p['suffix']}.csv") for p in parts]
-            if not self._confirm_replace(files):
+            if not self._confirm_replace(files, owner or self.win):
                 return
         opju_path = None
         if want_opju:
@@ -1572,10 +1572,10 @@ class TRESViewer:
                         [(f"{stem}_{p['suffix']}", p["fill"]) for p in parts])
                 written.append(f".opju  {opju_path}\n    tabs: " + ", ".join(tabs))
         except Exception as exc:
-            messagebox.showerror("Export failed", self._failure_text(exc, on_disk))
+            messagebox.showerror("Export failed", self._failure_text(exc, on_disk), parent=(owner or self.win))
             return
 
-        messagebox.showinfo("Export complete", "\n\n".join(written))
+        messagebox.showinfo("Export complete", "\n\n".join(written), parent=(owner or self.win))
 
     def _write_steady_state_csv(self, path):
         """One row per wavelength: summed counts, and the same normalised to 1.

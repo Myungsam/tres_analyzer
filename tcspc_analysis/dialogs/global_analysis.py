@@ -259,17 +259,17 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             lo = read_number(self.var_tmin, "The start of the fit range")
             hi = read_number(self.var_tmax, "The end of the fit range")
         except ValueError as exc:
-            messagebox.showwarning("Invalid input", str(exc))
+            messagebox.showwarning("Invalid input", str(exc), parent=self.win)
             return
         if tau.size == 0:
-            messagebox.showwarning("Invalid input", "Add at least one component.")
+            messagebox.showwarning("Invalid input", "Add at least one component.", parent=self.win)
             return
         if lo > hi:
             lo, hi = hi, lo
         tsel = (m.times >= lo) & (m.times <= hi)
         if int(tsel.sum()) < tau.size + 2:
             messagebox.showwarning("Window too narrow",
-                                   "Widen the fit t-range.")
+                                   "Widen the fit t-range.", parent=self.win)
             return
         # snapshot the data so the worker never touches the live model
         D = m.E[:, tsel].copy()
@@ -288,7 +288,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                 f"Global analysis needs at least 2 wavelengths; {D.shape[0]} "
                 f"left ({n_masked} of {keep.size} in range are masked). "
                 + ("Clear some masks or widen the crop." if n_masked
-                   else "Widen the crop."))
+                   else "Widen the crop."), parent=self.win)
             return
         method = "trf" if self.var_opt.get().startswith("TRF") else "nm"
         params = dict(
@@ -305,6 +305,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._running = True
         self.btn_run.configure(state="disabled")
         self.btn_stop.configure(state="normal")
+        self.win.configure(cursor="watch")
         self.var_status.set("Fitting...")
 
     def _worker(self, D, t, wls_fit, params, job):
@@ -346,7 +347,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                                      else self.var_status.get())
                 elif kind == "error":
                     self._finish_run("Fit failed.")
-                    messagebox.showerror("Fit error", self._worker_failed(payload))
+                    messagebox.showerror("Fit error", self._worker_failed(payload), parent=self.win)
         except queue.Empty:
             pass
         finally:                # an error above must not end the polling
@@ -357,6 +358,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._running = False
         self.btn_run.configure(state="normal")
         self.btn_stop.configure(state="disabled")
+        self.win.configure(cursor="")
         self.var_status.set(status)
 
     def _on_done(self, payload):
@@ -542,7 +544,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         so the tabs land in Book1 alongside the TRES map.
         """
         if self._last is None:
-            messagebox.showwarning("No fit", "Run the fit first.")
+            messagebox.showwarning("No fit", "Run the fit first.", parent=self.win)
             return
         res = self._last
         phu_base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]
