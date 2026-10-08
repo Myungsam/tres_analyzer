@@ -1315,6 +1315,17 @@ class TRESViewer:
         return os.path.normpath(path)
 
     @staticmethod
+    def _install_hint(packages):
+        """How to get missing packages: a pip line for this Python, or - in the
+        .exe, where nothing can be installed - what to do instead."""
+        if getattr(sys, "frozen", False):
+            return ("This build of the program does not contain them, and "
+                    "nothing can be added to it. Export as CSV instead, or run "
+                    "the program from source (see SETUP.md).")
+        return (f'Install into {sys.executable}:\n'
+                f'  "{sys.executable}" -m pip install {packages}')
+
+    @staticmethod
     def _require_pandas():
         """Lazy pandas import with a friendly install hint (opju needs it)."""
         try:
@@ -1323,8 +1334,7 @@ class TRESViewer:
         except ImportError as exc:
             raise RuntimeError(
                 "Writing .opju needs pandas.\n"
-                f'Install it into {sys.executable}:\n'
-                f'  "{sys.executable}" -m pip install pandas') from exc
+                + TRESViewer._install_hint("pandas")) from exc
 
     def _opju_write_tabs(self, opju_path, tabs):
         """Open (or create) opju_path, ensure a 'Book1' workbook, fill each tab.
@@ -1342,8 +1352,7 @@ class TRESViewer:
             raise RuntimeError(
                 "Writing .opju needs OriginLab Origin plus the originpro and "
                 "pywin32 packages.\n"
-                f'Install them into {sys.executable}:\n'
-                f'  "{sys.executable}" -m pip install originpro pywin32') from exc
+                + self._install_hint("originpro pywin32")) from exc
 
         folder = os.path.dirname(opju_path)
         exists = os.path.exists(opju_path)
