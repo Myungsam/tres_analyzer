@@ -25,13 +25,15 @@ REM v2: added the .opju export libraries (pandas, pywin32, originpro) so a
 REM     distributed copy can write .opju on a fresh machine out of the box.
 REM v3: the .opju libraries are installed in a step of their own, so a PC on
 REM     which one of them cannot be installed still gets the program.
-set "REQ_VERSION=3"
+REM v4: the tested versions (requirements-lock.txt) are installed first.
+set "REQ_VERSION=4"
 set "VENVDIR=%LOCALAPPDATA%\TCSPC_analysis"
 set "VENV=%VENVDIR%\venv"
 set "VPY=%VENV%\Scripts\python.exe"
 set "STAMP=%VENV%\deps_ok.txt"
 set "REQ=%~dp0requirements.txt"
 set "REQ_OPJU=%~dp0requirements-opju.txt"
+set "REQ_LOCK=%~dp0requirements-lock.txt"
 
 REM ---- 1) find a base Python to build the environment -----------
 REM Validate each candidate by actually running it (skips the Windows
@@ -71,6 +73,15 @@ if defined HAVE if "%HAVE%"=="%REQ_VERSION%" set "NEED=0"
 if "%NEED%"=="0" goto launch_prep
 echo   Checking / installing required packages ...
 "%VPY%" -m pip install --upgrade pip
+REM First the exact versions the program was tested with. They exist as wheels
+REM for the Python they were tested on; another Python may lack one, and then
+REM the newest versions that requirements.txt allows are taken instead.
+"%VPY%" -m pip install -r "%REQ_LOCK%"
+if not errorlevel 1 goto deps_done
+echo.
+echo   The tested package versions are not all available for this Python -
+echo   installing the newest ones instead.
+echo.
 "%VPY%" -m pip install -r "%REQ%"
 if errorlevel 1 goto pip_fail
 REM The .opju export only: the program must start without these.
@@ -81,6 +92,7 @@ if errorlevel 1 (
     echo   Everything else works and CSV export is unaffected.
     echo.
 )
+:deps_done
 > "%STAMP%" echo %REQ_VERSION%
 
 REM ---- 4) point the venv's tkinter at the base Python's Tcl/Tk --

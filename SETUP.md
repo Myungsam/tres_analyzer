@@ -16,7 +16,8 @@
    - find Python,
    - build an isolated environment at
      `%LOCALAPPDATA%\TCSPC_analysis\venv`,
-   - install the packages in `requirements.txt` into it,
+   - install the packages into it (the tested versions listed in
+     `requirements-lock.txt`),
    - then open the app.
 4. Every later run detects that environment and starts immediately.
 
@@ -38,14 +39,21 @@ compiled copies of the `tcspc_analysis` modules are written there and no
 
 | File | Contents | Installed |
 |------|----------|-----------|
-| `requirements.txt` | numpy, scipy, matplotlib, pandas, pywin32, originpro | automatically, on first run |
-| `requirements-optional.txt` | tensorflow (FLIM GPU only) | manually, only if you want GPU |
+| `requirements-lock.txt` | the exact versions of everything below that the program was tested with | automatically, on first run |
+| `requirements.txt` | numpy, scipy, matplotlib (what the program needs to run) | instead of the lock file, if this Python has no wheel for a pinned version |
+| `requirements-opju.txt` | pandas, pywin32, originpro (the `.opju` export) | after `requirements.txt`; if that fails the launcher says so and the program still starts |
+| `requirements-optional.txt` | tensorflow (FLIM GPU only) | manually, see below |
 
 `tkinter` ships with the standard python.org installer, so it is not listed.
 
 Everything the app normally does — viewing PHU/TRES and PTU/FLIM, Kinetics and
-Global-analysis fits, and both **CSV** and **`.opju`** export — is covered by
-`requirements.txt`, so it all works on a fresh machine with no manual step.
+Global-analysis fits, and both **CSV** and **`.opju`** export — is installed by
+the launcher, so it all works on a fresh machine with no manual step.
+
+The lock file is a `pip freeze` of the environment the regression tests were
+run in and the .exe is built from. A fit's behaviour has depended on the
+numpy / scipy build before (fixed in 1.4.2), so change it only together with a
+run of the tests.
 
 > **`.opju` (Origin) export** also needs **OriginLab Origin** itself installed
 > on the PC: `pandas`, `pywin32` and `originpro` only drive Origin over COM.
@@ -67,15 +75,17 @@ want GPU-accelerated FLIM:
 
 - To rebuild the environment from scratch, delete
   `%LOCALAPPDATA%\TCSPC_analysis\` and run the `.bat` again.
-- If `requirements.txt` changes, bump `REQ_VERSION` near the top of
-  `TCSPC_analysis.bat` (e.g. `1` → `2`); the next launch reinstalls.
+- If one of the requirement files changes, raise `REQ_VERSION` near the top of
+  `TCSPC_analysis.bat` by one; the next launch installs again.
 
 ## Troubleshooting
 
 - **“Python was not found.”** Install Python 3 and tick *Add to PATH*, or open
   a terminal and confirm `python --version` works.
 - **Install failed.** Re-run the `.bat` with an internet connection, or run the
-  manual `pip install -r requirements.txt` line it prints.
+  manual `pip install -r requirements.txt` line it prints. If only the `.opju`
+  packages could not be installed, the launcher prints a note and starts the
+  program anyway; everything but the `.opju` export works.
 - **The console window stays open** behind the app. That is normal — it shows
   any error messages. Close it after quitting the app. To launch with no
   console, run `...\venv\Scripts\pythonw.exe -B run_tcspc_analysis.py` from this
@@ -149,7 +159,7 @@ set "BUILD=%LOCALAPPDATA%\TCSPC_analysis\build"
 for /f "delims=" %%P in ('call "%VENV%\Scripts\python" -c "import sys;print(sys.base_prefix)"') do set "BP=%%P"
 set "TCL_LIBRARY=%BP%\tcl\tcl8.6"
 set "TK_LIBRARY=%BP%\tcl\tk8.6"
-"%VENV%\Scripts\python" -m pip install --only-binary=:all: pyinstaller
+"%VENV%\Scripts\python" -m pip install --only-binary=:all: pyinstaller==6.22.3
 "%VENV%\Scripts\python" -m PyInstaller --noconfirm --clean --onedir --windowed ^
     --icon "%CD%\TCSPC_analysis.ico" --name TCSPC_analysis ^
     --workpath "%BUILD%\work" --specpath "%BUILD%" --distpath "%BUILD%\dist" ^
