@@ -248,6 +248,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
 
     skip_mask_active = any_stretched and irf_mode.lower() == "skip"
     n_model = [0]                   # times the model was really evaluated
+    n_cells = [D.size]              # residuals in the loss of the latest call
 
     def build_basis_local(tau_v, beta_v, t0_v, fwhm_v):
         if not any_stretched:
@@ -268,6 +269,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         nonlocal tau_cur, beta_cur, t0_cur, fwhm_cur
         if stop_check is not None and stop_check():
             raise GlobalAnalysisStopped()
+        n_cells[0] = D.size
         idx = 0
         for j in range(n_free_tau):
             tau_cur[idx_free_tau[j]] = np.exp(x[idx]); idx += 1
@@ -338,6 +340,8 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
             R = R[:, col_mask]
         mfin = np.isfinite(R)
         loss = float(np.sum(R[mfin] ** 2)) if np.any(mfin) else 1e30
+        if np.any(mfin):            # masked delays and NaN cells are not in it
+            n_cells[0] = int(mfin.sum())
         return loss, As, fit_M
 
     method_lc = str(method).lower()
@@ -353,9 +357,11 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         iters = 0
         n_fev = 1
         init_loss = loss
+        init_cells = n_cells[0]
         verdict = (True, 0, "No free parameter: amplitudes only.")
     elif method_used == "trf":
         init_loss, _, _ = objective(x0)
+        init_cells = n_cells[0]
 
         def _residuals(x):
             _, _, fit_M = objective(x)
@@ -376,6 +382,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         verdict = (bool(res.success), int(res.status), str(res.message))
     else:
         init_loss, _, _ = objective(x0)
+        init_cells = n_cells[0]
         res = _minimize(lambda x: objective(x)[0], x0, method="Nelder-Mead",
                         options={"xatol": 1e-8, "fatol": _nm_fatol(D),
                                  "maxiter": 5000, "maxfev": 20000,
@@ -392,9 +399,9 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         "rss": loss, "iters": iters, "nfev": n_fev, "method": method_used,
         "success": verdict[0], "status": verdict[1], "message": verdict[2],
         "n_objective": n_model[0],
-        "rms": float(np.sqrt(loss / D.size)),
+        "rms": float(np.sqrt(loss / n_cells[0])),
         "initialLoss": init_loss,
-        "initialRMS": float(np.sqrt(init_loss / D.size)),
+        "initialRMS": float(np.sqrt(init_loss / init_cells)),
         "irf_mode": irf_mode if any_stretched else "closed-form",
     }
     return {
