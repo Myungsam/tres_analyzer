@@ -1167,13 +1167,16 @@ class TRESViewer:
         wins = [self.win] + ([owner] if owner not in (None, self.win) else [])
         info = self.var_meta.get()
         self._exporting = True
-        self.btn_export.configure(state="disabled")
-        self.var_meta.set("Writing the .opju - Origin is being started, "
-                          "this can take a while ...")
-        for w in wins:
-            w.config(cursor="watch")
-        self.win.update_idletasks()
         try:
+            self.btn_export.configure(state="disabled")
+            self.var_meta.set("Writing the .opju - Origin is being started, "
+                              "this can take a while ...")
+            for w in wins:
+                try:
+                    w.config(cursor="watch")
+                except tk.TclError:     # the analysis window was closed meanwhile
+                    pass
+            self.win.update_idletasks()
             yield
         finally:
             self._exporting = False
