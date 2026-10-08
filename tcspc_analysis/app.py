@@ -9,6 +9,8 @@ from .theme import apply_theme
 from .flim import FLIMViewer
 from .viewer import TRESViewer
 from .freezelog import FreezeLog
+from .paths import program_dir
+from .version import APP_VERSION
 
 
 def initial_window_size(screen_w, screen_h):
@@ -39,7 +41,17 @@ def main():
         path = None
 
     root = tk.Tk()
-    root.title("PicoHarp 300 post-processing - PHU/TRES + PTU/FLIM")
+    root.title("PicoHarp 300 post-processing - PHU/TRES + PTU/FLIM"
+               f"   |   TCSPC_analysis {APP_VERSION}")
+    # the program's icon for this window and every window it opens: the file
+    # beside the launcher or, in the .exe, the one built into the .exe
+    icon = (sys.executable if getattr(sys, "frozen", False)
+            else os.path.join(program_dir(), "TCSPC_analysis.ico"))
+    if os.path.exists(icon):
+        try:
+            root.iconbitmap(default=icon)
+        except tk.TclError:
+            pass
     w, h = initial_window_size(root.winfo_screenwidth(), root.winfo_screenheight())
     root.geometry(f"{w}x{h}")
     root.minsize(min(980, w), min(660, h))
