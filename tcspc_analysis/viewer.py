@@ -2,6 +2,7 @@
 import glob
 import os
 import sys
+import threading
 
 import numpy as np
 
@@ -67,7 +68,9 @@ class TRESViewer:
                           font=("TkFixedFont", 9))
         entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
-        ttk.Button(bar, text="Open file...", command=self.open_dialog).pack(side="left")
+        self._loading = False                 # a file is being read (load_async)
+        self.btn_open = ttk.Button(bar, text="Open file...", command=self.open_dialog)
+        self.btn_open.pack(side="left")
         ttk.Button(bar, text="Save map image...",
                    command=self.save_map_image).pack(side="left", padx=(6, 0))
 
@@ -331,15 +334,59 @@ class TRESViewer:
             filetypes=[("PicoQuant histogram", "*.phu"), ("All files", "*.*")],
         )
         if path:
-            self.load(path)
+            self.load_async(path)
+
+    def load_async(self, path):
+        """Open ``path`` without holding up the window: what the Open button does.
+
+        The file is read on a worker thread - one that Windows first has to
+        fetch (an online-only OneDrive file) can take a while - and the window
+        says so meanwhile. Everything after the read happens back here on the
+        main thread, exactly as in load().
+        """
+        if self._loading:
+            return
+        got = {}
+
+        def read():
+            try:
+                got["phu"] = read_phu(path)
+            except Exception as exc:        # noqa: BLE001 - shown in the box below
+                got["error"] = exc
+
+        worker = threading.Thread(target=read, daemon=True)
+        worker.start()
+        self._loading = True
+        info = self.var_meta.get()
+        self.btn_open.configure(state="disabled")
+        self.win.config(cursor="watch")
+        self.var_meta.set(f"Reading {os.path.basename(path)} ...")
+
+        def poll():
+            if worker.is_alive():
+                self.win.after(50, poll)
+                return
+            self._loading = False
+            self.btn_open.configure(state="normal")
+            self.win.config(cursor="")
+            self.var_meta.set(info)
+            if "error" in got:
+                messagebox.showerror("Could not read file", str(got["error"]))
+            else:
+                self._show_loaded(got["phu"], path)
+
+        poll()
 
     def load(self, path):
+        """Open ``path`` and return when it is on screen."""
         try:
             phu = read_phu(path)
         except Exception as exc:
             messagebox.showerror("Could not read file", str(exc))
             return
+        self._show_loaded(phu, path)
 
+    def _show_loaded(self, phu, path):
         # the pop-up windows belong to the old file's data - drop them
         self._close_dialogs()
         self.model = TRESModel(phu)
