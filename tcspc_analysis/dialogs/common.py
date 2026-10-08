@@ -139,7 +139,27 @@ class _AnalysisDialog:
 
     def _on_close(self):
         self.alive = False
+        self._cancel_timers()
         self.win.destroy()
+
+    def _cancel_timers(self):
+        """Cancel every after() still pending for this window or a widget in
+        it (the queue polling, a debounced update, matplotlib's idle draw).
+        destroy() deletes their commands but leaves the timers, which would
+        then fire into nothing - a Tcl background error each."""
+        mine, todo = set(), [self.win]
+        while todo:
+            w = todo.pop()
+            mine.update(w._tclCommands or ())
+            todo.extend(w.winfo_children())
+        tcl = self.win.tk
+        for ident in tcl.splitlist(tcl.call("after", "info")):
+            try:
+                script = tcl.splitlist(tcl.call("after", "info", ident))[0]
+            except tk.TclError:             # fired meanwhile
+                continue
+            if script in mine:
+                tcl.call("after", "cancel", ident)
 
     def lift_and_refresh(self):
         self.win.deiconify()
