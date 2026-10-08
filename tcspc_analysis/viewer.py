@@ -661,8 +661,9 @@ class TRESViewer:
         # explicit limits so adding the rubber-band patch cannot autoscale them
         self.ax_map.set_xlim(w_lo, w_hi)
         self.ax_map.set_ylim(m.t_lo, m.t_hi)
-        self.ax_map.set_ylabel("Time (ps)", fontsize=9)
-        self.ax_map.tick_params(labelbottom=False)
+        # the time axis is the Decay panel's, right beside it: labels of its
+        # own would lie on top of that panel
+        self.ax_map.tick_params(labelbottom=False, labelleft=False)
         # the IRF no longer has a panel of its own, so its numbers ride along here
         self.ax_map.set_title(
             "TRES map" + (f"     IRF {m.irf_wl:.0f} nm - FWHM {m.irf_fwhm_ps:.0f} ps"
