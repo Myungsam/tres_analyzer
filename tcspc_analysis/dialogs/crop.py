@@ -378,11 +378,19 @@ class CropDialog(_AnalysisDialog):
         self.ax.add_patch(rect)
         self._overlay.append(rect)
         clipped = self._update_preview((wl_lo, wl_hi, t_lo, t_hi))
-        n = int(((self._full.wls >= wl_lo) & (self._full.wls <= wl_hi)).sum())
-        self.var_info.set(f"keep {n} curves,  {wl_lo:g}-{wl_hi:g} nm,  "
+        n = self._curves_in(wl_lo, wl_hi)
+        kept = (f"keep {n} curve{'' if n == 1 else 's'}" if n
+                else "NO CURVE in this range - nothing to keep")
+        self.var_info.set(f"{kept},  {wl_lo:g}-{wl_hi:g} nm,  "
                           f"{t_lo:g}-{t_hi:g} ps"
                           + ("" if clipped is None else f",  clipped {clipped:.0%}"))
         self.canvas.draw_idle()
+
+    def _curves_in(self, wl_lo, wl_hi):
+        """How many curves a wavelength range keeps - counted as the model
+        selects them (TRESModel.rebuild), tolerance included."""
+        wls = self._full.wls
+        return int(((wls >= wl_lo - 1e-6) & (wls <= wl_hi + 1e-6)).sum())
 
     # -- view: zoom, colour and time scale ---------------------------------
     def _view_full(self):
@@ -770,7 +778,16 @@ class CropDialog(_AnalysisDialog):
     def _apply(self, with_solvent=True):
         self._on_scale_entry()      # a typed scale counts without Enter, too
         m = self.model
-        self._configure(m, self._read(), with_solvent=with_solvent)
+        box = self._read()
+        if not self._curves_in(box[0], box[1]):
+            # the model would fall back to the whole sweep while every export
+            # note went on to quote this range
+            messagebox.showwarning(
+                "Empty range",
+                f"No curve lies between {box[0]:g} and {box[1]:g} nm. "
+                "Widen the wavelength range.", parent=self.win)
+            return
+        self._configure(m, box, with_solvent=with_solvent)
         m.rebuild()
         # keep the main viewer's TIME SPAN box and derived state consistent
         self.app.var_tmax.set(f"{m.t_max_ps:.0f}")
