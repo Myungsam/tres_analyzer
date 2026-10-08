@@ -73,7 +73,7 @@ class MaskDialog(_AnalysisDialog):
         transform, norm, cmap = preview_norm_cmap(
             m.vmax, self.app.var_log.get(), self.app.var_cmap.get())
         w_lo, w_hi = m.wl_edges
-        self.ax.imshow(transform(m.E.T), aspect="auto", origin="lower", cmap=cmap,
+        self.ax.imshow(transform(m.on_grid(m.E).T), aspect="auto", origin="lower", cmap=cmap,
                        norm=norm, extent=[w_lo, w_hi, m.t_lo, m.t_hi],
                        interpolation="nearest")
         shade_wl_masks(self.ax, m.masks, w_lo, w_hi)

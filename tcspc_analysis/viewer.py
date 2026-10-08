@@ -23,7 +23,7 @@ from .paths import user_dir
 from .phu import read_phu
 from .util import short_name, wavelength_to_rgb
 from .origin import _origin_book1, _origin_fill_steady, _origin_fill_tres, _origin_sheet
-from .model import TRESModel
+from .model import TRESModel, wavelength_grid
 from .theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN, READOUT_BG, READOUT_FG, shade_wl_masks
 from .dialogs.crop import CropDialog
 from .dialogs.mask import MaskDialog
@@ -649,7 +649,8 @@ class TRESViewer:
             return
         m = self.model
         norm, cmap, lo, log = self._color_scale()
-        self.im.set_data(np.ma.masked_less(m.E.T, lo) if log else m.E.T)
+        Z = m.on_grid(m.E).T
+        self.im.set_data(np.ma.masked_less(Z, lo) if log else Z)
         self.im.set_cmap(cmap)
         self.im.set_norm(norm)
         self._cbar.update_normal(self.im)
@@ -757,7 +758,8 @@ class TRESViewer:
         norm, cmap, lo, log = self._color_scale()
 
         # ---- 2D map ----
-        Z = np.ma.masked_less(m.E.T, lo) if log else m.E.T
+        Z = m.on_grid(m.E).T                # columns on the real wavelength axis
+        Z = np.ma.masked_less(Z, lo) if log else Z
         self.im = self.ax_map.imshow(
             Z, aspect="auto", origin="lower", cmap=cmap, norm=norm,
             extent=[w_lo, w_hi, m.t_lo, m.t_hi], interpolation="nearest",
@@ -1182,7 +1184,7 @@ class TRESViewer:
     def _extent_of(self, wls, times):
         """Pixel edges of the exported block, in data coordinates."""
         m = self.model
-        dw = float(np.median(np.diff(wls))) if len(wls) > 1 else \
+        dw = wavelength_grid(wls)[2] if len(wls) > 1 else \
             (m.wl_edges[1] - m.wl_edges[0])
         return [wls[0] - dw / 2, wls[-1] + dw / 2,
                 times[0] - m.dt_ps / 2, times[-1] + m.dt_ps / 2]
@@ -1202,6 +1204,11 @@ class TRESViewer:
             a.xaxis.label.set_color(INK_FAINT)
             a.yaxis.label.set_color(INK_FAINT)
 
+        col, n_cols, _ = wavelength_grid(wls)
+        if n_cols != len(wls):              # unevenly spaced: empty columns between
+            wide = np.full((Z.shape[0], n_cols), np.nan)
+            wide[:, col] = Z
+            Z = wide
         im = ax.imshow(
             np.ma.masked_less(Z, lo) if log else Z,
             aspect="auto", origin="lower", cmap=cmap, norm=norm,

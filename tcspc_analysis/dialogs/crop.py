@@ -270,7 +270,7 @@ class CropDialog(_AnalysisDialog):
             self._vmax0, self.var_zlog.get(), self.app.var_cmap.get())
         w_lo, w_hi = f.wl_edges
         self._base_im = self.ax.imshow(
-            self._transform(f.E.T), aspect="auto", origin="lower", cmap=cmap,
+            self._transform(f.on_grid(f.E).T), aspect="auto", origin="lower", cmap=cmap,
             norm=norm, extent=[w_lo, w_hi, f.t_lo, f.t_hi],
             # the map has several time bins per screen pixel (and far more on
             # a log axis): average them, in data space, instead of showing one
@@ -480,12 +480,12 @@ class CropDialog(_AnalysisDialog):
         """Largest count among the map cells that are in view, 0 if there is none."""
         f = self._full
         (w_lo, w_hi), (x0, x1), (y0, y1) = f.wl_edges, self.ax.get_xlim(), self.ax.get_ylim()
-        dw = (w_hi - w_lo) / f.n_w
-        i0 = int(np.clip(np.floor((x0 - w_lo) / dw), 0, f.n_w - 1))
-        i1 = int(np.clip(np.ceil((x1 - w_lo) / dw), i0 + 1, f.n_w))
+        dw = (w_hi - w_lo) / f.n_cols
+        i0 = int(np.clip(np.floor((x0 - w_lo) / dw), 0, f.n_cols - 1))
+        i1 = int(np.clip(np.ceil((x1 - w_lo) / dw), i0 + 1, f.n_cols))
         j0 = int(np.clip(np.floor(y0 / f.dt_ps), 0, f.n_t - 1))
         j1 = int(np.clip(np.ceil(y1 / f.dt_ps), j0 + 1, f.n_t))
-        block = f.E[i0:i1, j0:j1]
+        block = f.on_grid(f.E)[i0:i1, j0:j1]
         block = block[np.isfinite(block)]
         return float(block.max()) if block.size else 0.0
 
@@ -496,7 +496,7 @@ class CropDialog(_AnalysisDialog):
         self._transform, norm, _ = preview_norm_cmap(
             vmax, self.var_zlog.get(), self.app.var_cmap.get())
         self._base_im.set_norm(norm)
-        self._base_im.set_data(self._transform(self._full.E.T))
+        self._base_im.set_data(self._transform(self._full.on_grid(self._full.E).T))
 
     def _set_view(self, xlim, ylim):
         """Show that part of the map; the panel below shares the wavelength range."""

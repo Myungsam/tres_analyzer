@@ -6,6 +6,36 @@ import numpy as np
 from .util import fwhm_of
 
 
+def wavelength_grid(wls):
+    """Where curves measured at ``wls`` (ascending nm) go in a map whose
+    columns all have the same width: (column of each curve, number of
+    columns, width of a column in nm).
+
+    A sweep in even steps - the usual case - is one column per curve. When
+    the steps differ (an IRF curve taken at another wavelength and kept in the
+    map; a sweep with a gap) the axis is laid out in the smallest step and the
+    curves are put where they belong, with empty columns between them. Drawn
+    one column per curve instead, a curve at 550 nm sat at 538-543 nm. A list
+    that fits no such grid (within a twentieth of a step) stays one column per
+    curve.
+    """
+    wls = np.asarray(wls, float)
+    n = wls.size
+    if n < 2:
+        return np.arange(n), max(n, 1), 5.0
+    gaps = np.diff(wls)
+    step = float(np.median(gaps))
+    if np.allclose(gaps, step, rtol=0.0, atol=1e-6 * abs(step)):
+        return np.arange(n), n, step
+    smallest = float(gaps.min())
+    if smallest > 0:
+        at = (wls - wls[0]) / smallest
+        col = np.rint(at).astype(int)
+        if np.allclose(at, col, rtol=0.0, atol=0.05) and col[-1] < 20 * n:
+            return col, int(col[-1]) + 1, smallest
+    return np.arange(n), n, step
+
+
 # ==========================================================================
 # 3. Model - rebinning and slicing
 # ==========================================================================
@@ -113,8 +143,18 @@ class TRESModel:
 
     @property
     def wl_edges(self):
-        dw = np.median(np.diff(self.wls)) if len(self.wls) > 1 else 5.0
-        return self.wls[0] - dw / 2, self.wls[-1] + dw / 2
+        """Outer edges of the map's wavelength axis (see wavelength_grid)."""
+        return self.wls[0] - self.wl_step / 2, self.wls[-1] + self.wl_step / 2
+
+    def on_grid(self, A):
+        """``A`` - one row per curve, like E - as the rows of the map's
+        wavelength axis: the same array when every curve is a column, else
+        with rows of NaN where no curve was measured."""
+        if self.n_cols == self.n_w:
+            return A
+        out = np.full((self.n_cols,) + A.shape[1:], np.nan)
+        out[self.col] = A
+        return out
 
     # -- build ------------------------------------------------------------
     def rebuild(self):
@@ -128,6 +168,9 @@ class TRESModel:
         #    crop range (compared in offset-applied nm, i.e. what the user
         #    picked). Fall back to the full sweep if the range keeps nothing.
         idx = [i for i in range(p["ncurves"]) if i != self.irf_idx]
+        # ascending wavelength, whatever order the sweep was taken in: the map,
+        # the spectra and locate() all read the list that way
+        idx.sort(key=lambda i: p["wls"][i])
         if self.crop_wl is not None:
             wl_lo, wl_hi = sorted(self.crop_wl)
             keep = [i for i in idx
@@ -151,6 +194,7 @@ class TRESModel:
         self.E_raw = block.reshape(len(idx), n_t, rb).sum(axis=2)  # (wavelength, time)
         self.wls = p["wls"][idx] + self.wl_offset
         self.n_w, self.n_t = self.E_raw.shape
+        self.col, self.n_cols, self.wl_step = wavelength_grid(self.wls)
 
         # -- solvent: the same curves, bins and rebinning as the sample block,
         #    so the two line up cell for cell (solvent_mismatch() made sure the
