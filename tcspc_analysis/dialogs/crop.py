@@ -120,7 +120,8 @@ class CropDialog(_AnalysisDialog):
     def model_changed(self):
         """BIN, OFFSET or the IRF checkbox changed in the main window: the map
         shown here is built with them, so build it again. An offset moves the
-        range in the boxes with it, so that it keeps framing the same curves."""
+        range in the boxes with it - as it moves the model's crop - so that it
+        keeps framing the same curves."""
         m, f = self.model, self._full
         now = (m.first_is_irf, m.rebin, m.wl_offset)
         if now != (f.first_is_irf, f.rebin, f.wl_offset):
@@ -139,12 +140,16 @@ class CropDialog(_AnalysisDialog):
             w_lo, w_hi = f.wl_edges
             self._base_im.set_extent([w_lo, w_hi, f.t_lo, f.t_hi])
             self._recolor()
+            if delta:
+                for var in (self.var_wl_lo, self.var_wl_hi):
+                    try:
+                        var.set(f"{float(var.get()) + delta:g}")
+                    except ValueError:      # being typed: left as it is
+                        pass
             if delta or now[0] != was[0]:       # the wavelength axis itself moved
                 self._fit_view()
-        # The boxes keep their numbers on an OFFSET change - so does the
-        # model's crop, which is quoted in displayed nm - and now show what
-        # they frame on the new axis. A new time range of the main window
-        # (TIME SPAN) is taken over: it is the same setting as "t ... to".
+        # A new time range of the main window (TIME SPAN) is taken over: it is
+        # the same setting as "t ... to".
         if (m.t_min_ps, m.t_max_ps) != self._seen_t:
             self._seen_t = (m.t_min_ps, m.t_max_ps)
             self.var_t_lo.set(f"{max(m.t_min_ps, self.t_full[0]):g}")

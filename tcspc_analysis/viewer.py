@@ -696,10 +696,15 @@ class TRESViewer:
         if self.cursor:
             wi, ti = self.cursor
             at = (float(m.wls[wi]) + delta, float(m.times[ti]))
+        # The crop range and the masks are quoted in the nm on show. They go
+        # along with the axis, so that they keep the curves they were put on:
+        # a mask on a scatter line stays on that line.
+        if m.crop_wl is not None:
+            m.crop_wl = (m.crop_wl[0] + delta, m.crop_wl[1] + delta)
+        m.masks = [(a + delta, b + delta) for a, b in m.masks]
         m.wl_offset = new
         m.rebuild()          # the wavelengths come straight off the file each time
-        # the cursor follows its curve; a crop quoted in nm may now keep other
-        # curves (or fewer), so its old index can lie outside the map
+        # the cursor follows its curve
         if at:
             self.cursor = self._cell_near(*at)
 
