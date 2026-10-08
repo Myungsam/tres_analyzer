@@ -297,10 +297,12 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             has_inf=self.var_inf.get(), beta_init=beta, beta_fixed=bfix,
             stretch_on=st, irf_mode=self.var_irf_mode.get(), method=method)
 
+        record = self._fit_record(lo, hi, int(tsel.sum()), self._fixed_names(
+            fix, st, bfix, self.var_t0_fix.get(), self.var_fw_fix.get()))
         self._stop.clear()
         # started first: if that fails, the window is not left "running"
         threading.Thread(target=self._worker,
-                         args=(D, t, wls_fit, params, self._job),
+                         args=(D, t, wls_fit, params, record, self._job),
                          daemon=True).start()
         self._running = True
         self.btn_run.configure(state="disabled")
@@ -308,12 +310,13 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.win.configure(cursor="watch")
         self.var_status.set("Fitting...")
 
-    def _worker(self, D, t, wls_fit, params, job):
+    def _worker(self, D, t, wls_fit, params, record, job):
         try:
             res = fit_global_analysis(
                 D, t, stop_check=self._stop.is_set, **params)
             # what the result was fitted with - the box may be changed afterwards
             res["has_inf"] = bool(params["has_inf"])
+            res.update(record)
             # ... and exactly what the fit saw. It travels with the result, so
             # a run that is stopped or fails leaves the previous result whole
             # and redraws never depend on boxes edited while / after the fit.
@@ -352,6 +355,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             pass
         finally:                # an error above must not end the polling
             if self.alive:
+                self._watch_model()
                 self.win.after(150, self._poll_queue)
 
     def _finish_run(self, status):
@@ -387,6 +391,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                          + (f"  ({len(res['info']['warnings'])} warning"
                             f"{'s' if len(res['info']['warnings']) > 1 else ''}, "
                             f"see the report)" if res["info"]["warnings"] else ""))
+        if self._is_stale(res):             # the data changed while it ran
+            self._said_stale = res
+            self.var_status.set(self.STALE)
         self._draw_all()
 
     def _report_global(self, res):
@@ -566,8 +573,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                     fh.write(f'# source: {self.model.phu["path"]}\n')
                     for line in preamble:
                         fh.write(f"# {line}\n")
-                    if self.model.solvent_active:    # the map was fitted after it
-                        fh.write(f"# {self.app._export_note()}\n")
+                    # what was fitted, as it was when the fit was started
+                    fh.write(f"# {res['_setup']}\n")
+                    fh.write(f"# {res['_note']}\n")
                     fh.write("wavelength_nm,"
                              + ",".join(f"{kind}_{lb}" for lb in labels) + "\n")
                     np.savetxt(fh, np.column_stack([wl, S]),

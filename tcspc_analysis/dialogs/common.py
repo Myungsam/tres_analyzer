@@ -265,6 +265,38 @@ class _AnalysisDialog:
             except ValueError:
                 pass
 
+    # -- what a fit was made on ------------------------------------------
+    STALE = ("The data in the main window changed after this fit was started "
+             "- run it again.")
+
+    def _fit_record(self, t_lo, t_hi, n_in, fixed):
+        """What a fit window keeps with a result so that an export can say what
+        was fitted: the fit range, what was held fixed, and the main window's
+        settings line - all as they are now, when the fit starts."""
+        return {"_note": self.app._export_note(), "_rev": self.model.rev,
+                "_setup": f"fit range = {fmt_ps(t_lo)} to {fmt_ps(t_hi)} ps "
+                          f"({n_in} points); fixed: {', '.join(fixed) or 'nothing'}"}
+
+    @staticmethod
+    def _fixed_names(tau_fixed, stretch_on, beta_fixed, t0_fixed, fwhm_fixed):
+        names = [f"tau {i + 1}" for i, f in enumerate(tau_fixed) if f]
+        names += [f"beta {i + 1}" for i, f in enumerate(beta_fixed) if f and stretch_on[i]]
+        return names + (["t0"] if t0_fixed else []) + (["FWHM"] if fwhm_fixed else [])
+
+    def _is_stale(self, res):
+        return res is not None and res.get("_rev") != self.model.rev
+
+    def _watch_model(self):
+        """From the fit windows' polling: say once, in the status line, that
+        the result on show is of data the main window no longer has (BIN, the
+        background, a crop, a mask, the solvent or OFFSET changed)."""
+        res = getattr(self, "_last", None)
+        if not self._is_stale(res):
+            self._said_stale = None
+        elif getattr(self, "_said_stale", None) is not res and not self._running:
+            self._said_stale = res
+            self.var_status.set(self.STALE)
+
     def lift_and_refresh(self):
         self.win.deiconify()
         self.win.lift()

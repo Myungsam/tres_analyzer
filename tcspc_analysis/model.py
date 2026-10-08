@@ -49,6 +49,9 @@ class TRESModel:
         self.solvent = None
         self.solvent_scale = 1.0
         self.solvent_sub = False
+        # counts the times E was rebuilt: a fit window compares it with the
+        # number it started a fit at to tell that its result is of older data
+        self.rev = 0
         if build:
             self.rebuild()
 
@@ -190,6 +193,7 @@ class TRESModel:
 
     def subtract_background(self):
         """Take the mean spectrum over the background window out of every bin."""
+        self.rev += 1
         if not self.bg_sub:
             self.bg_spec = None
             self.bg_window_ps = None

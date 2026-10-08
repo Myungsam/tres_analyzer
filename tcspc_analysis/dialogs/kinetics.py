@@ -294,6 +294,8 @@ class KineticsDialog(_AnalysisDialog):
                  "_wl": wl_actual, "_n_avg": n_avg,
                  "_stretch": st, "_has_inf": self.var_inf.get(),
                  "_t0_fixed": self.var_t0_fix.get(), "_fwhm_fixed": self.var_fw_fix.get()}
+        extra.update(self._fit_record(t_lo, t_hi, n_in, self._fixed_names(
+            fix, st, bfix, self.var_t0_fix.get(), self.var_fw_fix.get())))
         report = (wl_actual, n_avg, t_lo, t_hi, n_in)
         # the fit runs on the boxes as they are now; remember them so a later
         # bare focus-out on the λ entry does not discard it
@@ -360,6 +362,7 @@ class KineticsDialog(_AnalysisDialog):
             pass
         finally:                # an error above must not end the polling
             if self.alive:
+                self._watch_model()
                 self.win.after(100, self._poll_queue)
 
     def _on_done(self, res, report, job):
@@ -373,6 +376,9 @@ class KineticsDialog(_AnalysisDialog):
                             + ("" if res["info"]["success"] else "  (not converged)")
                             + (f"  ({n_warn} warning{'s' if n_warn > 1 else ''}, "
                                f"see the report)" if n_warn else ""))
+        if self._is_stale(res):             # the data changed while it ran
+            self._said_stale = res
+            self.var_status.set(self.STALE)
         self._refresh_plot()
 
     def _report(self, res, wl, n_avg, t_lo, t_hi, n_in):
@@ -479,8 +485,9 @@ class KineticsDialog(_AnalysisDialog):
                 fh.write(f'# source: {self.model.phu["path"]}\n')
                 for line in preamble:
                     fh.write(f"# {line}\n")
-                if self.model.solvent_active:    # the trace was fitted after it
-                    fh.write(f"# {self.app._export_note()}\n")
+                # what was fitted, as it was when the fit was started
+                fh.write(f"# {r['_setup']}\n")
+                fh.write(f"# {r['_note']}\n")
                 fh.write("delay_ps,data,fit,residual\n")
                 np.savetxt(fh, np.column_stack([t, y, fit, resid]),
                            delimiter=",", fmt="%.8g")
