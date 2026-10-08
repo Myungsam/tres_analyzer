@@ -29,6 +29,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._stop = threading.Event()
         self._q = queue.Queue()
         self._running = False
+        self._job = 0                       # raised by Reset: a result of an older job is dropped
         self._kin_wl = self._cursor_wl()
         self._build()
         self.win.after(100, self._poll_queue)
@@ -226,8 +227,14 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.var_fw.set(f"{fwd:.4g}"); self.var_fw_fix.set(True)
         self._t_full()
         self._last = None
+        self._job += 1                      # a fit still running was set up before the reset
+        self._stop.set()
         self.var_status.set("Reset to defaults.")
         self.txt.delete("1.0", "end")
+        self.ax_kin.set_xscale("linear")    # avoid clear() warning on log axis
+        for ax in self._all_axes:           # the result is gone: so is its picture
+            ax.clear(); _style_analysis_ax(ax)
+        self.canvas.draw_idle()
 
     # -- run (threaded) --------------------------------------------------
     def run_fit(self):
@@ -262,10 +269,13 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             D = D[keep]
             wls_fit = wls_fit[keep]
         if D.shape[0] < 2:
+            n_masked = int((~keep).sum())
             messagebox.showwarning(
                 "Nothing to fit",
-                "Every wavelength in range is masked out. Clear some masks "
-                "or widen the crop.")
+                f"Global analysis needs at least 2 wavelengths; {D.shape[0]} "
+                f"left ({n_masked} of {keep.size} in range are masked). "
+                + ("Clear some masks or widen the crop." if n_masked
+                   else "Widen the crop."))
             return
         method = "trf" if self.var_opt.get().startswith("TRF") else "nm"
         params = dict(
@@ -279,10 +289,11 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.btn_run.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.var_status.set("Fitting...")
-        threading.Thread(target=self._worker, args=(D, t, wls_fit, params),
+        threading.Thread(target=self._worker,
+                         args=(D, t, wls_fit, params, self._job),
                          daemon=True).start()
 
-    def _worker(self, D, t, wls_fit, params):
+    def _worker(self, D, t, wls_fit, params, job):
         try:
             res = fit_global_analysis(
                 D, t, stop_check=self._stop.is_set, **params)
@@ -291,9 +302,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             # ... and exactly what the fit saw. It travels with the result, so
             # a run that is stopped or fails leaves the previous result whole
             # and redraws never depend on boxes edited while / after the fit.
-            self._q.put(("done", (res, D, t, wls_fit)))
+            self._q.put(("done", (res, D, t, wls_fit, job)))
         except GlobalAnalysisStopped:
-            self._q.put(("stopped", None))
+            self._q.put(("stopped", job))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
             self._q.put(("error", str(exc)))
 
@@ -316,7 +327,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                         self._finish_run("Fit done, but showing the result failed.")
                         raise
                 elif kind == "stopped":
-                    self._finish_run("Stopped by user.")
+                    self._finish_run("Stopped by user." if payload == self._job
+                                     else "Reset to defaults.")
                 elif kind == "error":
                     self._finish_run("Fit failed.")
                     messagebox.showerror("Fit error", str(payload))
@@ -333,7 +345,10 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.var_status.set(status)
 
     def _on_done(self, payload):
-        res, self._fit_D, self._fit_t, self._fit_wls = payload
+        if payload[-1] != self._job:        # Reset was pressed while it ran
+            self._finish_run("Fit dropped - the setup was reset while it ran.")
+            return
+        res, self._fit_D, self._fit_t, self._fit_wls, _ = payload
         self._last = res
         # DADS = the amplitude spectra A (M x k); EADS from the sequential model
         A = res["A"]
