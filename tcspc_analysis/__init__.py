@@ -82,7 +82,8 @@ want to keep first.
 
 If the window stops answering for more than 5 seconds, or a step fails
 without a message, where the program was at that moment is noted in
-TCSPC_analysis_freeze.log next to the program - code locations and the name
+TCSPC_analysis_freeze.log - next to the program when it is run from source,
+in Documents\\TCSPC_analysis when it is the .exe - code locations and the name
 of the open file, no measured data. Slow but healthy steps (starting Origin
 for an .opju export) show up there too.
 
@@ -99,7 +100,8 @@ never one without the other. Tick "CSV", ".opju", or both:
     CSV    two files next to each other, {name}_TRESmap.csv (a matrix of one
            row per delay, one column per wavelength) and {name}_steadystate.csv
            (one row per wavelength: summed counts and the same normalised).
-    .opju  an Origin project, by default in the project's Data\\ folder. If one
+    .opju  an Origin project, by default in the project's Data\\ folder
+           (Documents\\TCSPC_analysis\\Data for the .exe). If one
            already exists there you can pick it and the data is added to it as
            two worksheets; otherwise a new project is created. Needs Origin +
            originpro + pywin32 installed. The map and spectrum are written in

@@ -8,7 +8,7 @@ import time
 import traceback
 
 from .version import APP_VERSION
-from .paths import program_dir
+from .paths import user_dir
 
 
 # ==========================================================================
@@ -72,8 +72,10 @@ class FreezeLog:
 
     @classmethod
     def _open(cls):
-        """(path, file) of the log: beside the program, else in LOCALAPPDATA."""
-        here = program_dir()
+        """(path, file) of the log: in user_dir() - beside the program when run
+        from source, Documents\\TCSPC_analysis for a frozen build - else in
+        LOCALAPPDATA."""
+        here = user_dir()
         local = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
                              "TCSPC_analysis")
         for folder in (here, local):

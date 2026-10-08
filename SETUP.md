@@ -98,29 +98,50 @@ Python GUI, so you should not have to:
 ## Zero-Python machines (optional, standalone .exe)
 
 If a target computer cannot have Python installed at all, use the frozen build:
-**`release\TCSPC_analysis.exe`** is a single self-contained file (about 75 MB,
-icon embedded, no console window). Copy it anywhere and double-click it; a
-`.phu` path can be passed as an argument.
+**`TCSPC_analysis_<version>.zip`** from the GitHub Releases page. It holds one
+folder, `TCSPC_analysis\`, with `TCSPC_analysis.exe` and an `_internal\`
+folder beside it (about 80 MB zipped, 180 MB unpacked, no console window).
 
-- The first seconds of every start go to unpacking - that is normal for a
-  one-file build.
-- Exported data defaults to a `Data\` folder **next to the .exe**.
+1. Before unpacking, right-click the downloaded zip → **Properties** → tick
+   **Unblock** → OK. (Otherwise Windows marks every unpacked file as
+   downloaded and checks each one on the first start.)
+2. Unpack it to a **local** folder that is not synced (not OneDrive) - for
+   example `C:\Users\<you>\TCSPC_analysis\`. The folder holds about 2,000
+   small files.
+3. Start `TCSPC_analysis\TCSPC_analysis.exe`; a `.phu` path can be passed as an
+   argument. Make a shortcut to the .exe if you want one on the desktop - do
+   **not** move the .exe out of its folder, it needs `_internal\` next to it.
+4. If Windows SmartScreen shows “Windows protected your PC” on the first start
+   (the program is not signed), choose **More info → Run anyway**.
+
+To upgrade, delete the old `TCSPC_analysis\` folder and unpack the new zip.
+Nothing of yours is inside it:
+
+- Exported data defaults to **`Documents\TCSPC_analysis\Data\`** (the save
+  dialogs open there; any other folder can be chosen).
 - If the window ever stops answering for more than 5 seconds, or a step fails
-  silently, the program notes where it was in `TCSPC_analysis_freeze.log`
-  **next to the .exe** (next to `run_tcspc_analysis.py` when run from source; in
+  silently, the program notes where it was in
+  **`Documents\TCSPC_analysis\TCSPC_analysis_freeze.log`** (next to
+  `run_tcspc_analysis.py` when run from source; in
   `%LOCALAPPDATA%\TCSPC_analysis\` if that folder cannot be written). The log
   holds code locations and the name of the open file, no measured data - it is
   the file to send along with a bug report. A slow but healthy step is noted
   the same way (starting Origin for an `.opju` export easily takes longer
   than 5 seconds); such an entry names the export and is not a fault.
 - `.opju` export still needs OriginLab Origin installed on that PC; the
-  `originpro` / `pywin32` drivers are inside the .exe.
+  `originpro` / `pywin32` drivers are inside the build.
 - FLIM GPU (TensorFlow) is not part of the frozen build; the FLIM tab runs on
   the CPU.
 
+The build is a folder rather than a single .exe because a single-file .exe
+unpacks itself on every start: measured on the development PC, the window is
+up after about 1.7 s from the folder against about 6.2 s for the 1.4.2
+single-file .exe.
+
 To rebuild it after changing the code in `tcspc_analysis\`, from this folder (the
-`set` lines let PyInstaller find the venv's Tcl/Tk; build files go to
-`%LOCALAPPDATA%` so nothing but the finished .exe lands in a synced folder):
+`set` lines let PyInstaller find the venv's Tcl/Tk; build files and the
+unpacked folder go to `%LOCALAPPDATA%`, so only the finished zip lands in a
+synced folder):
 
 ```bat
 set "VENV=%LOCALAPPDATA%\TCSPC_analysis\venv"
@@ -129,12 +150,19 @@ for /f "delims=" %%P in ('"%VENV%\Scripts\python" -c "import sys;print(sys.base_
 set "TCL_LIBRARY=%BP%\tcl\tcl8.6"
 set "TK_LIBRARY=%BP%\tcl\tk8.6"
 "%VENV%\Scripts\python" -m pip install --only-binary=:all: pyinstaller
-"%VENV%\Scripts\python" -m PyInstaller --noconfirm --clean --onefile --windowed ^
+"%VENV%\Scripts\python" -m PyInstaller --noconfirm --clean --onedir --windowed ^
     --icon "%CD%\TCSPC_analysis.ico" --name TCSPC_analysis ^
     --workpath "%BUILD%\work" --specpath "%BUILD%" --distpath "%BUILD%\dist" ^
+    --exclude-module tensorflow ^
     --collect-submodules originpro --collect-all OriginExt run_tcspc_analysis.py
 if not exist release mkdir release
-copy /y "%BUILD%\dist\TCSPC_analysis.exe" release\
+"%VENV%\Scripts\python" -c "import shutil;shutil.make_archive(r'release\TCSPC_analysis_1.6','zip',r'%BUILD%\dist','TCSPC_analysis')"
 ```
 
 (Typed at a prompt rather than saved in a `.bat`, write `%P` instead of `%%P`.)
+
+Only `tensorflow` is excluded (the GPU path is optional and would add several
+hundred MB). Nothing else is left out on purpose: scipy, pandas, numpy,
+pywin32 and originpro are all imported late, inside functions, and a module
+missing from the build would only show as a failure when that feature is
+first used.

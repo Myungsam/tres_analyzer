@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 5,509줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 5,532줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -19,10 +19,10 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 | 모듈 | 줄 수 | 내용 | 주요 이름 |
 |---|---|---|---|
-| `__init__.py` | 151 | 프로그램 설명(모듈 docstring), matplotlib 백엔드 선택 | — |
+| `__init__.py` | 153 | 프로그램 설명(모듈 docstring), matplotlib 백엔드 선택 | — |
 | `__main__.py` | 5 | `python -m tcspc_analysis`로 실행할 때의 시작점 | — |
 | `version.py` | 2 | 버전 문자열 | `APP_VERSION` |
-| `paths.py` | 12 | 프로그램이 놓인 폴더 찾기 (exe 옆, 또는 패키지의 부모 폴더) | `program_dir` |
+| `paths.py` | 37 | 프로그램이 놓인 폴더(exe의 폴더, 또는 패키지의 부모 폴더)와 프로그램이 스스로 쓰는 폴더 찾기 | `program_dir`, `user_dir` |
 | `phu.py` | 110 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
 | `util.py` | 82 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
 | `origin.py` | 81 | Origin 쓰기: 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
@@ -36,8 +36,8 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `dialogs/mask.py` | 138 | Mask 창 | `MaskDialog` |
 | `dialogs/kinetics.py` | 443 | Kinetics 창 | `KineticsDialog` |
 | `dialogs/global_analysis.py` | 531 | Global analysis 창 | `GlobalAnalysisDialog` |
-| `viewer.py` | 1326 | TRES 탭 화면과 내보내기 | `TRESViewer` |
-| `freezelog.py` | 158 | 멈춤 기록 | `FreezeLog` |
+| `viewer.py` | 1320 | TRES 탭 화면과 내보내기 | `TRESViewer` |
+| `freezelog.py` | 160 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 45 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
 모듈 사이의 import는 모두 `from .phu import read_phu`처럼 이름을 직접 가져오는 형식이고, 방향은 아래 표에 있는 것뿐이다.
@@ -533,7 +533,7 @@ sequenceDiagram
 | 콜백 예외 | `_callback_error` (`report_callback_exception`으로 등록) | Tk 콜백에서 예외 발생 |
 | 인터프리터 덤프 | `faulthandler` | 메인 루프가 `HARD_S`(60초) 조용함. `_beat`가 매번 다시 예약 |
 
-로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 프로그램 옆(`program_dir`이 돌려주는 폴더)에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다. `_callback_error`는 콘솔이 있으면 예외를 콘솔에도 출력한다.
+로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 `user_dir`이 돌려주는 폴더(소스에서 실행하면 프로그램 폴더, exe로 실행하면 문서 폴더 아래의 TCSPC_analysis. 내보내기의 기본 Data 폴더도 이 아래)에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다. `_callback_error`는 콘솔이 있으면 예외를 콘솔에도 출력한다.
 
 ## 7. 외부 의존성
 

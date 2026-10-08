@@ -16,7 +16,7 @@ from matplotlib.ticker import EngFormatter, MaxNLocator
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from .paths import program_dir
+from .paths import user_dir
 from .phu import read_phu
 from .util import short_name, wavelength_to_rgb
 from .origin import _origin_book1, _origin_fill_steady, _origin_fill_tres, _origin_sheet
@@ -995,15 +995,9 @@ class TRESViewer:
 
     # -- combined data export: TRES map + steady state, CSV and/or .opju ----
     def _default_data_dir(self):
-        """The project's Data\\ folder, the default home for exported data.
-
-        In a frozen (PyInstaller) build __file__ sits in the unpack directory,
-        which a one-file .exe deletes on exit - there Data\\ goes next to the
-        .exe instead.
-        """
-        if getattr(sys, "frozen", False):
-            return os.path.join(os.path.dirname(sys.executable), "Data")
-        return os.path.join(program_dir(), "Data")
+        """The default home for exported data: the project's Data\\ folder,
+        or Documents\\TCSPC_analysis\\Data for a frozen build (see user_dir)."""
+        return os.path.join(user_dir(), "Data")
 
     def _map_arrays_full(self):
         """The whole map as (wavelengths, times, Z[time, wavelength]); no zoom.
