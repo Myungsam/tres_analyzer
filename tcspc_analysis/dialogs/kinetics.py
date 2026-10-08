@@ -293,15 +293,16 @@ class KineticsDialog(_AnalysisDialog):
         # each run gets its own stop flag: one that was told to stop (Reset,
         # then Run again) must stay stopped
         self._stop = stop = threading.Event()
+        # started first: if that fails, the window is not left "running"
+        threading.Thread(target=self._worker,
+                         args=(t_full[sel], y_full[sel], params, extra, report,
+                               self._job, stop),
+                         daemon=True).start()
         self._running = True
         self.btn_run.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.win.configure(cursor="watch")
         self.var_status.set("Fitting...")
-        threading.Thread(target=self._worker,
-                         args=(t_full[sel], y_full[sel], params, extra, report,
-                               self._job, stop),
-                         daemon=True).start()
 
     def stop_fit(self):
         if self._running:
@@ -317,7 +318,7 @@ class KineticsDialog(_AnalysisDialog):
         except FitStopped:
             self._q.put(("stopped", job))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
-            self._q.put(("error", (str(exc), extra["_wl"], job)))
+            self._q.put(("error", (exc, extra["_wl"], job)))
 
     def _poll_queue(self):
         try:
@@ -333,7 +334,7 @@ class KineticsDialog(_AnalysisDialog):
                     self.var_status.set("Stopped by user." if payload == self._job
                                         else "Reset to defaults.")
                 else:
-                    msg, wl, job = payload
+                    exc, wl, job = payload
                     self.var_status.set("Fit failed.")
                     # a result still shown for another wavelength no longer
                     # goes with the boxes: show the trace that was asked for
@@ -342,7 +343,8 @@ class KineticsDialog(_AnalysisDialog):
                         self._last = None
                         self.txt.delete("1.0", "end")
                         self._refresh_plot(replot_data=True)
-                    messagebox.showerror("Fit error", f"Fit failed:\n{msg}")
+                    messagebox.showerror(
+                        "Fit error", f"Fit failed:\n{self._worker_failed(exc)}")
         except queue.Empty:
             pass
         finally:                # an error above must not end the polling

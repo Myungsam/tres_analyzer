@@ -285,13 +285,14 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             stretch_on=st, irf_mode=self.var_irf_mode.get(), method=method)
 
         self._stop.clear()
+        # started first: if that fails, the window is not left "running"
+        threading.Thread(target=self._worker,
+                         args=(D, t, wls_fit, params, self._job),
+                         daemon=True).start()
         self._running = True
         self.btn_run.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.var_status.set("Fitting...")
-        threading.Thread(target=self._worker,
-                         args=(D, t, wls_fit, params, self._job),
-                         daemon=True).start()
 
     def _worker(self, D, t, wls_fit, params, job):
         try:
@@ -306,7 +307,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         except GlobalAnalysisStopped:
             self._q.put(("stopped", job))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
-            self._q.put(("error", str(exc)))
+            self._q.put(("error", exc))
 
     def stop_fit(self):
         if self._running:
@@ -331,7 +332,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                                      else "Reset to defaults.")
                 elif kind == "error":
                     self._finish_run("Fit failed.")
-                    messagebox.showerror("Fit error", str(payload))
+                    messagebox.showerror("Fit error", self._worker_failed(payload))
         except queue.Empty:
             pass
         finally:                # an error above must not end the polling

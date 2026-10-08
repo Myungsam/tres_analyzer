@@ -142,6 +142,19 @@ class _AnalysisDialog:
         self._cancel_timers()
         self.win.destroy()
 
+    def _worker_failed(self, exc):
+        """The message-box text for a fit whose worker raised ``exc``.
+
+        A ValueError / RuntimeError is the kernel refusing its input (or SciPy
+        missing) and carries a sentence for the user. Anything else is a fault
+        in the program: it is named, and its traceback goes where a failing
+        callback's does - the freeze log, the console when there is one.
+        """
+        if isinstance(exc, (ValueError, RuntimeError)):
+            return str(exc)
+        self.win._root().report_callback_exception(type(exc), exc, exc.__traceback__)
+        return f"{type(exc).__name__}: {exc}"
+
     def _cancel_timers(self):
         """Cancel every after() still pending for this window or a widget in
         it (the queue polling, a debounced update, matplotlib's idle draw).
