@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 5,910줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 6,122줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -27,16 +27,16 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `util.py` | 82 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
 | `origin.py` | 81 | Origin 쓰기: 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
 | `fitting.py` | 639 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| `model.py` | 276 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
+| `model.py` | 280 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
 | `theme.py` | 110 | 색상 상수, ttk 테마, 그림 축 꾸미기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap` |
 | `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
 | `dialogs/__init__.py` | 0 | (비어 있음) | — |
-| `dialogs/common.py` | 223 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
-| `dialogs/crop.py` | 786 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
-| `dialogs/mask.py` | 138 | Mask 창 | `MaskDialog` |
-| `dialogs/kinetics.py` | 488 | Kinetics 창 | `KineticsDialog` |
-| `dialogs/global_analysis.py` | 577 | Global analysis 창 | `GlobalAnalysisDialog` |
-| `viewer.py` | 1400 | TRES 탭 화면과 내보내기 | `TRESViewer` |
+| `dialogs/common.py` | 258 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
+| `dialogs/crop.py` | 848 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
+| `dialogs/mask.py` | 157 | Mask 창 | `MaskDialog` |
+| `dialogs/kinetics.py` | 495 | Kinetics 창 | `KineticsDialog` |
+| `dialogs/global_analysis.py` | 584 | Global analysis 창 | `GlobalAnalysisDialog` |
+| `viewer.py` | 1478 | TRES 탭 화면과 내보내기 | `TRESViewer` |
 | `freezelog.py` | 160 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 45 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
