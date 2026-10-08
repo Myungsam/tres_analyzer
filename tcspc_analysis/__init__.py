@@ -144,7 +144,7 @@ tab is opened from its own "Open file..." button.
 
 Requires: numpy, matplotlib, tkinter (tkinter ships with most CPython builds;
 on Debian/Ubuntu install it with `sudo apt install python3-tk`)
-Optional: pandas + originpro + pywin32 for the TRES ".opju" export;
+Optional: originpro + pywin32 for the TRES ".opju" export;
           tensorflow (2.10 on Windows/CUDA 11.2) for FLIM GPU acceleration -
           without it the FLIM tab still runs on the CPU.
 """

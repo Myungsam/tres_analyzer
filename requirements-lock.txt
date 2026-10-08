@@ -16,13 +16,11 @@ matplotlib==3.11.1
 numpy==2.5.1
 pillow==12.3.0
 pyparsing==3.3.2
+python-dateutil==2.9.0.post0
 scipy==1.18.0
+six==1.17.0
 
 # --- ".opju" (OriginLab) export
 OriginExt==1.2.5
 originpro==1.1.15
-pandas==3.0.5
-python-dateutil==2.9.0.post0
 pywin32==312
-six==1.17.0
-tzdata==2026.3

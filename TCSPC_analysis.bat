@@ -26,7 +26,8 @@ REM     distributed copy can write .opju on a fresh machine out of the box.
 REM v3: the .opju libraries are installed in a step of their own, so a PC on
 REM     which one of them cannot be installed still gets the program.
 REM v4: the tested versions (requirements-lock.txt) are installed first.
-set "REQ_VERSION=4"
+REM v5: pandas is no longer needed (the .opju export writes its columns itself).
+set "REQ_VERSION=5"
 set "VENVDIR=%LOCALAPPDATA%\TCSPC_analysis"
 set "VENV=%VENVDIR%\venv"
 set "VPY=%VENV%\Scripts\python.exe"

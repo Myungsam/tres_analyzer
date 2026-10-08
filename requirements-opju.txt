@@ -5,6 +5,5 @@
 # installed on the PC.
 --only-binary=:all:
 
-pandas>=1.5
 pywin32>=305
 originpro>=1.1.3

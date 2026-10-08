@@ -545,7 +545,6 @@ sequenceDiagram
 | tkinter | 필수 | 시작 시 | 모듈 최상단 | 모든 창과 위젯 |
 | scipy | 선택 | 첫 피팅 실행 시 | `_ensure_scipy` | Kinetics, Global analysis |
 | tensorflow | 선택 | FLIM 탭 생성 직후 백그라운드에서 | `detect_gpu` | FLIM GPU 가속 |
-| pandas | 선택 | `.opju` 쓰기 시 | `TRESViewer._require_pandas` | `.opju` 내보내기 |
 | originpro, pywin32 | 선택 | `.opju` 쓰기 시 | `TRESViewer._opju_write_tabs` | `.opju` 내보내기 (Origin 설치 필요) |
 
 표준 라이브러리는 `struct`(바이너리 파싱), `threading`과 `queue`(워커 스레드), `glob`과 `os`(파일 경로), `warnings`, `faulthandler`와 `traceback`(멈춤 기록)을 쓴다.

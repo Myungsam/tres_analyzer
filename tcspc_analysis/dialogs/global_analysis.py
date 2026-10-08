@@ -584,14 +584,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
 
         def make_fill(S, labels, kind):
             def _f(ws):
-                pd = self.app._require_pandas()
-                cols = {"Wavelength": wl}
-                for j, lb in enumerate(labels):
-                    cols[f"{kind}_{lb}"] = S[:, j]
-                df = pd.DataFrame(cols)
                 specs = [("Wavelength", "nm", "")]
                 specs += [(kind, "a. u.", f"tau={lb}") for lb in labels]
-                _origin_fill_table(ws, df, specs)
+                _origin_fill_table(ws, [wl] + [S[:, j] for j in range(len(labels))], specs)
             return _f
 
         items = [{"suffix": "DADS", "csv": make_csv(A, dads_labels, "DADS"),

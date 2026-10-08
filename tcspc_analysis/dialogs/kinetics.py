@@ -493,9 +493,7 @@ class KineticsDialog(_AnalysisDialog):
                            delimiter=",", fmt="%.8g")
 
         def fill_ws(ws):
-            pd = self.app._require_pandas()
-            df = pd.DataFrame({"delay_ps": t, "data": y, "fit": fit, "residual": resid})
-            _origin_fill_table(ws, df, [
+            _origin_fill_table(ws, [t, y, fit, resid], [
                 ("Delay", "ps", comment),
                 ("Data", "a. u.", f"{r['_wl']:.2f} nm"),
                 ("Fit", "a. u.", ""),

@@ -45,7 +45,7 @@ compiled copies of the `tcspc_analysis` modules are written there and no
 |------|----------|-----------|
 | `requirements-lock.txt` | the exact versions of everything below that the program was tested with | automatically, on first run |
 | `requirements.txt` | numpy, scipy, matplotlib (what the program needs to run) | instead of the lock file, if this Python has no wheel for a pinned version |
-| `requirements-opju.txt` | pandas, pywin32, originpro (the `.opju` export) | after `requirements.txt`; if that fails the launcher says so and the program still starts |
+| `requirements-opju.txt` | pywin32, originpro (the `.opju` export) | after `requirements.txt`; if that fails the launcher says so and the program still starts |
 | `requirements-optional.txt` | tensorflow (FLIM GPU only) | manually, see below |
 
 `tkinter` ships with the standard python.org installer, so it is not listed.
@@ -60,7 +60,7 @@ numpy / scipy build before (fixed in 1.4.2), so change it only together with a
 run of the tests.
 
 > **`.opju` (Origin) export** also needs **OriginLab Origin** itself installed
-> on the PC: `pandas`, `pywin32` and `originpro` only drive Origin over COM.
+> on the PC: `pywin32` and `originpro` only drive Origin over COM.
 > Without Origin the app still runs and CSV export is unaffected.
 
 ### Enabling the optional GPU feature
@@ -73,7 +73,7 @@ numpy 2). To use the GPU, make a separate environment with Python 3.10 by
 hand, install `requirements.txt` and `requirements-optional.txt` into it and
 start `run_tcspc_analysis.py` with that Python. Do not install TensorFlow into
 the launcher's environment; the .exe build excludes it in any case
-(`--exclude-module tensorflow`).
+(`--exclude-module tensorflow --exclude-module pandas`).
 
 ## Resetting / updating
 
@@ -165,7 +165,7 @@ set "TK_LIBRARY=%BP%\tcl\tk8.6"
 "%VENV%\Scripts\python" -m PyInstaller --noconfirm --clean --onedir --windowed ^
     --icon "%CD%\TCSPC_analysis.ico" --name TCSPC_analysis ^
     --workpath "%BUILD%\work" --specpath "%BUILD%" --distpath "%BUILD%\dist" ^
-    --exclude-module tensorflow ^
+    --exclude-module tensorflow --exclude-module pandas ^
     --collect-submodules originpro --collect-all OriginExt run_tcspc_analysis.py
 if not exist release mkdir release
 "%VENV%\Scripts\python" -c "import shutil;shutil.make_archive(r'release\TCSPC_analysis_1.6','zip',r'%BUILD%\dist','TCSPC_analysis')"
@@ -173,8 +173,10 @@ if not exist release mkdir release
 
 (Typed at a prompt rather than saved in a `.bat`, write `%P` instead of `%%P`.)
 
-Only `tensorflow` is excluded (the GPU path is optional and would add several
-hundred MB). Nothing else is left out on purpose: scipy, pandas, numpy,
-pywin32 and originpro are all imported late, inside functions, and a module
-missing from the build would only show as a failure when that feature is
-first used.
+`tensorflow` is excluded (the GPU path is optional and would add several
+hundred MB), and so is `pandas`: the program does not use it since 1.6, but
+`originpro` imports it when it is installed, which would pull about 1,200
+files into the build from an environment that still has it. Nothing else is
+left out on purpose: scipy, numpy, pywin32 and originpro are all imported
+late, inside functions, and a module missing from the build would only show
+as a failure when that feature is first used.

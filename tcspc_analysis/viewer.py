@@ -1470,17 +1470,6 @@ class TRESViewer:
         return (f'Install into {sys.executable}:\n'
                 f'  "{sys.executable}" -m pip install {packages}')
 
-    @staticmethod
-    def _require_pandas():
-        """Lazy pandas import with a friendly install hint (opju needs it)."""
-        try:
-            import pandas as pd
-            return pd
-        except ImportError as exc:
-            raise RuntimeError(
-                "Writing .opju needs pandas.\n"
-                + TRESViewer._install_hint("pandas")) from exc
-
     def _opju_write_tabs(self, opju_path, tabs):
         """Open (or create) opju_path, ensure a 'Book1' workbook, fill each tab.
 
@@ -1555,21 +1544,16 @@ class TRESViewer:
         Reuses the "Book1 + one tab per dataset" layout of csv_to_opju.py via
         _opju_write_tabs. Returns the two worksheet names.
         """
-        pd = self._require_pandas()
         wls, times, Z = self._map_arrays_full()
         _, ss, norm = self._steady_arrays()
         tres_tab = f"{stem}_TRESmap"
         steady_tab = f"{stem}_steadystate"
 
-        # column headers carry the wavelengths; _origin_fill_tres turns them
-        # into per-column comments, matching the csv_to_opju layout
-        tres_df = pd.DataFrame(Z, columns=[f"{w:g}" for w in wls])
-        tres_df.insert(0, "time_ps", times)
-        steady_df = pd.DataFrame({"Wavelength": wls, "Counts": ss, "Nor.": norm})
-
+        # the wavelengths become per-column comments, matching the csv_to_opju
+        # layout
         return tuple(self._opju_write_tabs(opju_path, [
-            (tres_tab, lambda ws: _origin_fill_tres(ws, tres_df, tres_tab)),
-            (steady_tab, lambda ws: _origin_fill_steady(ws, steady_df, steady_tab)),
+            (tres_tab, lambda ws: _origin_fill_tres(ws, times, Z, wls)),
+            (steady_tab, lambda ws: _origin_fill_steady(ws, wls, ss, norm, steady_tab)),
         ]))
 
     def export_analysis(self, default_base, parts, owner=None):
