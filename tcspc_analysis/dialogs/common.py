@@ -170,6 +170,8 @@ class _AnalysisDialog:
         return self.app.model
 
     def _on_close(self):
+        if not self.alive:                  # closed already
+            return
         self.alive = False
         self._cancel_timers()
         self.win.destroy()
