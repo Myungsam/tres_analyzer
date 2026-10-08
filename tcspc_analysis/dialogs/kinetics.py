@@ -168,6 +168,12 @@ class KineticsDialog(_AnalysisDialog):
                   font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
         ttk.Checkbutton(row, text="fixed", variable=fix_var).pack(side="left")
 
+    def model_changed(self):
+        """The data behind the window changed: with no result on screen, show
+        the trace as it is now (a result keeps showing what it was fitted to)."""
+        if self._last is None:
+            self._refresh_plot(replot_data=True)
+
     # -- helpers ---------------------------------------------------------
     def _on_wl_change(self, *_):
         """Redraw the trace when the centre λ / half-width is edited.

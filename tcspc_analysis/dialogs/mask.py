@@ -85,6 +85,10 @@ class MaskDialog(_AnalysisDialog):
         for lo, hi in self.model.masks:
             self.listbox.insert("end", f"{lo:.1f} - {hi:.1f} nm")
 
+    def model_changed(self):
+        self._draw()
+        self._refresh_list()
+
     def _on_click(self, event):
         if event.inaxes is not self.ax or event.xdata is None:
             return

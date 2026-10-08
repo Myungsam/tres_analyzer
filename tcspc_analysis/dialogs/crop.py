@@ -116,6 +116,36 @@ class CropDialog(_AnalysisDialog):
         self._draw_base()
         self._update_overlay()
 
+    def model_changed(self):
+        """BIN, OFFSET or the IRF checkbox changed in the main window: the map
+        shown here is built with them, so build it again. An offset moves the
+        range in the boxes with it, so that it keeps framing the same curves."""
+        m, f = self.model, self._full
+        now = (m.first_is_irf, m.rebin, m.wl_offset)
+        if now != (f.first_is_irf, f.rebin, f.wl_offset):
+            delta = m.wl_offset - f.wl_offset
+            f.first_is_irf, f.rebin, f.wl_offset = now
+            f.solvent, f.solvent_sub = None, False
+            f.rebuild()
+            self._vmax0 = f.vmax
+            self._raw0 = f.E_raw
+            self._full_key = None               # the heatmap is rebuilt below
+            self.wl_full = (float(f.wls.min()), float(f.wls.max()))
+            self.t_full = (0.0, float(f.t_hi))
+            self._corner = None
+            self._slice_ti, self._slice_pinned = None, False
+            if delta:
+                for var in (self.var_wl_lo, self.var_wl_hi):
+                    try:
+                        var.set(f"{float(var.get()) + delta:g}")
+                    except ValueError:
+                        pass
+            w_lo, w_hi = f.wl_edges
+            self._base_im.set_extent([w_lo, w_hi, f.t_lo, f.t_hi])
+            self._recolor()
+            self._fit_view()
+        self._update_overlay()
+
     # -- layout ----------------------------------------------------------
     def _build_ui(self):
         top = ttk.Frame(self.win, padding=(8, 8, 8, 4))

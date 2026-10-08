@@ -199,6 +199,9 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         n_in = int(((m.times >= lo) & (m.times <= hi)).sum())
         self.var_tcount.set(f"  -> fit will use {n_in} of {m.n_t} delay points")
 
+    def model_changed(self):
+        self._update_tcount()
+
     def _use_cursor_kin(self):
         self._kin_wl = self._cursor_wl()
         self.var_kin_wl.set(f"{self._kin_wl:.2f}")

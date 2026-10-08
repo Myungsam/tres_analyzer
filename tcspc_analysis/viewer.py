@@ -161,6 +161,12 @@ class TRESViewer:
         self._crop_win = self._mask_win = None
         self._kinetics_win = self._global_win = None
 
+    def _tell_dialogs(self):
+        """Let the open pop-up windows follow a change made in this window."""
+        for w in (self._crop_win, self._mask_win, self._kinetics_win, self._global_win):
+            if w is not None and w.alive:
+                w.model_changed()
+
     def _build_controls(self):
         row = ttk.Frame(self.parent, padding=(10, 0, 10, 4))
         row.pack(fill="x")
@@ -538,6 +544,7 @@ class TRESViewer:
         if at:
             self.cursor = self._cell_near(at[0], at[1] - m.t0)
         self.redraw(full=True)
+        self._tell_dialogs()
 
     def _cell_near(self, wl, t_ps):
         """The (wavelength, time) cell nearest to a point, clamped into the map."""
@@ -595,6 +602,7 @@ class TRESViewer:
             self.view = (x0 + delta, x1 + delta, y0, y1)
             self._clamp_view()
         self.redraw(full=True)
+        self._tell_dialogs()
 
     # -- drawing ----------------------------------------------------------
     def _color_scale(self):

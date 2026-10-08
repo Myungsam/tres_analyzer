@@ -227,6 +227,11 @@ class _AnalysisDialog:
             if script in mine:
                 tcl.call("after", "cancel", ident)
 
+    def model_changed(self):
+        """The viewer calls this after the model was rebuilt from the main
+        window; a window that keeps a copy or a picture of it brings that up
+        to date."""
+
     def lift_and_refresh(self):
         self.win.deiconify()
         self.win.lift()
