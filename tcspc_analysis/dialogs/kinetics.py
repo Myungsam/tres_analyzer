@@ -29,6 +29,7 @@ class KineticsDialog(_AnalysisDialog):
         self._running = False
         self._job = 0                       # bumped when a running fit goes stale
         self._stop = threading.Event()      # tells the worker to give up
+        self._seen_t0 = self.model.t0       # the time origin the boxes are quoted in
         self._build()
         self._refresh_plot(replot_data=True)
         self.win.after(100, self._poll_queue)
@@ -169,12 +170,14 @@ class KineticsDialog(_AnalysisDialog):
         ttk.Checkbutton(row, text="fixed", variable=fix_var).pack(side="left")
 
     def model_changed(self):
-        """The data behind the window changed: with no result on screen, show
-        the trace as it is now (a result keeps showing what it was fitted to)."""
+        """The data behind the window changed. When the time axis was
+        renumbered ("t0 at IRF peak"), t₀ and the fit range are moved along so
+        that they keep meaning the same delays; then the window shows the
+        data as it is now."""
+        self._follow_t0()
         if self._last is None:
             self._refresh_plot(replot_data=True)
 
-    # -- helpers ---------------------------------------------------------
     def _on_wl_change(self, *_):
         """Redraw the trace when the centre λ / half-width is edited.
 

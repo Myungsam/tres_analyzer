@@ -236,6 +236,20 @@ class _AnalysisDialog:
         window; a window that keeps a copy or a picture of it brings that up
         to date."""
 
+    def _follow_t0(self):
+        """Fit windows: shift t₀ and the fit range by a change of the model's
+        time origin since the window last looked."""
+        t0 = self.model.t0
+        shift = getattr(self, "_seen_t0", t0) - t0
+        self._seen_t0 = t0
+        if not shift:
+            return
+        for var in (self.var_t0, self.var_tmin, self.var_tmax):
+            try:
+                var.set(f"{float(var.get()) + shift:.6g}")
+            except ValueError:
+                pass
+
     def lift_and_refresh(self):
         self.win.deiconify()
         self.win.lift()

@@ -99,6 +99,7 @@ class CropDialog(_AnalysisDialog):
         self.var_info = tk.StringVar(value="")
         self.var_scale = tk.StringVar(value=f"{self._scale:g}")
         self.var_solv_name = tk.StringVar(value="")
+        self._seen_t = (m.t_min_ps, m.t_max_ps)     # the model's range the boxes started from
         self._overlay = []      # transient rectangle / dim patches
         self._after = None      # debounce handle
         self._corner = None     # first click of a two-click rectangle pick
@@ -124,6 +125,7 @@ class CropDialog(_AnalysisDialog):
         now = (m.first_is_irf, m.rebin, m.wl_offset)
         if now != (f.first_is_irf, f.rebin, f.wl_offset):
             delta = m.wl_offset - f.wl_offset
+            was = (f.first_is_irf, f.rebin, f.wl_offset)
             f.first_is_irf, f.rebin, f.wl_offset = now
             f.solvent, f.solvent_sub = None, False
             f.rebuild()
@@ -133,17 +135,20 @@ class CropDialog(_AnalysisDialog):
             self.wl_full = (float(f.wls.min()), float(f.wls.max()))
             self.t_full = (0.0, float(f.t_hi))
             self._corner = None
-            self._slice_ti, self._slice_pinned = None, False
-            if delta:
-                for var in (self.var_wl_lo, self.var_wl_hi):
-                    try:
-                        var.set(f"{float(var.get()) + delta:g}")
-                    except ValueError:
-                        pass
+            self._slice_ti, self._slice_pinned = None, False   # its time bins changed
             w_lo, w_hi = f.wl_edges
             self._base_im.set_extent([w_lo, w_hi, f.t_lo, f.t_hi])
             self._recolor()
-            self._fit_view()
+            if delta or now[0] != was[0]:       # the wavelength axis itself moved
+                self._fit_view()
+        # The boxes keep their numbers on an OFFSET change - so does the
+        # model's crop, which is quoted in displayed nm - and now show what
+        # they frame on the new axis. A new time range of the main window
+        # (TIME SPAN) is taken over: it is the same setting as "t ... to".
+        if (m.t_min_ps, m.t_max_ps) != self._seen_t:
+            self._seen_t = (m.t_min_ps, m.t_max_ps)
+            self.var_t_lo.set(f"{max(m.t_min_ps, self.t_full[0]):g}")
+            self.var_t_hi.set(f"{min(m.t_max_ps, self.t_full[1]):g}")
         self._update_overlay()
 
     # -- layout ----------------------------------------------------------
@@ -835,6 +840,7 @@ class CropDialog(_AnalysisDialog):
         m.rebuild()
         # keep the main viewer's TIME SPAN box and derived state consistent
         self.app.var_tmax.set(f"{m.t_max_ps:.0f}")
+        self._seen_t = (m.t_min_ps, m.t_max_ps)
         self.app.clim = None
         self.app.view = None
         self.app.cursor = None

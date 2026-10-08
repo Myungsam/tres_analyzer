@@ -31,6 +31,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._running = False
         self._job = 0                       # raised by Reset: a result of an older job is dropped
         self._kin_wl = self._cursor_wl()
+        self._seen_t0 = self.model.t0       # the time origin the boxes are quoted in
         self._build()
         self.win.after(100, self._poll_queue)
 
@@ -200,6 +201,11 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.var_tcount.set(f"  -> fit will use {n_in} of {m.n_t} delay points")
 
     def model_changed(self):
+        """The data behind the window changed. When the time axis was
+        renumbered ("t0 at IRF peak"), t₀ and the fit range are moved along so
+        that they keep meaning the same delays; then the window shows the
+        data as it is now."""
+        self._follow_t0()
         self._update_tcount()
 
     def _use_cursor_kin(self):
