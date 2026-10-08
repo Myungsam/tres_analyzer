@@ -1313,7 +1313,8 @@ class TRESViewer:
             return
 
         phu_base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]
-        stem = phu_base                       # names the CSV files and the opju tabs
+        # names the CSV files and the opju tabs - the same with and without CSV
+        stem = self._strip_export_suffix(phu_base) or phu_base
         data_dir = self._default_data_dir()
 
         # -- where the CSVs go (asked first so the opju name can follow it) --
@@ -1394,8 +1395,10 @@ class TRESViewer:
 
     @staticmethod
     def _strip_export_suffix(name):
-        """Drop a trailing _TRESmap / _steadystate so both files share a stem."""
-        for suf in ("_TRESmap", "_steadystate", "_TRES", "_steady"):
+        """Drop a trailing _TRESmap / _steadystate - the name of a file this
+        export wrote, picked as the base name - so both files share a stem.
+        Nothing shorter: a record called sample_TRES.phu keeps its name."""
+        for suf in ("_TRESmap", "_steadystate"):
             if name.lower().endswith(suf.lower()):
                 return name[: -len(suf)]
         return name
