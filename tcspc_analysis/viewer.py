@@ -789,8 +789,7 @@ class TRESViewer:
         self.ax_map.set_xlim(x0, x1)
         self.ax_map.set_ylim(y0, y1)
 
-        self.canvas.draw()
-        self.update_cursor()
+        self.canvas.draw()      # on_draw() puts the cursor artists back
 
     def on_draw(self, event):
         """Re-capture clean backgrounds after every full redraw (incl. resize)."""
