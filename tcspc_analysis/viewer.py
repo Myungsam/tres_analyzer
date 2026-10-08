@@ -1,4 +1,5 @@
 """The PHU / TRES tab."""
+import contextlib
 import glob
 import os
 import sys
@@ -75,8 +76,10 @@ class TRESViewer:
                    command=self.save_map_image).pack(side="left", padx=(6, 0))
 
         # -- combined data export: TRES map + steady state, always together --
-        ttk.Button(bar, text="Export data...",
-                   command=self.export_data).pack(side="left", padx=(12, 4))
+        self._exporting = False               # an .opju export is driving Origin
+        self.btn_export = ttk.Button(bar, text="Export data...",
+                                     command=self.export_data)
+        self.btn_export.pack(side="left", padx=(12, 4))
         self.var_out_csv = tk.BooleanVar(value=True)
         ttk.Checkbutton(bar, text="CSV",
                         variable=self.var_out_csv).pack(side="left")
@@ -1063,6 +1066,39 @@ class TRESViewer:
         norm = ss / peak if peak > 0 else np.zeros_like(ss)
         return m.wls.copy(), ss, norm
 
+    @contextlib.contextmanager
+    def _origin_busy(self, owner=None):
+        """Around the part of an export that drives Origin.
+
+        Origin is started and fed on the main thread, which can take many
+        seconds. Meanwhile no second export may start (the buttons, here and in
+        the analysis windows, come back to export_data / export_analysis, which
+        return at once), and the window - and ``owner``, the analysis window
+        that asked - shows a busy cursor and a line saying what is going on.
+        Only pending redraws are flushed (update_idletasks): update() would
+        also run whatever else is queued, in the middle of the export.
+        """
+        wins = [self.win] + ([owner] if owner not in (None, self.win) else [])
+        info = self.var_meta.get()
+        self._exporting = True
+        self.btn_export.configure(state="disabled")
+        self.var_meta.set("Writing the .opju - Origin is being started, "
+                          "this can take a while ...")
+        for w in wins:
+            w.config(cursor="watch")
+        self.win.update_idletasks()
+        try:
+            yield
+        finally:
+            self._exporting = False
+            self.btn_export.configure(state="normal")
+            self.var_meta.set(info)
+            for w in wins:
+                try:
+                    w.config(cursor="")
+                except tk.TclError:         # the analysis window was closed
+                    pass
+
     def export_data(self):
         """Export the TRES map and the steady-state spectrum, always together.
 
@@ -1070,6 +1106,8 @@ class TRESViewer:
         required. Both datasets go out in full - the whole record, not the
         current zoom - so the archive does not depend on how the map is framed.
         """
+        if self._exporting:
+            return
         if not self.model:
             messagebox.showinfo("Nothing to export", "Load a .phu file first.")
             return
@@ -1122,12 +1160,8 @@ class TRESViewer:
                 self._write_steady_state_csv(steady_csv)
                 written.append(f"CSV\n    {tres_csv}\n    {steady_csv}")
             if want_opju:
-                self.win.config(cursor="watch")
-                self.win.update()
-                try:
+                with self._origin_busy():
                     tabs = self._write_opju(opju_path, stem)
-                finally:
-                    self.win.config(cursor="")
                 written.append(f".opju  {opju_path}\n    tabs: "
                                + ", ".join(tabs))
         except Exception as exc:
@@ -1264,7 +1298,7 @@ class TRESViewer:
             (steady_tab, lambda ws: _origin_fill_steady(ws, steady_df, steady_tab)),
         ]))
 
-    def export_analysis(self, default_base, parts):
+    def export_analysis(self, default_base, parts, owner=None):
         """CSV / .opju export for an analysis window, driven by the main tickboxes.
 
         Kinetics and Global-analysis results go out through exactly the same
@@ -1276,7 +1310,10 @@ class TRESViewer:
             {"suffix": str,          # names the file / tab: {stem}_{suffix}
              "csv":   fn(path),      # writes that CSV
              "fill":  fn(ws)}        # fills that opju worksheet
+        `owner` is the window that asked, for the busy cursor.
         """
+        if self._exporting:
+            return
         want_csv = self.var_out_csv.get()
         want_opju = self.var_out_opju.get()
         if not (want_csv or want_opju):
@@ -1324,14 +1361,10 @@ class TRESViewer:
                 opju_path = self._ask_opju_path(stem)
                 if not opju_path:
                     return
-                self.win.config(cursor="watch")
-                self.win.update()
-                try:
+                with self._origin_busy(owner):
                     tabs = self._opju_write_tabs(
                         opju_path,
                         [(f"{stem}_{p['suffix']}", p["fill"]) for p in parts])
-                finally:
-                    self.win.config(cursor="")
                 written.append(f".opju  {opju_path}\n    tabs: " + ", ".join(tabs))
         except Exception as exc:
             messagebox.showerror("Export failed", str(exc))

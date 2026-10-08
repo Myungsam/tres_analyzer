@@ -485,4 +485,4 @@ class KineticsDialog(_AnalysisDialog):
                 ("Residual", "a. u.", "")])
 
         self.app.export_analysis(default_base, [
-            {"suffix": "kinetics", "csv": write_csv, "fill": fill_ws}])
+            {"suffix": "kinetics", "csv": write_csv, "fill": fill_ws}], owner=self.win)

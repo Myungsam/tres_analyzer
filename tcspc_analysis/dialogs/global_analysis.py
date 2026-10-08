@@ -574,4 +574,4 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         if eads is not None:
             items.append({"suffix": "EADS", "csv": make_csv(eads, eads_labels, "EADS"),
                           "fill": make_fill(eads, eads_labels, "EADS")})
-        self.app.export_analysis(default_base, items)
+        self.app.export_analysis(default_base, items, owner=self.win)
