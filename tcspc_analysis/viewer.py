@@ -354,7 +354,7 @@ class TRESViewer:
         says so meanwhile. Everything after the read happens back here on the
         main thread, exactly as in load().
         """
-        if self._loading:
+        if self._loading or self._exporting:
             return
         got = {}
 
@@ -373,6 +373,12 @@ class TRESViewer:
         self.var_meta.set(f"Reading {os.path.basename(path)} ...")
 
         def poll():
+            try:
+                still_here = bool(self.win.winfo_exists())
+            except tk.TclError:
+                still_here = False
+            if not still_here:              # the program was closed meanwhile
+                return
             if worker.is_alive():
                 self.win.after(50, poll)
                 return
@@ -977,6 +983,8 @@ class TRESViewer:
         region the map is showing, so a zoom crops the picture as well. For the
         numbers behind it, use "Export data".
         """
+        if self._busy_reading():
+            return
         if not self.model:
             messagebox.showinfo("Nothing to save", "Load a .phu file first.")
             return
@@ -1177,6 +1185,16 @@ class TRESViewer:
                 except tk.TclError:         # the analysis window was closed
                     pass
 
+    def _busy_reading(self):
+        """True (with a note to the user) while Open is reading a file: what
+        is on screen is about to be replaced, and a save dialog opened now
+        would still be up when it is - the old name over the new data."""
+        if self._loading:
+            messagebox.showinfo(
+                "Reading a file",
+                "A file is being opened. Try again when it is on screen.")
+        return self._loading
+
     def export_data(self):
         """Export the TRES map and the steady-state spectrum, always together.
 
@@ -1184,7 +1202,7 @@ class TRESViewer:
         required. Both datasets go out in full - the whole record, not the
         current zoom - so the archive does not depend on how the map is framed.
         """
-        if self._exporting:
+        if self._exporting or self._busy_reading():
             return
         if not self.model:
             messagebox.showinfo("Nothing to export", "Load a .phu file first.")
@@ -1441,7 +1459,7 @@ class TRESViewer:
              "fill":  fn(ws)}        # fills that opju worksheet
         `owner` is the window that asked, for the busy cursor.
         """
-        if self._exporting:
+        if self._exporting or self._busy_reading():
             return
         want_csv = self.var_out_csv.get()
         want_opju = self.var_out_opju.get()
