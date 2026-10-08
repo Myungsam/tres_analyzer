@@ -41,6 +41,26 @@ def bin_choices(res_ps):
 
 BIN_CHOICES = bin_choices(4.0)              # before a file is loaded (PicoHarp default)
 
+# Numbers in the map and steady-state CSV: eight digits, like the fit exports.
+# (Six lost up to 4 ps in the time column of a long record and 4e-6 of a count.)
+CSV_NUMBER = "%.8g"
+
+
+def _name_fonts():
+    """Font families for a file name drawn into a picture: matplotlib's own
+    font, then one with Hangul where this computer has one (the default font
+    draws empty boxes for it)."""
+    from matplotlib import font_manager
+    out = ["DejaVu Sans"]
+    for name in ("Malgun Gothic", "NanumGothic", "Noto Sans CJK KR", "AppleGothic"):
+        try:
+            font_manager.findfont(name, fallback_to_default=False)
+        except Exception:
+            continue
+        out.append(name)
+        break
+    return out
+
 
 class TRESViewer:
     def __init__(self, parent, initial_path=None):
@@ -1188,7 +1208,8 @@ class TRESViewer:
         # two figure-level lines rather than a title, so the second one cannot
         # be pushed into the first by a long file name
         fig.text(0.085, 0.950, os.path.basename(self.model.phu["path"]),
-                 color=INK, fontsize=10.5, ha="left", va="bottom")
+                 color=INK, fontsize=10.5, ha="left", va="bottom",
+                 fontfamily=_name_fonts())  # a file name may be in Hangul
         fig.text(0.085, 0.912, self._export_note(), color=INK_FAINT,
                  fontsize=8, ha="left", va="bottom")
 
@@ -1221,7 +1242,7 @@ class TRESViewer:
             fh.write("# rows: delay in ps (first column) | "
                      "columns: wavelength in nm (first row)\n")
             fh.write("time_ps\\wavelength_nm," + ",".join(f"{w:g}" for w in wls) + "\n")
-            np.savetxt(fh, np.column_stack([times, Z]), delimiter=",", fmt="%.6g")
+            np.savetxt(fh, np.column_stack([times, Z]), delimiter=",", fmt=CSV_NUMBER)
 
     # -- combined data export: TRES map + steady state, CSV and/or .opju ----
     def _default_data_dir(self):
@@ -1654,4 +1675,4 @@ class TRESViewer:
             fh.write("# counts_norm: counts_sum divided by its peak\n")
             fh.write("wavelength_nm,counts_sum,counts_norm\n")
             np.savetxt(fh, np.column_stack([m.wls, ss, norm]),
-                       delimiter=",", fmt=("%g", "%.6g", "%.6g"))
+                       delimiter=",", fmt=("%g", CSV_NUMBER, CSV_NUMBER))
