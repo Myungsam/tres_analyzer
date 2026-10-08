@@ -321,12 +321,16 @@ class KineticsDialog(_AnalysisDialog):
             return
         self._last = res
         self._report(res, *report)
-        self.var_status.set(f"Fit done - RMS = {res['info']['rms']:.3g}")
+        self.var_status.set(f"Fit done - RMS = {res['info']['rms']:.3g}"
+                            + ("" if res["info"]["success"] else "  (not converged)"))
         self._refresh_plot()
 
     def _report(self, res, wl, n_avg, t_lo, t_hi, n_in):
-        L = [f"Fit converged ({res['info']['iters']} iters), "
-             f"RMS = {res['info']['rms']:.4g}",
+        info = res["info"]
+        head = (f"Fit converged ({info['iters']} iters), " if info["success"]
+                else f"Fit stopped, not converged ({info['iters']} iters: "
+                     f"{info['message']}), ")
+        L = [head + f"RMS = {info['rms']:.4g}",
              f"λ centre = {wl:.2f} nm  (avg of {n_avg} px)",
              f"Window: [{t_lo:.4g}, {t_hi:.4g}] ps, n = {n_in}",
              f"IRF mode: {res['info']['irf_mode']}", "",

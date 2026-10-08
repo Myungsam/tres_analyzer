@@ -247,6 +247,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     x0 = np.array(x0_list, float)
 
     skip_mask_active = any_stretched and irf_mode.lower() == "skip"
+    n_model = [0]                   # times the model was really evaluated
 
     def build_basis_local(tau_v, beta_v, t0_v, fwhm_v):
         if not any_stretched:
@@ -287,6 +288,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
             k_cols = n_nl + (1 if has_inf else 0)
             return 1e30, np.zeros((M, k_cols)), np.zeros((M, N))
 
+        n_model[0] += 1
         C = build_basis_local(tau_cur, beta_cur, t0_cur, fwhm_cur)
         col_norms = np.sqrt(np.nansum(C ** 2, axis=0))
         if np.any(col_norms < 1e-12) or not np.all(np.isfinite(C)):
@@ -351,6 +353,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         iters = 0
         n_fev = 1
         init_loss = loss
+        verdict = (True, 0, "No free parameter: amplitudes only.")
     elif method_used == "trf":
         init_loss, _, _ = objective(x0)
 
@@ -370,6 +373,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         loss, A_out, fit_out = objective(res.x)
         iters = int(getattr(res, "nfev", 0))
         n_fev = int(getattr(res, "nfev", 0))
+        verdict = (bool(res.success), int(res.status), str(res.message))
     else:
         init_loss, _, _ = objective(x0)
         res = _minimize(lambda x: objective(x)[0], x0, method="Nelder-Mead",
@@ -379,9 +383,15 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         loss, A_out, fit_out = objective(res.x)
         iters = int(res.nit)
         n_fev = int(getattr(res, "nfev", iters))
+        verdict = (bool(res.success), int(res.status), str(res.message))
 
+    # "iters" is what the exports have always quoted (TRF: its nfev, which
+    # leaves out the Jacobian's evaluations; Nelder-Mead: iterations);
+    # n_objective is the number of model evaluations actually made.
     info = {
         "rss": loss, "iters": iters, "nfev": n_fev, "method": method_used,
+        "success": verdict[0], "status": verdict[1], "message": verdict[2],
+        "n_objective": n_model[0],
         "rms": float(np.sqrt(loss / D.size)),
         "initialLoss": init_loss,
         "initialRMS": float(np.sqrt(init_loss / D.size)),
@@ -546,10 +556,12 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
         A_final, fit_v = unpack(res.x)
         iters = int(res.nit)
         fval = float(res.fun)
+        verdict = (bool(res.success), int(res.status), str(res.message), int(res.nfev))
     else:
         A_final, fit_v = unpack(np.array([]))
         iters = 0
         fval = float(np.sum(((y - fit_v)[mask]) ** 2))
+        verdict = (True, 0, "No free parameter: amplitudes only.", 1)
 
     res_v = y - fit_v
     res_v[~mask] = np.nan
@@ -559,5 +571,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
         "t0": cur["t0"], "fwhm": cur["fwhm"], "A": A_final,
         "fit": fit_v, "residual": res_v,
         "info": {"iters": iters, "fval": fval, "rms": rms,
-                 "mask": mask, "irf_mode": irf_mode},
+                 "mask": mask, "irf_mode": irf_mode,
+                 "success": verdict[0], "status": verdict[1],
+                 "message": verdict[2], "nfev": verdict[3]},
     }

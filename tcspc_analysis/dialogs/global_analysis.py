@@ -362,7 +362,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         res["_tau_sorted"] = tau_sorted
         self._report_global(res)
         self._finish_run(f"Fit done - RMS = {res['info']['rms']:.4g} "
-                         f"({res['info']['iters']} evals)")
+                         f"({res['info']['iters']} evals)"
+                         + ("" if res["info"]["success"] else "  (not converged)"))
         self._draw_all()
 
     def _report_global(self, res):
@@ -372,8 +373,10 @@ class GlobalAnalysisDialog(_AnalysisDialog):
              f"method = {res['info']['method']}, "
              f"{res['info']['iters']} objective evals",
              f"IRF: t₀ = {res['t0']:.4g} ps, FWHM = {res['fwhm']:.4g} ps",
-             f"IRF mode: {res['info']['irf_mode']}", "",
-             "  i   τ (ps)         β      (type)"]
+             f"IRF mode: {res['info']['irf_mode']}"]
+        if not res["info"]["success"]:
+            L.append(f"Not converged: {res['info']['message']}")
+        L += ["", "  i   τ (ps)         β      (type)"]
         st = res["stretch_on"]
         for i in range(len(res["tau"])):
             tag = "stretched" if st[i] else "exp"
