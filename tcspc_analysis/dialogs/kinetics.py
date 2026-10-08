@@ -13,7 +13,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from ..origin import _origin_fill_table
-from ..fitting import fit_single_trace
+from ..fitting import FitStopped, fit_single_trace
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN
 from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax
 
@@ -28,9 +28,14 @@ class KineticsDialog(_AnalysisDialog):
         self._q = queue.Queue()             # worker -> main-thread messages
         self._running = False
         self._job = 0                       # bumped when a running fit goes stale
+        self._stop = threading.Event()      # tells the worker to give up
         self._build()
         self._refresh_plot(replot_data=True)
         self.win.after(100, self._poll_queue)
+
+    def _on_close(self):
+        self._stop.set()                    # a fit must not outlive its window
+        super()._on_close()
 
     # -- layout ----------------------------------------------------------
     def _build(self):
@@ -122,6 +127,9 @@ class KineticsDialog(_AnalysisDialog):
         sc.bind("<<ComboboxSelected>>", lambda e: self._refresh_plot())
         self.btn_run = ttk.Button(run_row, text="Run Fit", command=self.run_fit)
         self.btn_run.pack(side="left")
+        self.btn_stop = ttk.Button(run_row, text="Stop", command=self.stop_fit,
+                                   state="disabled")
+        self.btn_stop.pack(side="left", padx=(6, 0))
         ttk.Button(run_row, text="Reset", command=self.reset).pack(side="left", padx=(6, 0))
 
         exp_row = ttk.Frame(left); exp_row.pack(fill="x")
@@ -225,6 +233,7 @@ class KineticsDialog(_AnalysisDialog):
         self._t_full()
         self._last = None
         self._job += 1
+        self._stop.set()                    # a running fit was set up before the reset
         self.var_status.set("Reset to defaults.")
         self.txt.delete("1.0", "end")
         self._refresh_plot(replot_data=True)
@@ -281,19 +290,32 @@ class KineticsDialog(_AnalysisDialog):
         self._wl_key = (self.var_wl.get().strip(), self.var_hw.get().strip())
         self._job += 1
 
+        # each run gets its own stop flag: one that was told to stop (Reset,
+        # then Run again) must stay stopped
+        self._stop = stop = threading.Event()
         self._running = True
         self.btn_run.configure(state="disabled")
+        self.btn_stop.configure(state="normal")
         self.win.configure(cursor="watch")
         self.var_status.set("Fitting...")
         threading.Thread(target=self._worker,
-                         args=(t_full[sel], y_full[sel], params, extra, report, self._job),
+                         args=(t_full[sel], y_full[sel], params, extra, report,
+                               self._job, stop),
                          daemon=True).start()
 
-    def _worker(self, t, y, params, extra, report, job):
+    def stop_fit(self):
+        if self._running:
+            self._stop.set()
+            self.btn_stop.configure(state="disabled")
+            self.var_status.set("Stopping...")
+
+    def _worker(self, t, y, params, extra, report, job, stop):
         try:
-            res = fit_single_trace(t, y, **params)
+            res = fit_single_trace(t, y, stop_check=stop.is_set, **params)
             res.update(extra)
             self._q.put(("done", (res, report, job)))
+        except FitStopped:
+            self._q.put(("stopped", job))
         except Exception as exc:               # noqa: BLE001 - surfaced to UI
             self._q.put(("error", (str(exc), extra["_wl"], job)))
 
@@ -303,9 +325,13 @@ class KineticsDialog(_AnalysisDialog):
                 kind, payload = self._q.get_nowait()
                 self._running = False
                 self.btn_run.configure(state="normal")
+                self.btn_stop.configure(state="disabled")
                 self.win.configure(cursor="")
                 if kind == "done":
                     self._on_done(*payload)
+                elif kind == "stopped":
+                    self.var_status.set("Stopped by user." if payload == self._job
+                                        else "Reset to defaults.")
                 else:
                     msg, wl, job = payload
                     self.var_status.set("Fit failed.")
