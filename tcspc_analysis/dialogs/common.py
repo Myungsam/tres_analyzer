@@ -1,4 +1,6 @@
 """What the pop-up windows share."""
+import gc
+
 import numpy as np
 
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
@@ -141,6 +143,28 @@ class _AnalysisDialog:
         self.alive = False
         self._cancel_timers()
         self.win.destroy()
+        self._release_tk()
+
+    def _release_tk(self):
+        """Let go of what this window holds in Tk now, on the main thread.
+
+        Its Tk variables, and the matplotlib canvas and toolbar with their Tk
+        images, sit in reference cycles (window <-> its callbacks) until the
+        garbage collector runs - on whichever thread triggers it, a fit worker
+        included - and they unset / delete themselves in Tk when finalised,
+        which only the main thread may do. Plain state (the last result, the
+        flags) stays, and so does ``win``.
+        """
+        def of_tk(value):
+            if isinstance(value, (list, tuple)):
+                return any(of_tk(v) for v in value)
+            return (isinstance(value, (tk.Variable, tk.Image))
+                    or (isinstance(value, tk.Misc) and value is not self.win)
+                    or type(value).__module__.startswith("matplotlib"))
+
+        for name in [n for n, v in vars(self).items() if of_tk(v)]:
+            setattr(self, name, None)
+        gc.collect()        # the cycles just cut loose, finalised here
 
     def _worker_failed(self, exc):
         """The message-box text for a fit whose worker raised ``exc``.
