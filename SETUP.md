@@ -146,7 +146,7 @@ synced folder):
 ```bat
 set "VENV=%LOCALAPPDATA%\TCSPC_analysis\venv"
 set "BUILD=%LOCALAPPDATA%\TCSPC_analysis\build"
-for /f "delims=" %%P in ('"%VENV%\Scripts\python" -c "import sys;print(sys.base_prefix)"') do set "BP=%%P"
+for /f "delims=" %%P in ('call "%VENV%\Scripts\python" -c "import sys;print(sys.base_prefix)"') do set "BP=%%P"
 set "TCL_LIBRARY=%BP%\tcl\tcl8.6"
 set "TK_LIBRARY=%BP%\tcl\tk8.6"
 "%VENV%\Scripts\python" -m pip install --only-binary=:all: pyinstaller

@@ -76,10 +76,10 @@ REM init.tcl and tk.tcl unless TCL_LIBRARY / TK_LIBRARY are set to the
 REM base install's copies.  Resolve them from the venv's base_prefix.
 REM (runs on every launch - env vars do not persist between runs.)
 :launch_prep
-"%VPY%" -c "import sys;open(r'%TEMP%\_tcs_bp.txt','w').write(sys.base_prefix)" 2>nul
+REM (Asked straight from Python: going through a file in %%TEMP%% put that
+REM  path inside a Python string, which an apostrophe in the user name broke.)
 set "BP="
-if exist "%TEMP%\_tcs_bp.txt" set /p BP=<"%TEMP%\_tcs_bp.txt"
-del "%TEMP%\_tcs_bp.txt" >nul 2>nul
+for /f "delims=" %%P in ('call "%VPY%" -c "import sys;print(sys.base_prefix)"') do set "BP=%%P"
 if not defined BP goto run
 set "TCL_LIBRARY="
 set "TK_LIBRARY="
