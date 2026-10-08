@@ -30,6 +30,15 @@ def read_phu(path):
         raise ValueError(f'Not a PicoQuant histogram file (magic "{magic}").')
     version = data[8:16].split(b"\x00")[0].decode("ascii", "replace")
 
+    def payload(ident, raw, pos):
+        """Length of the data that follows a tag, checked against the file: a
+        negative length would step back onto the same tag for ever."""
+        n = struct.unpack("<q", raw)[0]
+        if n < 0 or pos + n > len(data):
+            raise ValueError(f'Corrupt header: tag "{ident}" claims {n} bytes '
+                             f"of data, the file has {len(data) - pos} left.")
+        return n
+
     pos, tags = 16, []
     while pos + 48 <= len(data):
         ident = data[pos:pos + 32].split(b"\x00")[0].decode("ascii", "replace")
@@ -47,19 +56,19 @@ def read_phu(path):
         elif typ == TY_EMPTY8:
             val = None
         elif typ == TY_FLOAT8ARRAY:
-            n = struct.unpack("<q", raw)[0]
-            val = np.frombuffer(data[pos:pos + n], "<f8")
+            n = payload(ident, raw, pos)
+            val = np.frombuffer(data[pos:pos + n - n % 8], "<f8")
             pos += n
         elif typ == TY_ANSISTRING:
-            n = struct.unpack("<q", raw)[0]
+            n = payload(ident, raw, pos)
             val = data[pos:pos + n].split(b"\x00")[0].decode("ascii", "replace")
             pos += n
         elif typ == TY_WIDESTRING:
-            n = struct.unpack("<q", raw)[0]
+            n = payload(ident, raw, pos)
             val = data[pos:pos + n].split(b"\x00\x00")[0].decode("utf-16-le", "replace")
             pos += n
         elif typ == TY_BINARYBLOB:
-            n = struct.unpack("<q", raw)[0]
+            n = payload(ident, raw, pos)
             val = None
             pos += n
         else:
@@ -68,6 +77,8 @@ def read_phu(path):
         tags.append((ident, idx, val))
         if ident == "Header_End":
             break
+    else:
+        raise ValueError("Corrupt header: the file ends before the Header_End tag.")
 
     def one(name):
         for ident, _, val in tags:
