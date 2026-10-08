@@ -90,7 +90,10 @@ if not defined TK_LIBRARY for /d %%D in ("%BP%\tcl\tk8*" "%BP%\tcl\tk9*") do if 
 
 REM ---- 5) launch the app --------------------------------------
 :run
-"%VPY%" "%~dp0TCSPC_analysis_1.4ver.py" %*
+REM The package is compiled on first import; keep those files out of this
+REM (possibly OneDrive-synced) folder.
+set "PYTHONPYCACHEPREFIX=%LOCALAPPDATA%\TCSPC_analysis\pycache"
+"%VPY%" "%~dp0run_tcspc_analysis.py" %*
 set "rc=%errorlevel%"
 if not "%rc%"=="0" (
     echo.
