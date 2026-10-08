@@ -784,6 +784,13 @@ class TRESViewer:
                                fc="none", ec="w", lw=1.2, animated=True, visible=False)
         self.cax.add_patch(self.crect)
 
+        # clear() gave every label and title back matplotlib's default colour
+        for ax in (self.ax_hist, self.ax_map, self.ax_ss, self.ax_spec, self.ax_rib):
+            ax.xaxis.label.set_color(INK_FAINT)
+            ax.yaxis.label.set_color(INK_FAINT)
+            for title in (ax.title, ax._left_title, ax._right_title):
+                title.set_color(INK_DIM)
+
         # ---- zoom: applied last, the shared axes follow ----
         x0, x1, y0, y1 = self.view if self.view else (w_lo, w_hi, m.t_lo, m.t_hi)
         self.ax_map.set_xlim(x0, x1)
