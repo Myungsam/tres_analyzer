@@ -23,12 +23,15 @@ cd /d "%~dp0"
 REM Bump REQ_VERSION whenever requirements.txt changes to force a reinstall.
 REM v2: added the .opju export libraries (pandas, pywin32, originpro) so a
 REM     distributed copy can write .opju on a fresh machine out of the box.
-set "REQ_VERSION=2"
+REM v3: the .opju libraries are installed in a step of their own, so a PC on
+REM     which one of them cannot be installed still gets the program.
+set "REQ_VERSION=3"
 set "VENVDIR=%LOCALAPPDATA%\TCSPC_analysis"
 set "VENV=%VENVDIR%\venv"
 set "VPY=%VENV%\Scripts\python.exe"
 set "STAMP=%VENV%\deps_ok.txt"
 set "REQ=%~dp0requirements.txt"
+set "REQ_OPJU=%~dp0requirements-opju.txt"
 
 REM ---- 1) find a base Python to build the environment -----------
 REM Validate each candidate by actually running it (skips the Windows
@@ -36,12 +39,14 @@ REM Store "python" stub, which exits non-zero).  "python" is tried first
 REM so a standard CPython is preferred over a free-threaded "py -3" build,
 REM which lacks prebuilt wheels for the scientific stack.
 set "BASEPY="
-python -c "import sys" >nul 2>nul && set "BASEPY=python"
+REM It must be 3.9 or newer and come with tkinter (the python.org installer does).
+set "PYOK=import sys,tkinter;sys.exit(0 if sys.version_info[:2]>=(3,9) else 1)"
+python -c "%PYOK%" >nul 2>nul && set "BASEPY=python"
 if defined BASEPY goto have_base
-py -3 -c "import sys" >nul 2>nul && set "BASEPY=py -3"
+py -3 -c "%PYOK%" >nul 2>nul && set "BASEPY=py -3"
 if defined BASEPY goto have_base
 echo.
-echo   Python was not found on this computer.
+echo   No usable Python was found on this computer ^(3.9 or newer, with tkinter^).
 echo   Install Python 3 from  https://www.python.org/downloads/
 echo   and tick "Add python.exe to PATH", then run this file again.
 echo.
@@ -68,6 +73,14 @@ echo   Checking / installing required packages ...
 "%VPY%" -m pip install --upgrade pip
 "%VPY%" -m pip install -r "%REQ%"
 if errorlevel 1 goto pip_fail
+REM The .opju export only: the program must start without these.
+"%VPY%" -m pip install -r "%REQ_OPJU%"
+if errorlevel 1 (
+    echo.
+    echo   Note: the packages for the .opju ^(Origin^) export could not be installed.
+    echo   Everything else works and CSV export is unaffected.
+    echo.
+)
 > "%STAMP%" echo %REQ_VERSION%
 
 REM ---- 4) point the venv's tkinter at the base Python's Tcl/Tk --

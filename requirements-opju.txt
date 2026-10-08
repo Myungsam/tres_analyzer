@@ -1,0 +1,10 @@
+# The ".opju" (OriginLab) export of TCSPC_analysis. Optional: the program runs
+# without these and CSV export is unaffected. TCSPC_analysis.bat installs them
+# after requirements.txt and only prints a note if that fails.
+# They drive Origin over COM, so writing .opju also needs OriginLab Origin
+# installed on the PC.
+--only-binary=:all:
+
+pandas>=1.5
+pywin32>=305
+originpro>=1.1.3
