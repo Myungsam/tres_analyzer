@@ -708,7 +708,12 @@ class TRESViewer:
         self.ax_hist.grid(alpha=0.12, lw=0.5, color=INK_FAINT)
 
         # ---- spectrum (bottom, wavelength shared with the map) ----
-        self.ax_spec.fill_between(m.wls, np.maximum(m.spec_total, 0.7), 0.7,
+        # backdrop: the band shape of all delays together, scaled to the panel
+        # (which is sized for one time bin) the way the IRF is in the Decay panel
+        band = m.spec_total
+        if np.isfinite(band).any() and np.nanmax(band) > 0:
+            band = band / np.nanmax(band) * m.vmax
+        self.ax_spec.fill_between(m.wls, np.maximum(band, 0.7), 0.7,
                                   color=INK_FAINT, alpha=0.16, lw=0)
         shade_wl_masks(self.ax_spec, m.masks, w_lo, w_hi)
         (self.ln_spec,) = self.ax_spec.plot([], [], lw=1.4, color=INK,
