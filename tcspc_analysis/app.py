@@ -11,6 +11,12 @@ from .viewer import TRESViewer
 from .freezelog import FreezeLog
 
 
+def initial_window_size(screen_w, screen_h):
+    """The window's size at start: 1440 x 920, or what the screen has room for
+    (a laptop, or a display scaled to 125 / 150 %)."""
+    return (max(600, min(1440, screen_w - 40)), max(400, min(920, screen_h - 100)))
+
+
 def main():
     path = None
     for arg in sys.argv[1:]:
@@ -23,8 +29,9 @@ def main():
 
     root = tk.Tk()
     root.title("PicoHarp 300 post-processing - PHU/TRES + PTU/FLIM")
-    root.geometry("1440x920")
-    root.minsize(980, 660)
+    w, h = initial_window_size(root.winfo_screenwidth(), root.winfo_screenheight())
+    root.geometry(f"{w}x{h}")
+    root.minsize(min(980, w), min(660, h))
     apply_theme(root)
 
     nb = ttk.Notebook(root)
