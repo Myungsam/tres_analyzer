@@ -448,10 +448,34 @@ class TRESViewer:
         self.var_bg_hi.set(f"{hi_ps:g}")
         m.subtract_background()
 
+    def _shown_settings(self):
+        """The controls as apply_params() reads them."""
+        m = self.model
+        return (self.var_tmax.get().strip(), self.var_bin.get(),
+                bool(self.var_irf.get()), bool(self.var_t0.get()),
+                bool(self.var_bgsub.get()), self.var_bg_lo.get().strip(),
+                self.var_bg_hi.get().strip(),
+                bool(self.var_solv.get()) and m.solvent is not None)
+
+    def _model_settings(self):
+        """The same settings as the model holds them, written the way the
+        controls show them - so a box that was not touched compares equal."""
+        m = self.model
+        label = next((k for k, v in BIN_CHOICES if v == m.rebin), None)
+        return (f"{m.t_max_ps:.0f}", label, bool(m.first_is_irf),
+                bool(m.t0_align), bool(m.bg_sub), f"{m.bg_lo_ps:g}",
+                f"{m.bg_hi_ps:g}", bool(m.solvent_sub))
+
     def apply_params(self):
         if not self.model:
             return
         m = self.model
+        # <FocusOut> lands here whenever the window loses the focus with the
+        # caret in one of the boxes; with nothing changed there is nothing to
+        # recompute, and no reason to throw a hand-picked contrast away
+        before = self._model_settings()
+        if self._shown_settings() == before:
+            return
         try:
             tmax = float(self.var_tmax.get())
             if not tmax > 0:            # also catches nan
@@ -482,9 +506,12 @@ class TRESViewer:
         if shift:
             self._set_bg_window(m.bg_lo_ps + shift, m.bg_hi_ps + shift)
 
-        # counts per bin change with the rebin factor and with the background,
-        # so a contrast picked for the old scale is meaningless
-        self.clim = None
+        # counts per bin change with the rebin factor, the background, the
+        # solvent and the IRF curve leaving the map, so a contrast picked for
+        # the old scale is meaningless; a new time span or t0 leaves it valid
+        after = self._model_settings()
+        if before[1:3] + before[4:] != after[1:3] + after[4:]:
+            self.clim = None
         self._clamp_view()
 
         if self.cursor:
