@@ -1,6 +1,6 @@
-# TCSPC_analysis_1.4ver.py 아키텍처
+# TCSPC_analysis 아키텍처
 
-`TCSPC_analysis_1.4ver.py`는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처리하는 데스크톱 GUI 프로그램이다. Tkinter 창 하나에 서로 독립적인 탭 두 개를 띄운다.
+TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처리하는 데스크톱 GUI 프로그램이다. Tkinter 창 하나에 서로 독립적인 탭 두 개를 띄운다.
 
 | 탭 | 입력 파일 | 하는 일 |
 |---|---|---|
@@ -9,26 +9,54 @@
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상 파일: `TCSPC_analysis_1.4ver.py` (5,356줄, 단일 파일)
-- 실행: `python TCSPC_analysis_1.4ver.py [file.phu]`
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 5,508줄)
+- 실행: `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
 ## 1. 파일 구성
 
-코드는 파일 하나에 주석 배너로 구분된 섹션 순서대로 놓여 있다. 아래쪽 섹션이 위쪽 섹션을 사용한다.
+코드는 패키지 안의 모듈로 나뉘어 있다. 표에서 아래쪽 모듈이 위쪽 모듈을 사용한다.
 
-| 섹션 | 줄 범위 | 내용 | 주요 이름 |
+| 모듈 | 줄 수 | 내용 | 주요 이름 |
 |---|---|---|---|
-| 1. `.phu` 리더 | 177–280 | PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
-| 2. 헬퍼 | 283–358 | 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
-| 2b. Origin 쓰기 | 361–438 | Origin 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
-| 2c. FLIM PTU 처리 | 441–645 | T3 레코드 읽기, 픽셀별 감쇠 큐브 생성, 이미지 계산, GPU 감지 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection` |
-| 2d. 피팅 커널 | 648–1171 | IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| 3. 모델 | 1174–1441 | TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
-| 4. 테마와 TRES 뷰어 | 1444–2841 | 색상 상수, ttk 테마, TRES 탭 화면과 내보내기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `TRESViewer` |
-| 5. FLIM 뷰어 | 2844–3179 | FLIM 탭 화면 | `FLIMViewer` |
-| 6. 다이얼로그 | 3182–5169 | 전처리·분석용 팝업 창 | `ComponentTable`, `_AnalysisDialog`, `CropDialog`, `MaskDialog`, `KineticsDialog`, `GlobalAnalysisDialog` |
-| 7. 애플리케이션 | 5172–5356 | 창과 탭을 만들고 이벤트 루프 시작, 멈춤 기록 | `FreezeLog`, `main` |
+| `__init__.py` | 151 | 프로그램 설명(모듈 docstring), matplotlib 백엔드 선택 | — |
+| `__main__.py` | 4 | `python -m tcspc_analysis`로 실행할 때의 시작점 | — |
+| `version.py` | 2 | 버전 문자열 | `APP_VERSION` |
+| `paths.py` | 12 | 프로그램이 놓인 폴더 찾기 (exe 옆, 또는 패키지의 부모 폴더) | `program_dir` |
+| `phu.py` | 110 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
+| `util.py` | 82 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산, solvent 파일 호환성 검사 | `wavelength_to_rgb`, `fwhm_of`, `solvent_mismatch`, `short_name` |
+| `origin.py` | 81 | Origin 쓰기: 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
+| `fitting.py` | 528 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| `model.py` | 276 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거 | `TRESModel` |
+| `theme.py` | 110 | 색상 상수, ttk 테마, 그림 축 꾸미기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap` |
+| `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
+| `dialogs/__init__.py` | 0 | (비어 있음) | — |
+| `dialogs/common.py` | 166 | 팝업 창의 공통 기반과 성분 표 위젯 | `ComponentTable`, `_AnalysisDialog` |
+| `dialogs/crop.py` | 786 | Crop 창 (범위 선택, solvent 차감 미리보기) | `CropDialog` |
+| `dialogs/mask.py` | 138 | Mask 창 | `MaskDialog` |
+| `dialogs/kinetics.py` | 443 | Kinetics 창 | `KineticsDialog` |
+| `dialogs/global_analysis.py` | 531 | Global analysis 창 | `GlobalAnalysisDialog` |
+| `viewer.py` | 1326 | TRES 탭 화면과 내보내기 | `TRESViewer` |
+| `freezelog.py` | 158 | 멈춤 기록 | `FreezeLog` |
+| `app.py` | 45 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
+
+모듈 사이의 import는 모두 `from .phu import read_phu`처럼 이름을 직접 가져오는 형식이고, 방향은 아래 표에 있는 것뿐이다.
+
+| 모듈 | 가져다 쓰는 모듈 |
+|---|---|
+| `version.py`, `paths.py`, `phu.py`, `util.py`, `origin.py`, `fitting.py`, `theme.py` | (패키지의 다른 모듈을 쓰지 않음) |
+| `model.py` | `util.py` |
+| `flim.py` | `theme.py` |
+| `dialogs/common.py` | `theme.py` |
+| `dialogs/crop.py` | `phu.py`, `util.py`, `model.py`, `theme.py`, `dialogs/common.py` |
+| `dialogs/mask.py` | `theme.py`, `dialogs/common.py` |
+| `dialogs/kinetics.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
+| `dialogs/global_analysis.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
+| `viewer.py` | `paths.py`, `phu.py`, `util.py`, `origin.py`, `model.py`, `theme.py`, `dialogs/crop.py`, `dialogs/mask.py`, `dialogs/kinetics.py`, `dialogs/global_analysis.py` |
+| `freezelog.py` | `version.py`, `paths.py` |
+| `app.py` | `theme.py`, `flim.py`, `viewer.py`, `freezelog.py` |
+
+패키지 밖에는 실행 스크립트 `run_tcspc_analysis.py`가 있다. `main`을 부르는 것이 전부이며, 런처(`TCSPC_analysis.bat`)와 exe 빌드가 이 파일에서 시작한다. 1.4까지의 버전은 버전마다 파일 하나(`TCSPC_analysis_1.0ver.py` ~ `TCSPC_analysis_1.4ver.py`)로 저장소에 그대로 남아 있고, 이 패키지는 1.4.2의 코드를 내용 변경 없이 모듈로 나눈 것이다(`tools/split_1_4.py`).
 
 ## 2. 계층 구조
 
@@ -505,11 +533,11 @@ sequenceDiagram
 | 콜백 예외 | `_callback_error` (`report_callback_exception`으로 등록) | Tk 콜백에서 예외 발생 |
 | 인터프리터 덤프 | `faulthandler` | 메인 루프가 `HARD_S`(60초) 조용함. `_beat`가 매번 다시 예약 |
 
-로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 프로그램 옆에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다. `_callback_error`는 콘솔이 있으면 예외를 콘솔에도 출력한다.
+로그 파일(`TCSPC_analysis_freeze.log`)은 `_open`이 프로그램 옆(`program_dir`이 돌려주는 폴더)에 열고, 쓸 수 없으면 `%LOCALAPPDATA%\TCSPC_analysis`에 연다. `write`는 사용자 홈 폴더 경로를 `~`로 바꿔 적는다. `_callback_error`는 콘솔이 있으면 예외를 콘솔에도 출력한다.
 
 ## 7. 외부 의존성
 
-필수 패키지만 모듈 최상단에서 import한다. 선택 패키지는 아래 표의 시점에 함수 안에서 로드하므로, 설치되어 있지 않아도 나머지 기능은 동작한다.
+필수 패키지만 각 모듈의 최상단에서 import한다. 선택 패키지는 아래 표의 시점에 함수 안에서 로드하므로, 설치되어 있지 않아도 나머지 기능은 동작한다.
 
 | 패키지 | 구분 | 로드 시점 | 로드 위치 | 쓰이는 기능 |
 |---|---|---|---|---|
@@ -525,17 +553,17 @@ sequenceDiagram
 
 ## 8. 코드 출처
 
-이 파일은 같은 저장소의 세 프로그램에서 필요한 부분을 옮겨 와 합친 것이다. 원본 폴더를 import하지 않으므로 이 파일 하나만으로 실행된다.
+이 프로그램은 같은 폴더에 있는 세 프로그램에서 필요한 부분을 옮겨 와 합친 것이다. 원본 폴더를 import하지 않으므로 `tcspc_analysis/` 패키지만으로 실행된다.
 
 | 원본 | 옮겨 온 위치 | 옮겨 온 내용 |
 |---|---|---|
-| `FLIM_Post_Process/flim_viewer.py` | 섹션 2c, 5 | T3 레코드 처리 함수와 `FLIMViewer` |
-| `TA_Analyzer_rev5/ta_core.py` | 섹션 2d | IRF 컨볼루션 모델, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| `TRES_data_processing/csv_to_opju.py` | 섹션 2b | Origin 워크북·워크시트 레이아웃 (Book1에 데이터셋마다 탭 하나) |
+| `FLIM_Post_Process/flim_viewer.py` | `flim.py` | T3 레코드 처리 함수와 `FLIMViewer` |
+| `TA_Analyzer_rev5/ta_core.py` | `fitting.py` | IRF 컨볼루션 모델, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| `TRES_data_processing/csv_to_opju.py` | `origin.py` | Origin 워크북·워크시트 레이아웃 (Book1에 데이터셋마다 탭 하나) |
 
 ## 9. 진입점
 
-`main`이 하는 일은 다음 순서로 끝난다.
+`main`은 `app.py`에 있고 `__main__.py`와 `run_tcspc_analysis.py`가 부른다. 하는 일은 다음 순서로 끝난다.
 
 | 순서 | 동작 |
 |---|---|

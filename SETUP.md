@@ -9,7 +9,8 @@
 1. Install **Python 3.9 or newer** from <https://www.python.org/downloads/>.
    In the installer tick **“Add python.exe to PATH.”**
 2. Copy the whole `TCSPC_plot` folder to the new computer
-   (source `.py`, `.bat`, `requirements*.txt`, `.ico`, `Data\`, …).
+   (the `tcspc_analysis\` folder, `run_tcspc_analysis.py`, `.bat`, `requirements*.txt`,
+   `.ico`, `Data\`, …).
 3. Double-click **`TCSPC_analysis.bat`** (or the shortcut).
    The first launch, with an internet connection, will automatically:
    - find Python,
@@ -28,7 +29,10 @@ This project folder may be **OneDrive-synced**. A virtual environment is
 machine-specific (absolute paths, compiled binaries) and must never be
 synced, so the launcher keeps it in `%LOCALAPPDATA%\TCSPC_analysis\`, which
 is local to each computer. The synced folder only ever holds the source and
-the small text/asset files.
+the small text/asset files. For the same reason the launcher sets
+`PYTHONPYCACHEPREFIX` to `%LOCALAPPDATA%\TCSPC_analysis\pycache`, so Python's
+compiled copies of the `tcspc_analysis` modules are written there and no
+`__pycache__` folder appears next to the source.
 
 ## Dependencies
 
@@ -74,7 +78,7 @@ want GPU-accelerated FLIM:
   manual `pip install -r requirements.txt` line it prints.
 - **The console window stays open** behind the app. That is normal — it shows
   any error messages. Close it after quitting the app. To launch with no
-  console, run `...\venv\Scripts\pythonw.exe TCSPC_analysis_1.4ver.py` instead.
+  console, run `...\venv\Scripts\pythonw.exe run_tcspc_analysis.py` instead.
 
 The launcher already handles the two things that usually break a portable
 Python GUI, so you should not have to:
@@ -101,7 +105,7 @@ icon embedded, no console window). Copy it anywhere and double-click it; a
 - Exported data defaults to a `Data\` folder **next to the .exe**.
 - If the window ever stops answering for more than 5 seconds, or a step fails
   silently, the program notes where it was in `TCSPC_analysis_freeze.log`
-  **next to the .exe** (next to the source file when run from source; in
+  **next to the .exe** (next to `run_tcspc_analysis.py` when run from source; in
   `%LOCALAPPDATA%\TCSPC_analysis\` if that folder cannot be written). The log
   holds code locations and the name of the open file, no measured data - it is
   the file to send along with a bug report. A slow but healthy step is noted
@@ -112,7 +116,7 @@ icon embedded, no console window). Copy it anywhere and double-click it; a
 - FLIM GPU (TensorFlow) is not part of the frozen build; the FLIM tab runs on
   the CPU.
 
-To rebuild it after changing `TCSPC_analysis_1.4ver.py`, from this folder (the
+To rebuild it after changing the code in `tcspc_analysis\`, from this folder (the
 `set` lines let PyInstaller find the venv's Tcl/Tk; build files go to
 `%LOCALAPPDATA%` so nothing but the finished .exe lands in a synced folder):
 
@@ -126,7 +130,7 @@ set "TK_LIBRARY=%BP%\tcl\tk8.6"
 "%VENV%\Scripts\python" -m PyInstaller --noconfirm --clean --onefile --windowed ^
     --icon "%CD%\TCSPC_analysis.ico" --name TCSPC_analysis ^
     --workpath "%BUILD%\work" --specpath "%BUILD%" --distpath "%BUILD%\dist" ^
-    --collect-submodules originpro --collect-all OriginExt TCSPC_analysis_1.4ver.py
+    --collect-submodules originpro --collect-all OriginExt run_tcspc_analysis.py
 if not exist release mkdir release
 copy /y "%BUILD%\dist\TCSPC_analysis.exe" release\
 ```
