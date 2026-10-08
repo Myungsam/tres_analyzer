@@ -157,6 +157,36 @@ class GlobalAnalysisStopped(Exception):
     """Raised inside the GA objective when stop_check() reports a cancel."""
 
 
+def _check_start(t, tau, beta, stretch_on, fwhm, tau_limits):
+    """Refuse, in words, start values the model is not evaluated at.
+
+    These are the conditions under which the objectives below hand back a
+    zero model; started there, the "fit" was that zero model. tau_limits adds
+    the global fit's window for a lifetime: sigma/4 ... 100 x the fit range.
+    """
+    span = float(t.max() - t.min()) if t.size else 0.0
+    if not np.isfinite(fwhm) or fwhm <= 0:
+        raise ValueError(f"The IRF FWHM must be above 0 ps (it is {fwhm:g}).")
+    if fwhm > span:
+        raise ValueError(f"The IRF FWHM ({fwhm:g} ps) is wider than the fit "
+                         f"range ({span:g} ps).")
+    shortest = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0))) / 4.0
+    for i, tv in enumerate(tau):
+        if not np.isfinite(tv) or tv <= 0:
+            raise ValueError(f"τ {i + 1} must be above 0 ps (it is {tv:g}).")
+        if tau_limits and tv < shortest:
+            raise ValueError(
+                f"τ {i + 1} = {tv:g} ps is below the shortest lifetime this "
+                f"IRF can resolve ({shortest:.4g} ps = FWHM / 9.42).")
+        if tau_limits and tv > 100.0 * span:
+            raise ValueError(
+                f"τ {i + 1} = {tv:g} ps is more than 100 x the fit range "
+                f"({span:g} ps).")
+    for i, bv in enumerate(beta):
+        if (stretch_on[i] or not tau_limits) and not (np.isfinite(bv) and 0 < bv <= 2):
+            raise ValueError(f"β {i + 1} must be above 0 and at most 2 (it is {bv:g}).")
+
+
 def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                         tau_fixed, t0_fixed, fwhm_fixed, has_inf,
                         beta_init=None, beta_fixed=None, stretch_on=None,
@@ -192,6 +222,9 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         raise ValueError("beta_init / stretch_on / beta_fixed length "
                          "must match tau_init")
     any_stretched = bool(stretch_on.any())
+    if n_nl == 0 and not has_inf:
+        raise ValueError("Nothing to fit: no component and no τ = ∞ offset.")
+    _check_start(t_arr, tau_init, beta_init, stretch_on, float(fwhm_init), True)
 
     tau_cur = tau_init.copy()
     beta_cur = beta_init.copy()
@@ -427,6 +460,8 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
     beta_init = np.asarray(beta_init, float).ravel()
     beta_fixed = np.asarray(beta_fixed, bool).ravel()
     stretch_on = np.asarray(stretch_on, bool).ravel()
+
+    _check_start(t, tau_init, beta_init, stretch_on, float(fwhm_init), False)
 
     mask = np.isfinite(y)
     if irf_mode.lower() == "skip" and stretch_on.any():
