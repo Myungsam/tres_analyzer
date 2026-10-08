@@ -165,6 +165,21 @@ def _nm_fatol(data):
     return max(1e-10, 1e-12 * float(np.sum(np.square(data))))
 
 
+def _amp_limit(D, masked):
+    """The largest amplitude the global fit takes for a spectrum. Beyond it
+    two components are cancelling each other.
+
+    Counted in units of the data - a million times its largest value - so the
+    same sample measured ten times longer ends in the same place. (Up to 1.5
+    it was 1e10 counts, or 1e8 for a map with masked cells, whatever the
+    counts: 1e10 is 5e6 x the largest value of one of the sample files, and
+    its default Nelder-Mead fit ended exactly there.) ``masked`` says which of
+    the two old limits applied; both are this one now.
+    """
+    finite = np.isfinite(D)
+    return 1e6 * (float(np.max(np.abs(D[finite]))) if finite.any() else 1.0)
+
+
 def _lsqminnorm(A, B):
     """Minimum-norm least-squares solve (numpy.linalg.lstsq wrapper)."""
     X, *_ = np.linalg.lstsq(A, B, rcond=None)
@@ -394,6 +409,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         x0, x_lo, x_hi = _into(x0, limits)
 
     dt_fit = _bin_width(t_arr)
+    amp_limit = _amp_limit(D, not np.all(np.isfinite(D)))
     skip_mask_active = any_stretched and irf_mode.lower() == "skip"
     # "skip" leaves the delays under the IRF out of the loss. Which ones is
     # settled here, from the starting t0 and FWHM, as fit_single_trace does:
@@ -469,7 +485,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                 raise
             except Exception:
                 return 1e30, As, fit_M
-            if not np.all(np.isfinite(At)) or np.max(np.abs(At)) > 1e10:
+            if not np.all(np.isfinite(At)) or np.max(np.abs(At)) > amp_limit:
                 return 1e30, As, fit_M
             As = At.T
             fit_M = As @ C.T
@@ -485,7 +501,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                     raise
                 except Exception:
                     continue
-                if not np.all(np.isfinite(ai)) or np.max(np.abs(ai)) > 1e8:
+                if not np.all(np.isfinite(ai)) or np.max(np.abs(ai)) > amp_limit:
                     continue
                 As[ii, :] = ai
                 fit_M[ii, :] = (ai.reshape(1, -1) @ C.T).ravel()
