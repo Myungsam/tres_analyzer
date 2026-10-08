@@ -78,7 +78,9 @@ want GPU-accelerated FLIM:
   manual `pip install -r requirements.txt` line it prints.
 - **The console window stays open** behind the app. That is normal — it shows
   any error messages. Close it after quitting the app. To launch with no
-  console, run `...\venv\Scripts\pythonw.exe run_tcspc_analysis.py` instead.
+  console, run `...\venv\Scripts\pythonw.exe -B run_tcspc_analysis.py` from this
+  folder instead (`-B` keeps `__pycache__` out of it; see the last point below
+  for the two Tcl/Tk variables this needs).
 
 The launcher already handles the two things that usually break a portable
 Python GUI, so you should not have to:

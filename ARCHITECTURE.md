@@ -9,8 +9,8 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 20개, 5,508줄)
-- 실행: `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
+- 대상: `tcspc_analysis/` 패키지 (파일 20개, 5,509줄)
+- 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
 ## 1. 파일 구성
@@ -20,7 +20,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | 모듈 | 줄 수 | 내용 | 주요 이름 |
 |---|---|---|---|
 | `__init__.py` | 151 | 프로그램 설명(모듈 docstring), matplotlib 백엔드 선택 | — |
-| `__main__.py` | 4 | `python -m tcspc_analysis`로 실행할 때의 시작점 | — |
+| `__main__.py` | 5 | `python -m tcspc_analysis`로 실행할 때의 시작점 | — |
 | `version.py` | 2 | 버전 문자열 | `APP_VERSION` |
 | `paths.py` | 12 | 프로그램이 놓인 폴더 찾기 (exe 옆, 또는 패키지의 부모 폴더) | `program_dir` |
 | `phu.py` | 110 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |

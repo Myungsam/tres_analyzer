@@ -282,7 +282,8 @@ def split(source_path, out_dir, version=None, manifest_path=None):
         doc + "\n" + mpl)
     io.open(os.path.join(pkg_dir, "dialogs", "__init__.py"), "w", encoding="utf-8", newline="").write("")
     io.open(os.path.join(pkg_dir, "__main__.py"), "w", encoding="utf-8", newline="").write(
-        f'"""python -m {PKG} [file.phu]"""\nfrom .app import main\n\nmain()\n')
+        f'"""python -m {PKG} [file.phu]"""\nfrom .app import main\n\n'
+        'if __name__ == "__main__":\n    main()\n')
     io.open(os.path.join(out_dir, "run_tcspc_analysis.py"), "w", encoding="utf-8", newline="").write(
         '"""Start TCSPC_analysis (what the launcher and the .exe build run)."""\n'
         f"from {PKG}.app import main\n\n"
