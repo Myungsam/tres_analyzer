@@ -1213,6 +1213,7 @@ class TRESViewer:
                 defaultextension=".csv", initialdir=data_dir or None,
                 initialfile=f"{phu_base}.csv",
                 filetypes=[("CSV data", "*.csv"), ("All files", "*.*")],
+                confirmoverwrite=False,     # that name is not written: see below
             )
             if not chosen:
                 return
@@ -1221,6 +1222,8 @@ class TRESViewer:
             folder = os.path.dirname(chosen) or data_dir or "."
             tres_csv = os.path.join(folder, f"{stem}_TRESmap.csv")
             steady_csv = os.path.join(folder, f"{stem}_steadystate.csv")
+            if not self._confirm_replace([tres_csv, steady_csv]):
+                return
 
         # -- which opju to write into --
         opju_path = None
@@ -1247,6 +1250,19 @@ class TRESViewer:
             return
 
         messagebox.showinfo("Export complete", "\n\n".join(written))
+
+    @staticmethod
+    def _confirm_replace(paths):
+        """Ask before writing over files that exist. The file dialog can only
+        ask about the base name typed into it, which is not one of the files
+        that get written ({base}_TRESmap.csv, {base}_kinetics.csv, ...)."""
+        have = [p for p in paths if os.path.exists(p)]
+        if not have:
+            return True
+        return messagebox.askyesno(
+            "Replace existing files?",
+            "These files already exist:\n\n" + "\n".join(have)
+            + "\n\nReplace them?")
 
     @staticmethod
     def _strip_export_suffix(name):
@@ -1414,7 +1430,8 @@ class TRESViewer:
                     title="Export results as CSV - choose a base name",
                     defaultextension=".csv", initialdir=data_dir or None,
                     initialfile=f"{default_base}.csv",
-                    filetypes=[("CSV data", "*.csv"), ("All files", "*.*")])
+                    filetypes=[("CSV data", "*.csv"), ("All files", "*.*")],
+                    confirmoverwrite=False)
                 if not chosen:
                     return
                 base = os.path.splitext(os.path.basename(chosen))[0]
@@ -1427,6 +1444,9 @@ class TRESViewer:
                         break
                 stem = base or default_base
                 folder = os.path.dirname(chosen) or data_dir or "."
+                if not self._confirm_replace(
+                        [os.path.join(folder, f"{stem}_{p['suffix']}.csv") for p in parts]):
+                    return
                 files = []
                 for p in parts:
                     fp = os.path.join(folder, f"{stem}_{p['suffix']}.csv")
