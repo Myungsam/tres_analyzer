@@ -1234,11 +1234,14 @@ class TRESViewer:
 
         # -- do the work --
         written = []
+        on_disk = []        # for the error box, should a later step fail
         try:
             if want_csv:
                 wls, times, Z = self._map_arrays_full()
                 self._write_map_csv(tres_csv, wls, times, Z, zoomed=False)
+                on_disk.append(tres_csv)
                 self._write_steady_state_csv(steady_csv)
+                on_disk.append(steady_csv)
                 written.append(f"CSV\n    {tres_csv}\n    {steady_csv}")
             if want_opju:
                 with self._origin_busy():
@@ -1246,7 +1249,7 @@ class TRESViewer:
                 written.append(f".opju  {opju_path}\n    tabs: "
                                + ", ".join(tabs))
         except Exception as exc:
-            messagebox.showerror("Export failed", str(exc))
+            messagebox.showerror("Export failed", self._failure_text(exc, on_disk))
             return
 
         messagebox.showinfo("Export complete", "\n\n".join(written))
@@ -1263,6 +1266,16 @@ class TRESViewer:
             "Replace existing files?",
             "These files already exist:\n\n" + "\n".join(have)
             + "\n\nReplace them?")
+
+    @staticmethod
+    def _failure_text(exc, on_disk):
+        """The error box of an export: what went wrong, and - an export is
+        several files - which of them were written before that."""
+        text = str(exc)
+        if on_disk:
+            text += ("\n\nWritten before the failure:\n"
+                     + "\n".join(f"    {p}" for p in on_disk))
+        return text
 
     @staticmethod
     def _strip_export_suffix(name):
@@ -1418,54 +1431,60 @@ class TRESViewer:
 
         data_dir = self._default_data_dir()
         stem = default_base
+
+        # -- every name is asked first, so cancelling one writes nothing --
+        files = []
+        if want_csv:
+            try:
+                os.makedirs(data_dir, exist_ok=True)
+            except Exception:
+                data_dir = ""
+            chosen = filedialog.asksaveasfilename(
+                title="Export results as CSV - choose a base name",
+                defaultextension=".csv", initialdir=data_dir or None,
+                initialfile=f"{default_base}.csv",
+                filetypes=[("CSV data", "*.csv"), ("All files", "*.*")],
+                confirmoverwrite=False)
+            if not chosen:
+                return
+            base = os.path.splitext(os.path.basename(chosen))[0]
+            # drop a trailing _{suffix} the picker might have kept, so all
+            # parts share one stem
+            for p in parts:
+                suf = "_" + p["suffix"].lower()
+                if base.lower().endswith(suf):
+                    base = base[: -len(suf)]
+                    break
+            stem = base or default_base
+            folder = os.path.dirname(chosen) or data_dir or "."
+            files = [os.path.join(folder, f"{stem}_{p['suffix']}.csv") for p in parts]
+            if not self._confirm_replace(files):
+                return
+        opju_path = None
+        if want_opju:
+            opju_path = self._ask_opju_path(stem)
+            if not opju_path:
+                return
+
         written = []
+        on_disk = []        # for the error box, should a later step fail
         try:
             # -- CSV: one file per part, {stem}_{suffix}.csv --
             if want_csv:
-                try:
-                    os.makedirs(data_dir, exist_ok=True)
-                except Exception:
-                    data_dir = ""
-                chosen = filedialog.asksaveasfilename(
-                    title="Export results as CSV - choose a base name",
-                    defaultextension=".csv", initialdir=data_dir or None,
-                    initialfile=f"{default_base}.csv",
-                    filetypes=[("CSV data", "*.csv"), ("All files", "*.*")],
-                    confirmoverwrite=False)
-                if not chosen:
-                    return
-                base = os.path.splitext(os.path.basename(chosen))[0]
-                # drop a trailing _{suffix} the picker might have kept, so all
-                # parts share one stem
-                for p in parts:
-                    suf = "_" + p["suffix"].lower()
-                    if base.lower().endswith(suf):
-                        base = base[: -len(suf)]
-                        break
-                stem = base or default_base
-                folder = os.path.dirname(chosen) or data_dir or "."
-                if not self._confirm_replace(
-                        [os.path.join(folder, f"{stem}_{p['suffix']}.csv") for p in parts]):
-                    return
-                files = []
-                for p in parts:
-                    fp = os.path.join(folder, f"{stem}_{p['suffix']}.csv")
+                for p, fp in zip(parts, files):
                     p["csv"](fp)
-                    files.append(fp)
+                    on_disk.append(fp)
                 written.append("CSV\n    " + "\n    ".join(files))
 
             # -- .opju: one worksheet tab per part, in Book1 --
             if want_opju:
-                opju_path = self._ask_opju_path(stem)
-                if not opju_path:
-                    return
                 with self._origin_busy(owner):
                     tabs = self._opju_write_tabs(
                         opju_path,
                         [(f"{stem}_{p['suffix']}", p["fill"]) for p in parts])
                 written.append(f".opju  {opju_path}\n    tabs: " + ", ".join(tabs))
         except Exception as exc:
-            messagebox.showerror("Export failed", str(exc))
+            messagebox.showerror("Export failed", self._failure_text(exc, on_disk))
             return
 
         messagebox.showinfo("Export complete", "\n\n".join(written))
