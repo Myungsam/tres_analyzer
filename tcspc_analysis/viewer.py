@@ -88,8 +88,13 @@ class TRESViewer:
         ttk.Checkbutton(bar, text=".opju",
                         variable=self.var_out_opju).pack(side="left", padx=(4, 0))
 
+        # -- a second row: the pop-up windows. On one row with the file
+        #    controls the last buttons were squeezed out of a narrow window.
+        bar = ttk.Frame(self.parent, padding=(10, 0, 10, 6))
+        bar.pack(fill="x")
+        self._bar2 = bar
+
         # -- preprocessing: crop + wavelength masks, each its own pop-up --
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=(12, 8))
         ttk.Label(bar, text="PREP").pack(side="left", padx=(0, 6))
         ttk.Button(bar, text="Crop...", command=self.open_crop).pack(side="left")
         ttk.Button(bar, text="Mask λ...",
@@ -209,9 +214,7 @@ class TRESViewer:
         ttk.Checkbutton(row, text="First curve is IRF", variable=self.var_irf,
                         command=self.apply_params).pack(side="left")
 
-        self.var_meta = tk.StringVar(value="")
-        ttk.Label(row, textvariable=self.var_meta, style="Val.TLabel",
-                  foreground=INK_FAINT).pack(side="right")
+        self.var_meta = tk.StringVar(value="")      # shown in the third row
 
         # -- second row: background subtraction, view resets, mouse legend --
         row2 = ttk.Frame(self.parent, padding=(10, 0, 10, 4))
@@ -233,9 +236,7 @@ class TRESViewer:
                 ttk.Label(row2, text="-").pack(side="left", padx=4)
         ttk.Label(row2, text="ps").pack(side="left", padx=(0, 10))
 
-        self.var_bginfo = tk.StringVar(value="")
-        ttk.Label(row2, textvariable=self.var_bginfo, style="Val.TLabel",
-                  foreground=PIN).pack(side="left", padx=(0, 16))
+        self.var_bginfo = tk.StringVar(value="")    # its label ends the row, below
 
         ttk.Button(row2, text="Reset zoom", command=self.reset_view).pack(side="left")
         ttk.Button(row2, text="Auto contrast",
@@ -250,8 +251,15 @@ class TRESViewer:
         ttk.Button(row2, text="offset 적용",
                    command=self.apply_offset).pack(side="left")
 
-        ttk.Label(row2, text="map: drag = zoom | click = pin | right-click = reset      "
-                             "colorbar: drag = contrast | right-click = auto"
+        # packed last: in a narrow window this text is cut, not a button
+        ttk.Label(row2, textvariable=self.var_bginfo, style="Val.TLabel",
+                  foreground=PIN).pack(side="left", padx=(16, 0))
+
+        # (the mouse legend was here; it did not fit and now sits beside the
+        #  pop-up buttons, where there is room)
+        ttk.Label(self._bar2,
+                  text="map: drag = zoom | click = pin | right-click = reset      "
+                       "colorbar: drag = contrast | right-click = auto"
                   ).pack(side="right")
 
         # -- third row: solvent subtraction on / off. The solvent itself is
@@ -269,6 +277,10 @@ class TRESViewer:
         self.var_solvinfo = tk.StringVar(value=self.NO_SOLVENT)
         ttk.Label(row3, textvariable=self.var_solvinfo, style="Val.TLabel",
                   foreground=PIN).pack(side="left")
+        # the file's own numbers: the longest text of the window, on the row
+        # with the most room
+        ttk.Label(row3, textvariable=self.var_meta, style="Val.TLabel",
+                  foreground=INK_FAINT).pack(side="right")
 
     NO_SOLVENT = "no solvent - load one in Crop..."
 
