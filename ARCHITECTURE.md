@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 25개, 6,964줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 25개, 7,022줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -23,21 +23,21 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `__main__.py` | 5 | `python -m tcspc_analysis`로 실행할 때의 시작점 | — |
 | `version.py` | 2 | 버전 문자열 | `APP_VERSION` |
 | `paths.py` | 37 | 프로그램이 놓인 폴더(exe의 폴더, 또는 패키지의 부모 폴더)와 프로그램이 스스로 쓰는 폴더 찾기 | `program_dir`, `user_dir` |
-| `phu.py` | 167 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
-| `util.py` | 77 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산 | `wavelength_to_rgb`, `fwhm_of`, `short_name` |
+| `phu.py` | 170 | `.phu` 리더: PQHISTO 태그 헤더와 히스토그램 블록 파싱 | `read_phu` |
+| `util.py` | 80 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산 | `wavelength_to_rgb`, `fwhm_of`, `short_name` |
 | `origin.py` | 102 | Origin 쓰기: 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
-| `fitting.py` | 778 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
+| `fitting.py` | 824 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
 | `model.py` | 356 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거. solvent 파일 호환성 검사, 지도의 파장 축 배치 | `TRESModel`, `solvent_mismatch`, `wavelength_grid` |
-| `theme.py` | 162 | 색상 상수, ttk 테마, 그림 축 꾸미기 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap` |
+| `theme.py` | 162 | 색상 상수, ttk 테마, 그림 축 꾸미기, 화면 배율 처리 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `dpi_aware`, `ui_scale`, `px`, `scaled_geometry` |
 | `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
 | `dialogs/__init__.py` | 0 | (비어 있음) | — |
-| `dialogs/common.py` | 512 | 팝업 창의 공통 기반, 두 피팅 창의 공통 기반, 성분 표 위젯, 피팅 결과 CSV 쓰기 | `ComponentTable`, `_AnalysisDialog`, `_FitDialog`, `write_fit_csv` |
+| `dialogs/common.py` | 517 | 팝업 창의 공통 기반, 두 피팅 창의 공통 기반, 성분 표 위젯, 피팅 결과 CSV 쓰기 | `ComponentTable`, `_AnalysisDialog`, `_FitDialog`, `write_fit_csv` |
 | `dialogs/crop_view.py` | 155 | Crop 창의 일부: 지도의 확대·이동, 색 척도, 시간 척도 | `_CropView` |
 | `dialogs/crop_slice.py` | 85 | Crop 창의 일부: 마우스 위치의 시각별 스펙트럼(보관한 그림 위에 얹어 그림) | `_CropSlice` |
 | `dialogs/crop_solvent.py` | 109 | Crop 창의 일부: solvent 파일과 scale | `_CropSolvent` |
 | `dialogs/crop.py` | 614 | Crop 창 (범위 선택, solvent 차감 미리보기, Apply). 위 세 모듈의 클래스를 물려받음 | `CropDialog` |
 | `dialogs/mask.py` | 160 | Mask 창 | `MaskDialog` |
-| `dialogs/kinetics.py` | 411 | Kinetics 창 | `KineticsDialog` |
+| `dialogs/kinetics.py` | 412 | Kinetics 창 | `KineticsDialog` |
 | `dialogs/global_analysis.py` | 520 | Global analysis 창 | `GlobalAnalysisDialog` |
 | `viewer_figure.py` | 528 | TRES 탭의 일부: 그림(지도, decay, spectrum, steady state, 컬러바)을 그리는 일과 마우스 조작(커서, 고정, 확대 사각형) | `_MapFigure` |
 | `viewer_export.py` | 611 | TRES 탭의 일부: 지도 그림, 지도·steady-state CSV, Origin 프로젝트 쓰기, 피팅 창의 내보내기가 거치는 경로 | `_Export`, `CSV_NUMBER` |
@@ -313,18 +313,18 @@ solvent 차감은 4단계에서만 일어난다. solvent의 곡선은 샘플과 
 
 | 경로 | 메서드 | 실행 시점 | 방식 |
 |---|---|---|---|
-| 전체 다시 그리기 | `redraw` | 파일 로드, 설정 변경, 확대, 대비 변경 | `_sync_solvent_ui`로 solvent 체크박스와 라벨을 모델에 맞춘 뒤 모든 축을 지우고 새로 그림 |
+| 전체 다시 그리기 | `redraw` | 파일 로드, 설정 변경(확대는 `_reframe`, 컬러맵·Log color·대비는 `_recolor`가 있는 그림을 고쳐서 처리) | `_sync_solvent_ui`로 solvent 체크박스와 라벨을 모델에 맞춘 뒤 모든 축을 지우고 새로 그림 |
 | 커서 갱신 | `update_cursor` | 마우스 이동, 고정/해제 | `on_draw`가 저장한 배경 위에 움직이는 선만 블리팅 |
 
 입력이 모델과 화면에 반영되는 경로는 다음과 같다.
 
 | 입력 | 처리 메서드 | 바뀌는 대상 |
 |---|---|---|
-| 파일 열기 | `open_dialog` → `load` | 새 `TRESModel` 생성. solvent 설정은 새 모델에 넘어가지 않음 |
-| TIME SPAN, BIN, IRF·t0·배경 체크박스, 배경 구간 | `apply_params` | 모델 설정 → `rebuild` |
+| 파일 열기 | `open_dialog` → `load_async`(작업 스레드에서 읽음) → `_show_loaded` | 새 `TRESModel` 생성. solvent 설정은 새 모델에 넘어가지 않음 |
+| TIME END, BIN, IRF·t0·배경 체크박스, 배경 구간 | `apply_params` | 모델 설정 → `rebuild` |
 | Subtract solvent 체크박스 | `apply_params` | `solvent_sub` → `rebuild`. 체크박스와 라벨은 `redraw`가 부르는 `_sync_solvent_ui`가 모델 상태에 맞춤 |
 | OFFSET | `apply_offset` | `wl_offset` → `rebuild` |
-| 컬러맵, Log color | `redraw` | 화면만 |
+| 컬러맵, Log color | `_recolor` | 화면만 |
 | 맵 위 마우스 이동·클릭 | `on_motion`, `on_release`, `_toggle_pin` | `cursor`, `pinned` |
 | 맵 드래그, 우클릭 | `on_press`, `on_release`, `reset_view` | `view` (확대 영역) |
 | 컬러바 드래그, 우클릭 | `on_press`, `on_release`, `reset_contrast` | `clim` (대비 범위) |
@@ -385,7 +385,7 @@ flowchart TD
 | 색 스케일 | `var_zlog`, `var_auto`, `_on_color`, `_recolor`, `_view_max` | `var_zlog`는 linear/log 선택으로, 창을 열 때 본 화면의 `var_log` 값에서 시작하고 본 화면에는 되쓰지 않음. `_recolor`가 `preview_norm_cmap`으로 맵의 norm을 다시 만듦. 색 범위의 최댓값은 `var_auto`가 꺼져 있으면 `_vmax0`, 켜져 있으면 보이는 범위 안 최댓값(`_view_max`)이며 보기 범위나 solvent가 바뀔 때마다 다시 계산 |
 | 시간축 스케일 | `var_tlog`, `_on_tscale` | 맵 y축을 linear/log로 전환. 시간 값은 그대로(기록 시작이 0)이고, 로그축의 아래 끝은 첫 시간 bin의 가운데. 전환 뒤 `_update_overlay`를 불러 범위 상자와 덮개를 새 축에 맞춰 다시 그림 |
 
-범위 입력과 슬라이더 이동은 `_schedule`이 130 ms 뒤로 미룬 `_update_overlay`에서 한 번에 처리된다. 마우스 이동에 따른 시각별 스펙트럼 갱신은 이 지연을 거치지 않고, 시간 bin이 바뀔 때마다 `_draw_slice` 뒤 `draw_idle`로 그린다. 휠과 드래그에 따른 보기 범위 변경도 `_set_view`에서 바로 `draw_idle`로 그린다. 보기 범위와 두 스케일은 다이얼로그 객체에만 있어서 창을 닫으면 사라진다.
+범위 입력과 슬라이더 이동은 `_schedule`이 130 ms 뒤로 미룬 `_update_overlay`에서 한 번에 처리된다. 마우스 이동에 따른 시각별 스펙트럼 갱신은 이 지연을 거치지 않고, 시간 bin이 바뀔 때마다 `_draw_slice` 뒤 `_show_slice`로, 마지막 전체 그리기 때 보관한 그림 위에 얹어 그린다. 휠과 드래그에 따른 보기 범위 변경도 `_set_view`에서 바로 `draw_idle`로 그린다. 보기 범위와 두 스케일은 다이얼로그 객체에만 있어서 창을 닫으면 사라진다.
 
 ### 4.5 피팅 커널
 
@@ -575,7 +575,7 @@ sequenceDiagram
 
 | 순서 | 동작 |
 |---|---|
-| 1 | 명령줄에서 `.phu` 경로를 읽고 파일이 있는지 확인 |
+| 1 | `dpi_aware`로 화면 배율을 직접 처리한다고 선언. 명령줄에서 경로를 읽고 파일이 있는지 확인(`.ptu`면 FLIM 탭에 넘김) |
 | 2 | `tk.Tk` 창을 만들고 `apply_theme`로 테마 적용 |
 | 3 | `ttk.Notebook`에 탭 프레임 두 개 추가 |
 | 4 | `FreezeLog`를 만들어 로그 파일을 열고 감시 시작 |

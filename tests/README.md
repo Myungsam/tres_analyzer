@@ -40,8 +40,8 @@ export TCL_LIBRARY="$BASE/tcl/tcl8.6" TK_LIBRARY="$BASE/tcl/tk8.6" PYTHONIOENCOD
 | `test_numeric.py`, `test_gui.py`, `test_slice.py`, `test_zoom.py` | 1.1–1.3에서 넣은 기능(solvent 차감, 시각별 스펙트럼, Crop 창의 확대)이 그대로인지 |
 | `test_v14.py`, `test_v14_native.py`, `test_fatol.py` | 1.4의 멈춤 기록·스레드 피팅, 1.4.2의 종료 기준 |
 | `test_facade.py`, `test_paths.py` | 패키지 구조, 프로그램이 쓰는 폴더 |
-| `test_g1.py` – `test_g11.py`, `test_dpi.py` | 1.6에서 고친 리뷰 항목마다 한 구역(`section("A-13")`처럼 항목 ID로 고름) |
-| `check_doc.py`, `sync_doc_ranges.py` | `ARCHITECTURE.md`가 코드와 맞는지 / 줄 수 맞추기 |
+| `test_g1.py` – `test_g12.py`, `test_dpi.py` | 1.6에서 고친 리뷰 항목마다 한 구역(`section("A-13")`처럼 항목 ID로 고름). `test_g12.py`는 최종 리뷰의 지적 |
+| `check_doc.py`, `sync_doc_ranges.py` | `ARCHITECTURE.md`가 코드와 맞는지 / 모듈을 고친 뒤 문서의 줄 수를 맞추는 도구(직접 실행. `run_all.sh`는 돌리지 않음) |
 | `artefacts.py` | 여러 설정에서의 계산 배열, 내보낸 CSV, Origin에 넘기는 값, 창의 위젯과 그림을 한 폴더에 모으고 두 폴더를 비교 |
 | `launcher_check.ps1`, `launcher_step.ps1`, `smoke_entry.py` | `TCSPC_analysis.bat`을 새 환경을 포함한 네 가지 환경에서 실제로 실행(PowerShell에서 실행) |
 | `frozen_selftest4.py`, `start_time.py` | 빌드한 exe의 자가 점검, 시작 시간 |

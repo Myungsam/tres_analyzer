@@ -43,9 +43,10 @@ compiled copies of the `tcspc_analysis` modules are written there and no
 
 | File | Contents | Installed |
 |------|----------|-----------|
-| `requirements-lock.txt` | the exact versions of everything below that the program was tested with | automatically, on first run |
+| `requirements-lock.txt` | the exact versions of numpy, scipy, matplotlib (and what they need) that the program was tested with | automatically, on first run |
 | `requirements.txt` | numpy, scipy, matplotlib (what the program needs to run) | instead of the lock file, if this Python has no wheel for a pinned version |
-| `requirements-opju.txt` | pywin32, originpro (the `.opju` export) | after `requirements.txt`; if that fails the launcher says so and the program still starts |
+| `requirements-opju-lock.txt` | the tested versions of pywin32, originpro, OriginExt (the `.opju` export) | after the core packages |
+| `requirements-opju.txt` | pywin32, originpro | instead of that lock file, if a pinned version is missing; if this fails too the launcher says so and the program still starts |
 | `requirements-optional.txt` | tensorflow (FLIM GPU only) | manually, see below |
 
 `tkinter` ships with the standard python.org installer, so it is not listed.
@@ -54,7 +55,7 @@ Everything the app normally does — viewing PHU/TRES and PTU/FLIM, Kinetics and
 Global-analysis fits, and both **CSV** and **`.opju`** export — is installed by
 the launcher, so it all works on a fresh machine with no manual step.
 
-The lock file is a `pip freeze` of the environment the regression tests were
+The two lock files are a `pip freeze` of the environment the regression tests were
 run in and the .exe is built from. A fit's behaviour has depended on the
 numpy / scipy build before (fixed in 1.4.2), so change it only together with a
 run of the tests.

@@ -46,18 +46,18 @@ Two preprocessing tools live under "PREP", each in its own pop-up:
             drawn once as a preview; drag two corners or type the bounds and the
             kept box updates live. Apply re-slices the pristine file, so the
             crop can be widened again (or Reset to full) without reloading. Its
-            upper time edge is the same value as the main TIME SPAN box.
+            upper time edge is the same value as the main TIME END box.
             The same window subtracts a solvent: "Load solvent..." takes a
             pure-solvent .phu measured on the same grid (same curves,
             wavelengths, resolution and bin count - anything else is refused),
-            and SCALE (slider 0-2, or type a larger value) sets how much of it
+            and SOLVENT SCALE (slider 0-2, or type a larger value) sets how much of it
             is taken off, bin for bin: sample - scale x solvent. The heatmap and
             the steady-state panel under it (sample, scaled solvent, subtracted)
             follow the scale as a preview; Apply hands it to the main window,
-            where the "Subtract solvent" checkbox switches it on and off. While
-            it is on, negatives left after the background are clipped to 0 -
-            the share of clipped bins is shown, since clipping lifts weak
-            signals. Opening another sample drops the solvent.
+            where the "Subtract solvent" checkbox switches it on and off. What
+            the subtraction leaves below zero is kept (it is noise around 0;
+            the colour scale shows it as 0) and the share of such bins is
+            shown. Opening another sample drops the solvent.
             Moving the pointer over the heatmap draws the spectrum of that one
             time bin in bold over the (faded) steady-state lines, on the
             right-hand scale: sample, scaled solvent and their difference, in
@@ -139,8 +139,8 @@ keeps covering the same real delays.
 Usage
     python -m tcspc_analysis [file.phu]
 
-An optional .phu path is loaded straight into the PHU/TRES tab; the PTU/FLIM
-tab is opened from its own "Open file..." button.
+An optional .phu path is loaded straight into the PHU/TRES tab; a .ptu path
+selects the PTU/FLIM tab and fills in its file box.
 
 Requires: numpy, matplotlib, tkinter (tkinter ships with most CPython builds;
 on Debian/Ubuntu install it with `sudo apt install python3-tk`)

@@ -139,7 +139,9 @@ def rules_of_1_5(new=None):
     restores the 1.6 rules. Not switchable (they are not one name): the fixed skip mask (A-2, only with a
     free t0 / FWHM), the two extra preamble lines of a fit export (C-9), the unit of the Origin Counts column
     (Q-2), the export stem (B-19), crop and masks following OFFSET (C-14), no cut to 0 after the solvent (A-9),
-    Crop Apply leaving the solvent off (C-5).
+    Crop Apply leaving the solvent off (C-5). Two changes of 1.6 that were classed as "results unchanged"
+    also stay: the RMS of a global fit in "skip" mode counts only the delays that were fitted (A-15; tau,
+    amplitudes and fit are the same), and input 1.4 answered with an all-zero fit is an error (A-3).
 
     The tests of the changes themselves are test_g7.py / test_g8.py; this is for the tests that were written
     as "identical to 1.4". Names a state of the code does not have yet are skipped.

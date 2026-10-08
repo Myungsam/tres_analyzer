@@ -4,7 +4,8 @@ frozen_selftest4_result.txt beside the .exe.
 Checks what only a frozen build can show: the freeze log and the default Data folder are in
 Documents\\TCSPC_analysis and nothing is written beside the .exe but the result file (a stuck callback
 and a failing callback are both noted in the log), a Kinetics fit finishes, and the modules the
-program imports late (scipy.optimize, scipy.special, pandas, pythoncom, originpro) were packed.
+program imports late (scipy.optimize, scipy.special, pythoncom, originpro) were packed - and pandas, which
+the program no longer uses, was not.
 The log this run writes is removed again when the test wrote all of it.
 """
 import os

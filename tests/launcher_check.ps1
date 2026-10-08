@@ -45,7 +45,9 @@ Copy-Item "$root\TCSPC_analysis.bat", "$root\requirements.txt", "$root\run_tcspc
 Copy-Item "$root\tcspc_analysis" $copy -Recurse
 # no lock file that installs, and an .opju list naming a package that does not exist
 Set-Content (Join-Path $copy "requirements-lock.txt") "--only-binary=:all:`r`nnumpy==0.0.1"
-Set-Content (Join-Path $copy "requirements-opju.txt") "--only-binary=:all:`r`nthis-package-does-not-exist-tcspc==9.9"
+# (versions that do not exist of packages that do: a made-up package NAME could be registered by anyone)
+Set-Content (Join-Path $copy "requirements-opju-lock.txt") "--only-binary=:all:`r`npywin32==0.0.1"
+Set-Content (Join-Path $copy "requirements-opju.txt") "--only-binary=:all:`r`npywin32==0.0.1"
 $out = python -B $smoke "launcher-no-opju" cmd.exe /c "$copy\TCSPC_analysis.bat" $phu
 $out | Select-Object -First 1
 ($out -join "`n") -match "tested package versions are not all available" | ForEach-Object { "said that the tested versions were not available: $_" }

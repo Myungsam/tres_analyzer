@@ -7,6 +7,8 @@
 # The .exe was built with pyinstaller==6.22.3.
 --only-binary=:all:
 
+# (The tested versions of the ".opju" packages are in requirements-opju-lock.txt:
+#  one of those missing for some Python must not take these pins away.)
 # --- viewing + fitting + CSV export
 contourpy==1.3.3
 cycler==0.12.1
@@ -19,8 +21,3 @@ pyparsing==3.3.2
 python-dateutil==2.9.0.post0
 scipy==1.18.0
 six==1.17.0
-
-# --- ".opju" (OriginLab) export
-OriginExt==1.2.5
-originpro==1.1.15
-pywin32==312

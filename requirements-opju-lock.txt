@@ -1,0 +1,10 @@
+# The versions of the ".opju" (OriginLab) export packages TCSPC_analysis was
+# tested with, on Python 3.13.0. TCSPC_analysis.bat installs these after the
+# core packages; if one has no wheel for this computer's Python it takes the
+# newest ones requirements-opju.txt allows, and if that fails too it says so
+# and starts the program without the .opju export.
+--only-binary=:all:
+
+OriginExt==1.2.5
+originpro==1.1.15
+pywin32==312

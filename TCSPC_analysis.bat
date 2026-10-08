@@ -27,7 +27,9 @@ REM v3: the .opju libraries are installed in a step of their own, so a PC on
 REM     which one of them cannot be installed still gets the program.
 REM v4: the tested versions (requirements-lock.txt) are installed first.
 REM v5: pandas is no longer needed (the .opju export writes its columns itself).
-set "REQ_VERSION=5"
+REM v6: the tested .opju versions are a file of their own, so a missing one
+REM     does not make the core packages fall back to the newest versions.
+set "REQ_VERSION=6"
 set "VENVDIR=%LOCALAPPDATA%\TCSPC_analysis"
 set "VENV=%VENVDIR%\venv"
 set "VPY=%VENV%\Scripts\python.exe"
@@ -35,6 +37,7 @@ set "STAMP=%VENV%\deps_ok.txt"
 set "REQ=%~dp0requirements.txt"
 set "REQ_OPJU=%~dp0requirements-opju.txt"
 set "REQ_LOCK=%~dp0requirements-lock.txt"
+set "REQ_OPJU_LOCK=%~dp0requirements-opju-lock.txt"
 
 REM ---- 1) find a base Python to build the environment -----------
 REM Validate each candidate by actually running it (skips the Windows
@@ -78,14 +81,18 @@ REM First the exact versions the program was tested with. They exist as wheels
 REM for the Python they were tested on; another Python may lack one, and then
 REM the newest versions that requirements.txt allows are taken instead.
 "%VPY%" -m pip install -r "%REQ_LOCK%"
-if not errorlevel 1 goto deps_done
+if not errorlevel 1 goto core_done
 echo.
 echo   The tested package versions are not all available for this Python -
 echo   installing the newest ones instead.
 echo.
 "%VPY%" -m pip install -r "%REQ%"
 if errorlevel 1 goto pip_fail
-REM The .opju export only: the program must start without these.
+:core_done
+REM The .opju export only: the program must start without these. The tested
+REM versions first, then whatever this Python has wheels for.
+"%VPY%" -m pip install -r "%REQ_OPJU_LOCK%"
+if not errorlevel 1 goto deps_done
 "%VPY%" -m pip install -r "%REQ_OPJU%"
 if errorlevel 1 (
     echo.

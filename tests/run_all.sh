@@ -6,15 +6,17 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE" || exit 1
 LABEL="${1:-run}"
-BASE=$(python -c "import sys;print(sys.base_prefix.replace(chr(92),'/'))")
-export TCL_LIBRARY="$BASE/tcl/tcl8.6" TK_LIBRARY="$BASE/tcl/tk8.6" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8
 VPY="$LOCALAPPDATA/TCSPC_analysis/venv/Scripts/python.exe"
+# Tcl/Tk of the Python the environment was made from, as the launcher finds it
+BASE=$("$VPY" -c "import sys;print(sys.base_prefix.replace(chr(92),'/'))")
+export TCL_LIBRARY="$BASE/tcl/tcl8.6" TK_LIBRARY="$BASE/tcl/tk8.6" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8
 OUT="out/suite_$LABEL"
 mkdir -p "$OUT"
-python -B sync_doc_ranges.py > "$OUT/doc_sync.out" 2>&1
+# (check_doc below compares ARCHITECTURE.md's line counts with the code; sync_doc_ranges.py, run by hand
+#  after an edit, brings them in step - it is not run here, so a stale document shows as a failure)
 BAD=0
 for t in test_numeric test_gui test_slice test_zoom test_v14 test_v14_native test_fatol test_facade test_paths test_dpi \
-         $(ls test_g*.py 2>/dev/null | grep -v test_gui | sed 's/\.py$//') check_doc; do
+         $(ls test_g?.py test_g??.py 2>/dev/null | grep -v test_gui | sed 's/\.py$//') check_doc; do
     "$VPY" -B $t.py > "$OUT/$t.out" 2>&1
     RC=$?
     [ $RC -ne 0 ] && BAD=1
