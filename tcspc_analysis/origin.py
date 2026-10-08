@@ -24,14 +24,19 @@ def _origin_book1(op):
     return wb
 
 
-def _origin_sheet(wb, sheet_name):
-    """Find the worksheet called sheet_name in wb, or add it. -> (sheet, created)."""
+def _origin_sheet(wb, sheet_name, fresh=False):
+    """Find the worksheet called sheet_name in wb, or add it. -> (sheet, created).
+
+    ``fresh`` says the project was created just now: only then is its single
+    "Sheet1" known to be empty and taken over. In a project that already
+    existed a lone "Sheet..." may hold the user's data and is left alone.
+    """
     for sh in wb:
         if sh.name == sheet_name:
             return sh, False                       # exists -> overwrite target
     sheets = list(wb)
     # a brand-new project's single empty "Sheet1" is renamed rather than kept
-    if len(sheets) == 1 and sheets[0].name.lower().startswith("sheet"):
+    if fresh and len(sheets) == 1 and sheets[0].name.lower().startswith("sheet"):
         try:
             sheets[0].name = sheet_name
             return sheets[0], True

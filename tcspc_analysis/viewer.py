@@ -1363,7 +1363,7 @@ class TRESViewer:
 
             wb = _origin_book1(op)
             for tab_name, fill_fn in tabs:
-                ws, _ = _origin_sheet(wb, tab_name)
+                ws, _ = _origin_sheet(wb, tab_name, fresh=not exists)
                 fill_fn(ws)
                 written.append(tab_name)
 
