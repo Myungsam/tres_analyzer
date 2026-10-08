@@ -151,4 +151,3 @@ Optional: pandas + originpro + pywin32 for the TRES ".opju" export;
 
 import matplotlib
 matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
