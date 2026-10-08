@@ -255,6 +255,16 @@ def _fit_warnings(t, tau, fwhm, A, data, tau_limits):
     return notes
 
 
+def _skip_warning(skipping, t0_fixed, fwhm_fixed):
+    """IRF mode "skip" with a free t0 / FWHM, in words (or nothing)."""
+    free = [name for name, fixed in (("t₀", t0_fixed), ("FWHM", fwhm_fixed)) if not fixed]
+    if not (skipping and free):
+        return []
+    return [f'IRF mode "skip" leaves the delays under the IRF out of the fit, so '
+            f'the data hardly determine {" and ".join(free)}: fix '
+            f'{"them" if len(free) > 1 else "it"}, or use another IRF mode.']
+
+
 def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                         tau_fixed, t0_fixed, fwhm_fixed, has_inf,
                         beta_init=None, beta_fixed=None, stretch_on=None,
@@ -314,6 +324,16 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     x0 = np.array(x0_list, float)
 
     skip_mask_active = any_stretched and irf_mode.lower() == "skip"
+    # "skip" leaves the delays under the IRF out of the loss. Which ones is
+    # settled here, from the starting t0 and FWHM, as fit_single_trace does:
+    # taken from the current values instead, a free t0 or FWHM could lower
+    # the loss by sliding the IRF over the data and discarding it.
+    skip_mask = np.ones(N, dtype=bool)
+    if skip_mask_active:
+        skip_mask = t_arr > (float(t0_init) + 3.0 * float(fwhm_init)
+                             / (2.0 * np.sqrt(2.0 * np.log(2.0))))
+        if int(skip_mask.sum()) <= n_nl + (1 if has_inf else 0):
+            skip_mask = np.ones(N, dtype=bool)
     n_model = [0]                   # times the model was really evaluated
     n_cells = [D.size]              # residuals in the loss of the latest call
 
@@ -365,11 +385,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         if np.any(col_norms < 1e-12) or not np.all(np.isfinite(C)):
             return 1e30, np.zeros((M, C.shape[1])), np.zeros((M, N))
 
-        col_mask = np.ones(N, dtype=bool)
-        if skip_mask_active:
-            col_mask = t_arr > (t0_cur + 3.0 * sigma_cur)
-            if int(col_mask.sum()) <= C.shape[1]:
-                col_mask = np.ones(N, dtype=bool)
+        col_mask = skip_mask
 
         k_cols = C.shape[1]
         As = np.zeros((M, k_cols))
@@ -436,11 +452,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
             _, _, fit_M = objective(x)
             R = D - fit_M
             R = np.where(np.isfinite(R), R, 0.0)
-            if skip_mask_active:
-                cm = t_arr > (t0_cur + 3.0 * fwhm_cur / (2.0
-                              * np.sqrt(2.0 * np.log(2.0))))
-                if cm.any() and cm.sum() < N:
-                    R[:, ~cm] = 0.0
+            R[:, ~skip_mask] = 0.0
             return R.ravel()
 
         res = _least_squares(_residuals, x0, method="trf",
@@ -471,7 +483,8 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         "rss": loss, "iters": iters, "nfev": n_fev, "method": method_used,
         "success": verdict[0], "status": verdict[1], "message": verdict[2],
         "n_objective": n_model[0],
-        "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True),
+        "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True)
+        + _skip_warning(skip_mask_active, t0_fixed, fwhm_fixed),
         "rms": float(np.sqrt(loss / n_cells[0])),
         "initialLoss": init_loss,
         "initialRMS": float(np.sqrt(init_loss / init_cells)),
@@ -670,5 +683,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                  "success": verdict[0], "status": verdict[1],
                  "message": verdict[2], "nfev": verdict[3],
                  "warnings": _fit_warnings(t, cur["tau"], cur["fwhm"], A_final,
-                                           y[mask], False)},
+                                           y[mask], False)
+                 + _skip_warning(irf_mode.lower() == "skip" and stretch_on.any(),
+                                 t0_fixed, fwhm_fixed)},
     }
