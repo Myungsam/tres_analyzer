@@ -188,7 +188,7 @@ class TRESViewer:
         cb = ttk.Combobox(row, textvariable=self.var_cmap, values=CMAPS,
                           width=9, state="readonly")
         cb.pack(side="left", padx=(0, 16))
-        cb.bind("<<ComboboxSelected>>", lambda e: self.redraw(full=True))
+        cb.bind("<<ComboboxSelected>>", lambda e: self._on_colormap())
 
         ttk.Label(row, text="TIME END").pack(side="left", padx=(0, 5))
         self.var_tmax = tk.StringVar(value="")   # filled from the file on open
@@ -209,7 +209,7 @@ class TRESViewer:
 
         self.var_log = tk.BooleanVar(value=True)
         ttk.Checkbutton(row, text="Log color", variable=self.var_log,
-                        command=lambda: self.redraw(full=True)).pack(side="left", padx=(0, 12))
+                        command=self._on_log_color).pack(side="left", padx=(0, 12))
 
         self.var_t0 = tk.BooleanVar(value=False)
         ttk.Checkbutton(row, text="t0 at IRF peak", variable=self.var_t0,
@@ -604,11 +604,60 @@ class TRESViewer:
 
     def reset_view(self):
         self.view = None
-        self.redraw(full=True)
+        self._reframe()
 
     def reset_contrast(self):
         self.clim = None
-        self.redraw(full=True)
+        self._recolor()
+
+    # Colormap, colour scale, contrast and zoom change how the map is shown,
+    # not what is in the figure: the artists redraw() built stay, and only
+    # what differs is set on them. (redraw() makes ~300 artists from scratch,
+    # about half of its time.) The picture is the one redraw() would give.
+    def _on_colormap(self):
+        self._recolor()
+
+    def _on_log_color(self):
+        self._recolor()
+
+    def _recolor(self):
+        """Give the map its colormap, linear / log colour scale and contrast."""
+        if not self.model:
+            return
+        if getattr(self, "im", None) is None or self.im.axes is None:
+            self.redraw(full=True)
+            return
+        m = self.model
+        norm, cmap, lo, log = self._color_scale()
+        self.im.set_data(np.ma.masked_less(m.E.T, lo) if log else m.E.T)
+        self.im.set_cmap(cmap)
+        self.im.set_norm(norm)
+        self._cbar.update_normal(self.im)
+        self._style_colorbar(log)
+        self.canvas.draw()      # on_draw() puts the cursor artists back
+
+    def _style_colorbar(self, log):
+        cb = self._cbar
+        cb.set_label("Counts" + (" (log)" if log else "")
+                     + ("" if self.clim is None else "  [manual]"),
+                     color=INK_FAINT, fontsize=8)
+        cb.ax.tick_params(colors=INK_FAINT, labelsize=7.5)
+        cb.outline.set_color(LINE)
+
+    def _reframe(self):
+        """Show the zoom rectangle self.view (or the whole map); the panels
+        that share an axis with the map follow."""
+        if not self.model:
+            return
+        if getattr(self, "im", None) is None or self.im.axes is None:
+            self.redraw(full=True)
+            return
+        m = self.model
+        w_lo, w_hi = m.wl_edges
+        x0, x1, y0, y1 = self.view if self.view else (w_lo, w_hi, m.t_lo, m.t_hi)
+        self.ax_map.set_xlim(x0, x1)
+        self.ax_map.set_ylim(y0, y1)
+        self.canvas.draw()
 
     def apply_offset(self):
         """Shift every wavelength by the number of nm in the OFFSET box.
@@ -702,12 +751,8 @@ class TRESViewer:
                           if m.irf is not None else ""),
             fontsize=9, loc="left", pad=4)
 
-        cb = self.fig.colorbar(self.im, cax=self.cax)
-        cb.set_label("Counts" + (" (log)" if log else "")
-                     + ("" if self.clim is None else "  [manual]"),
-                     color=INK_FAINT, fontsize=8)
-        cb.ax.tick_params(colors=INK_FAINT, labelsize=7.5)
-        cb.outline.set_color(LINE)
+        self._cbar = self.fig.colorbar(self.im, cax=self.cax)
+        self._style_colorbar(log)
 
         # ---- spectral ribbon ----
         grad = np.array([wavelength_to_rgb(w)
@@ -860,9 +905,13 @@ class TRESViewer:
         if self.cursor is None:
             self.ln_decay.set_data([], [])
             self.ln_spec.set_data([], [])
-            for art in (self.vl_map, self.hl_map, self.vl_spec):
+            # hide each line through the coordinate update_cursor() sets again:
+            # a horizontal line whose x was blanked would stay invisible for
+            # as long as the artists live (they now outlive a recolour / zoom)
+            for art in (self.vl_map, self.vl_spec):
                 art.set_xdata([np.nan, np.nan])
-            self.hl_hist.set_ydata([np.nan, np.nan])
+            for art in (self.hl_map, self.hl_hist):
+                art.set_ydata([np.nan, np.nan])
             self.txt.set_text("")
         else:
             wi, ti = self.cursor
@@ -958,7 +1007,7 @@ class TRESViewer:
                 y0, y1 = sorted((drag["y0"], drag["y1"]))
                 if x1 > x0 and y1 > y0:
                     self.view = (x0, x1, y0, y1)
-                    self.redraw(full=True)
+                    self._reframe()
                     return
             if event.inaxes is self.ax_map:
                 self._toggle_pin(event)
@@ -966,7 +1015,7 @@ class TRESViewer:
             lo, hi = sorted((drag["y0"], drag["y1"]))
             if hi > lo:
                 self.clim = (lo, hi)
-                self.redraw(full=True)
+                self._recolor()
                 return
 
         self.rect.set_visible(False)
