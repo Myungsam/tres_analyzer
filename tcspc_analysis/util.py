@@ -65,7 +65,7 @@ def fwhm_of(trace, res_ps):
 
     left = crossing(lo, min(lo + 1, pk))
     right = crossing(hi, max(hi - 1, pk))
-    return pk * res_ps, (right - left) * res_ps
+    return pk * res_ps, float((right - left) * res_ps)
 
 
 def solvent_mismatch(sample, solvent):
