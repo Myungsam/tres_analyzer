@@ -23,7 +23,7 @@ def _ensure_scipy():
             from scipy.special import erfc, erfcx
             from scipy.optimize import minimize, least_squares
         except ImportError as exc:      # pragma: no cover - depends on env
-            raise RuntimeError(
+            raise FitInputError(
                 "The Kinetics and Global-analysis tools need SciPy.\n"
                 "Install it with:  pip install scipy") from exc
         _erfc, _erfcx = erfc, erfcx
