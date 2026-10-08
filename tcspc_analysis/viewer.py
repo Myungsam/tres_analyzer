@@ -325,7 +325,7 @@ class TRESViewer:
         self.var_solv.set(m.solvent_sub)
         info = f'x{m.solvent_scale:g}  {short_name(m.solvent["path"])}'
         if m.solvent_active:
-            info += f"  (clipped {m.clip_frac:.0%} of bins to 0)"
+            info += f"  ({m.neg_frac:.0%} of bins below 0)"
         self.var_solvinfo.set(info)
 
     # -- figure -----------------------------------------------------------
@@ -839,7 +839,9 @@ class TRESViewer:
                               ls=":", lw=1.0, alpha=0.8)
             self.var_bginfo.set(
                 f"bg {b0:,.0f}-{b1:,.0f} ps (mean {np.nanmean(m.bg_spec):,.1f} cts/bin)"
-                + (f"  ** {m.neg_frac:.0%} of the map is negative - window is on signal?"
+                + (f"  ** {m.neg_frac:.0%} of the map is negative - "
+                   + ("solvent scale too high, or window on signal?" if m.solvent_active
+                      else "window is on signal?")
                    if m.neg_frac > 0.6 else ""))
         else:
             self.var_bginfo.set("bg off")
@@ -1174,8 +1176,7 @@ class TRESViewer:
                         + " nm")
         if m.solvent_active:
             bits.append(f"solvent subtracted x{m.solvent_scale:g} "
-                        f'({os.path.basename(m.solvent["path"])}), '
-                        f"negatives clipped to 0 ({m.clip_frac:.0%} of bins)")
+                        f'({os.path.basename(m.solvent["path"])})')
         return "  |  ".join(bits)
 
     def _extent_of(self, wls, times):

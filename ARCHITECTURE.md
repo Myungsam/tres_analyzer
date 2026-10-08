@@ -225,7 +225,7 @@ flowchart LR
 | 파일 읽기 | `read_phu` | `.phu` 경로 | dict: `counts`(곡선 x bin), `wls`, `res_ps`, `nbins`, `ncurves`와 장비 메타데이터 |
 | 모델 생성 | `TRESViewer.load` | phu dict, 컨트롤 바의 현재 값 | `TRESModel` 인스턴스 |
 | 모델 재구성 | `TRESModel.rebuild` | phu dict + 처리 설정 (+ solvent의 phu dict) | `E_raw`, `S_raw`, `wls`, IRF 정보, 이어서 `subtract_background` 호출 |
-| 배경 제거와 요약 | `TRESModel.subtract_background` | `E_raw`, 배경 구간 | `E`, `bg_spec`, `clip_frac`, `vmax`, `spec_total`, `decay_total` |
+| 배경 제거와 요약 | `TRESModel.subtract_background` | `E_raw`, 배경 구간 | `E`, `bg_spec`, `neg_frac`, `vmax`, `spec_total`, `decay_total` |
 | 화면 그리기 | `TRESViewer.redraw`, `update_cursor` | `E`와 요약 배열 | 2D 맵, 감쇠, 스펙트럼, 정상상태 스펙트럼 |
 | 전처리 | `CropDialog`, `MaskDialog` | 사용자 입력 | 모델 설정 변경 후 `rebuild`와 `redraw` |
 | 분석 | `KineticsDialog`, `GlobalAnalysisDialog` | `E`, `times`, `wls` | 피팅 결과 dict |
@@ -247,7 +247,7 @@ flowchart LR
 | 설정 | `solvent`, `solvent_scale`, `solvent_sub` | solvent 측정의 phu dict, 차감 비율, 차감 사용 여부 |
 | 파생 | `E_raw`, `E` | 배경 제거 전·후의 (파장 x 시간) 행렬. solvent 차감이 켜져 있으면 차감이 반영된 값 |
 | 파생 | `S_raw` | 샘플과 같은 곡선·구간·리비닝으로 자른 solvent 행렬 (비율을 곱하기 전). solvent가 없으면 `None` |
-| 파생 | `clip_frac` | 0으로 자른 bin의 비율. 차감이 꺼져 있으면 0 |
+| 파생 | `neg_frac` | 0보다 작은 bin의 비율 (solvent 차감 뒤의 음수는 자르지 않고 둠) |
 | 파생 | `wls`, `n_w`, `n_t`, `t_off_ps` | 축 정보 |
 | 파생 | `irf`, `irf_wl`, `irf_peak_ps`, `irf_fwhm_ps` | IRF 곡선과 그 피크, 폭 |
 | 파생 | `bg_spec`, `bg_window_ps`, `neg_frac`, `vmax` | 배경 스펙트럼과 색상 범위 정보 |
@@ -268,8 +268,7 @@ flowchart TD
     S --> D["마스크 대역의 행을 NaN으로 설정"]
     D --> E["first_is_irf이면 IRF 곡선 리비닝, 피크와 FWHM 계산"]
     E --> F["subtract_background: 배경 스펙트럼을 빼서 E 생성"]
-    F --> H["차감이 켜져 있으면 E의 음수를 0으로 자르고 clip_frac 기록"]
-    H --> G["subtract_background 안에서 vmax, spec_total, decay_total 계산"]
+    F --> G["subtract_background 안에서 neg_frac, vmax, spec_total, decay_total 계산"]
 ```
 
 | 순서 | 처리 | 결과 |
@@ -281,12 +280,11 @@ flowchart TD
 | 5 | `masks`에 해당하는 행을 NaN으로 설정 (`E_raw`와 `S_raw` 모두) | `mask_rows` |
 | 6 | `first_is_irf`가 켜져 있으면 샘플의 IRF 곡선을 같은 구간으로 리비닝하고 `fwhm_of`로 피크와 폭 계산 | `irf`, `irf_peak_ps`, `irf_fwhm_ps` |
 | 7 | `subtract_background` 호출: 배경 구간의 평균 스펙트럼을 모든 시간 bin에서 뺌 | `E`, `bg_spec` |
-| 8 | `solvent_active`이면 `E`의 음수를 0으로 바꾸고 잘린 bin의 비율을 기록. NaN은 그대로 둠 | `E`, `clip_frac` |
-| 9 | `subtract_background` 안에서 색상 범위와 합산 배열 계산 | `vmax`, `spec_total`, `decay_total` |
+| 8 | `subtract_background` 안에서 음수 bin의 비율, 색상 범위, 합산 배열 계산. solvent 차감 뒤에 남은 음수는 자르지 않음(1.5까지는 0으로 잘랐음) | `neg_frac`, `vmax`, `spec_total`, `decay_total` |
 
-`TRESViewer._set_bg_window`는 배경 구간을 옮길 때 `rebuild` 없이 7~9단계(`subtract_background`)만 다시 실행한다.
+`TRESViewer._set_bg_window`는 배경 구간을 옮길 때 `rebuild` 없이 7~8단계(`subtract_background`)만 다시 실행한다.
 
-solvent 차감은 4단계와 8단계 두 곳에서만 일어난다. solvent의 곡선은 샘플과 같은 인덱스로 고르므로 두 파일의 격자가 같아야 하며, 이 조건은 파일을 열 때 `solvent_mismatch`가 검사한다. `solvent`가 없거나 `solvent_sub`가 꺼져 있으면 4단계의 뺄셈과 8단계는 실행되지 않는다.
+solvent 차감은 4단계에서만 일어난다. solvent의 곡선은 샘플과 같은 인덱스로 고르므로 두 파일의 격자가 같아야 하며, 이 조건은 파일을 열 때 `solvent_mismatch`가 검사한다. `solvent`가 없거나 `solvent_sub`가 꺼져 있으면 4단계의 뺄셈은 실행되지 않는다.
 
 ### 4.3 TRESViewer
 

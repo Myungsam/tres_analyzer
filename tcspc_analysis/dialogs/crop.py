@@ -359,7 +359,7 @@ class CropDialog(_AnalysisDialog):
         like the map it replaces; it is only recomputed when the solvent or
         the scale changed. The spectra come from _pv, configured by the same
         _configure() Apply uses, so "subtracted" is the steady-state panel of
-        the main window after Apply. Returns the share of bins clipped to 0.
+        the main window after Apply. Returns the share of bins below 0.
         """
         sv = self._solvent
         key = (id(sv), self._scale) if sv is not None else None
@@ -392,7 +392,7 @@ class CropDialog(_AnalysisDialog):
         for txt in (*leg.get_texts(), leg.get_title()):
             txt.set_color(INK_DIM)
         self._draw_slice()          # a pinned slice follows the scale as well
-        return pv.clip_frac if sv is not None else None
+        return pv.neg_frac if sv is not None else None
 
     def _on_typed(self):
         self._corner = None         # a typed range replaces a half-picked box
@@ -442,7 +442,7 @@ class CropDialog(_AnalysisDialog):
                           f"{t_lo:g}-{t_hi:g} ps"
                           + (",  solvent subtraction is off in the main window (Apply leaves it off)"
                              if self._left_off() else
-                             "" if clipped is None else f",  {clipped:.0%} of bins clipped to 0"))
+                             "" if clipped is None else f",  {clipped:.0%} of bins below 0"))
         self.canvas.draw_idle()
 
     def _curves_in(self, wl_lo, wl_hi):

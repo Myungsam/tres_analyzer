@@ -44,8 +44,8 @@ class TRESModel:
         # -- solvent subtraction (picked and scaled in the Crop dialog) --------
         # solvent is the phu dict of a pure-solvent record taken on the same
         # grid as the sample. While solvent_sub is on, solvent_scale times it
-        # is subtracted bin for bin right after rebinning, and the negatives
-        # left in the final E are clipped to 0.
+        # is subtracted bin for bin right after rebinning. What that leaves
+        # below zero stays in E (see subtract_background).
         self.solvent = None
         self.solvent_scale = 1.0
         self.solvent_sub = False
@@ -210,18 +210,12 @@ class TRESModel:
                                  self.t_off_ps + i1 * self.dt_ps - self.t0)
             self.E = self.E_raw - self.bg_spec[:, None]
 
-        # Solvent subtraction leaves noise scattered around zero. While it is
-        # on, the negatives are clipped to 0 here - after the background, so
-        # the final E has none - and clip_frac keeps the share of cells that
-        # were cut, since clipping lifts every sum taken over them. A new
-        # array rather than in place: with the background off, E is E_raw
-        # itself. Masked (NaN) cells compare false and stay NaN.
-        self.clip_frac = 0.0
-        if self.solvent_active:
-            negative = self.E < 0
-            cells = int(np.isfinite(self.E).sum())
-            self.clip_frac = float(negative.sum() / cells) if cells else 0.0
-            self.E = np.where(negative, 0.0, self.E)
+        # Solvent subtraction leaves noise scattered around zero, and it is
+        # left there. (Up to 1.5 the negatives were cut to 0, which lifts
+        # every cell by 0.4 sigma on average: the steady-state spectrum of
+        # pure noise came out at +84,000 counts, and a fitted trace got an
+        # offset that was not in the data.) The colour scales show what is
+        # below 0 as 0; neg_frac is the share of such cells.
 
         # a window sitting on real signal drives almost everything negative,
         # which the map can only render as "below the colour scale". Masked
@@ -254,8 +248,8 @@ class TRESModel:
         """Unscaled steady-state spectrum of the solvent, or None without one.
 
         Treated like the sample - same background window, same sum over time -
-        so that (sample spectrum) - scale * (this) is the subtracted spectrum
-        before clipping. Only the Crop preview draws it.
+        so that (sample spectrum) - scale * (this) is the subtracted spectrum.
+        Only the Crop preview draws it.
         """
         if self.S_raw is None:
             return None
