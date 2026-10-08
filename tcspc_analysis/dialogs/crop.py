@@ -262,6 +262,7 @@ class CropDialog(_AnalysisDialog):
         self.canvas.mpl_connect("figure_leave_event", self._on_leave)
         self.canvas.mpl_connect("scroll_event", self._on_scroll)
         self.canvas.mpl_connect("button_release_event", self._on_release)
+        self.canvas.mpl_connect("draw_event", self._on_draw)
 
     # -- preview ---------------------------------------------------------
     def _draw_base(self):
@@ -311,6 +312,17 @@ class CropDialog(_AnalysisDialog):
         at.yaxis.set_major_formatter(EngFormatter(places=0, sep=""))
         # the delay those come from, marked on the map
         self.hl_t = self.ax.axhline(np.nan, color="w", lw=0.9, ls="--", zorder=7)
+        # The slice follows the pointer. Everything of it - the marker, the
+        # three spectra, their legend and the right-hand scale they are read
+        # on - is "animated": a draw of the figure leaves it out, _on_draw()
+        # keeps that picture, and the slice is painted onto it (_show_slice).
+        # A pointer move then costs a few artists instead of the whole figure
+        # with its image and about 300 lines and texts.
+        for art in (self.hl_t, self.ln_t_sample, self.ln_t_solv, self.ln_t_sub, at.yaxis):
+            art.set_animated(True)
+        self._slice_leg = None      # the legend of the slice, while one is shown
+        self._slice_key = None      # ... and the lines it was made for
+        self._bg = None             # the figure without the slice, from the last draw
         self._draw_slice()
         self.canvas.draw_idle()
 
@@ -327,9 +339,9 @@ class CropDialog(_AnalysisDialog):
             ln.set_visible(ln in shown)
         self.hl_t.set_visible(ti is not None)
         if ti is None:
-            leg = self.ax_t.get_legend()
-            if leg is not None:
-                leg.remove()
+            if self._slice_leg is not None:
+                self._slice_leg.remove()
+                self._slice_leg = self._slice_key = None
             return
 
         f = self._full
@@ -345,12 +357,48 @@ class CropDialog(_AnalysisDialog):
         self.hl_t.set_ydata([t, t])
         self.hl_t.set_linestyle("-" if self._slice_pinned else "--")
         self.hl_t.set_color(PIN if self._slice_pinned else "w")
-        leg = self.ax_t.legend(
-            handles=list(shown), loc="upper left", fontsize=7.5, frameon=False, ncol=3,
-            title=f"t = {t:,.0f} ps" + ("  (pinned)" if self._slice_pinned else ""),
-            title_fontsize=8, alignment="left")
-        for txt in (*leg.get_texts(), leg.get_title()):
-            txt.set_color(INK)
+        # one legend for as long as the same lines are shown; only its title
+        # changes with the pointer
+        if self._slice_key != shown:
+            if self._slice_leg is not None:
+                self._slice_leg.remove()
+            leg = self.ax_t.legend(
+                handles=list(shown), loc="upper left", fontsize=7.5, frameon=False,
+                ncol=3, title=" ", title_fontsize=8, alignment="left")
+            leg.set_animated(True)
+            for txt in (*leg.get_texts(), leg.get_title()):
+                txt.set_color(INK)
+            self._slice_leg, self._slice_key = leg, shown
+        self._slice_leg.set_title(
+            f"t = {t:,.0f} ps" + ("  (pinned)" if self._slice_pinned else ""))
+
+    def _on_draw(self, event):
+        """The figure was drawn (without the slice, which is animated): keep
+        that picture, then put the slice on it."""
+        if event.canvas is not self.canvas or self.canvas.is_saving():
+            return                  # a savefig draws everything itself
+        self._bg = self.canvas.copy_from_bbox(self.fig.bbox)
+        self._paint_slice()
+
+    def _paint_slice(self):
+        at = self.ax_t
+        if self.hl_t.get_visible():
+            self.ax.draw_artist(self.hl_t)
+        for ln in (self.ln_t_sample, self.ln_t_solv, self.ln_t_sub):
+            if ln.get_visible():
+                at.draw_artist(ln)
+        at.draw_artist(at.yaxis)
+        if self._slice_leg is not None:
+            at.draw_artist(self._slice_leg)
+        self.canvas.blit(self.fig.bbox)
+
+    def _show_slice(self):
+        """After _draw_slice(): show it, without drawing the figure again."""
+        if self._bg is None:        # nothing drawn yet: the first draw shows it
+            self.canvas.draw_idle()
+            return
+        self.canvas.restore_region(self._bg)
+        self._paint_slice()
 
     def _update_preview(self, box):
         """Redraw what the solvent subtraction would give, without applying it.
@@ -667,7 +715,7 @@ class CropDialog(_AnalysisDialog):
         if ti != self._slice_ti:
             self._slice_ti = ti
             self._draw_slice()
-            self.canvas.draw_idle()
+            self._show_slice()
 
     def _on_leave(self, event):
         """The pointer left the map (or the whole figure): drop an unpinned slice."""
@@ -676,7 +724,7 @@ class CropDialog(_AnalysisDialog):
         if not self._slice_pinned and self._slice_ti is not None:
             self._slice_ti = None
             self._draw_slice()
-            self.canvas.draw_idle()
+            self._show_slice()
 
     def _on_click(self, event):
         if event.button != 1:       # the right button drags the view, no more
@@ -699,7 +747,7 @@ class CropDialog(_AnalysisDialog):
             self._slice_pinned = not self._slice_pinned
             self._slice_ti = self._time_bin(event.ydata)
             self._draw_slice()
-            self.canvas.draw_idle()
+            self._show_slice()
             return
         self._click_undo = self._crop_state()
         x = float(np.clip(event.xdata, *self.wl_full))
