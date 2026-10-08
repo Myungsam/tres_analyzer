@@ -20,6 +20,20 @@ TY_WIDESTRING   = 0x4002FFFF
 TY_BINARYBLOB   = 0xFFFFFFFF
 
 
+def _ansi(raw):
+    """Text of an "ANSI string" tag: the bytes up to the first NUL. They are
+    read as UTF-8 when they are valid UTF-8 (plain ASCII is), else in this
+    computer's ANSI code page - a comment typed in Korean on the measurement
+    PC is cp949 - and as Latin-1 when that fails too."""
+    raw = raw.split(b"\x00")[0]
+    for encoding in ("utf-8", "mbcs", "cp1252"):
+        try:
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):   # mbcs exists on Windows only
+            continue
+    return raw.decode("latin-1")
+
+
 def read_phu(path):
     """Parse a .phu file into a dict of metadata plus a (ncurves, nbins) array."""
     with open(path, "rb") as fh:
@@ -61,11 +75,13 @@ def read_phu(path):
             pos += n
         elif typ == TY_ANSISTRING:
             n = payload(ident, raw, pos)
-            val = data[pos:pos + n].split(b"\x00")[0].decode("ascii", "replace")
+            val = _ansi(data[pos:pos + n])
             pos += n
         elif typ == TY_WIDESTRING:
             n = payload(ident, raw, pos)
-            val = data[pos:pos + n].split(b"\x00\x00")[0].decode("utf-16-le", "replace")
+            # decoded first, cut at the NUL after: two zero bytes can sit
+            # across two characters
+            val = data[pos:pos + n].decode("utf-16-le", "replace").split("\x00")[0]
             pos += n
         elif typ == TY_BINARYBLOB:
             n = payload(ident, raw, pos)
