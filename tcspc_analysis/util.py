@@ -8,9 +8,12 @@ import numpy as np
 # 2. Helpers
 # ==========================================================================
 def wavelength_to_rgb(wl):
-    """Approximate visible-spectrum colour of a wavelength, for the axis ribbon."""
+    """Approximate visible-spectrum colour of a wavelength, for the axis ribbon.
+    Outside 380-830 nm there is no such colour: a neutral grey."""
+    if not 380 <= wl <= 830:
+        return (0.55, 0.55, 0.55)
     r = g = b = 0.0
-    if 380 <= wl < 440:
+    if wl < 440:
         r, b = -(wl - 440) / 60.0, 1.0
     elif wl < 490:
         g, b = (wl - 440) / 50.0, 1.0
@@ -20,13 +23,13 @@ def wavelength_to_rgb(wl):
         r, g = (wl - 510) / 70.0, 1.0
     elif wl < 645:
         r, g = 1.0, -(wl - 645) / 65.0
-    elif wl <= 830:
+    else:
         r = 1.0
 
     f = 1.0
-    if 380 <= wl < 420:
+    if wl < 420:
         f = 0.25 + 0.75 * (wl - 380) / 40.0
-    elif 700 < wl <= 830:
+    elif wl > 700:
         f = 0.25 + 0.75 * (830 - wl) / 130.0
 
     gamma = 0.85
