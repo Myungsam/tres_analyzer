@@ -47,7 +47,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `version.py`, `paths.py`, `phu.py`, `util.py`, `origin.py`, `fitting.py`, `theme.py` | (패키지의 다른 모듈을 쓰지 않음) |
 | `model.py` | `util.py` |
 | `flim.py` | `theme.py` |
-| `dialogs/common.py` | `theme.py` |
+| `dialogs/common.py` | `fitting.py`, `theme.py` |
 | `dialogs/crop.py` | `phu.py`, `util.py`, `model.py`, `theme.py`, `dialogs/common.py` |
 | `dialogs/mask.py` | `theme.py`, `dialogs/common.py` |
 | `dialogs/kinetics.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
