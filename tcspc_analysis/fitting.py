@@ -183,6 +183,68 @@ class GlobalAnalysisStopped(FitStopped):
     """The same, from the global fit."""
 
 
+def _bin_width(t):
+    t = np.asarray(t, float).ravel()
+    return float(np.median(np.diff(t))) if t.size > 1 else 0.0
+
+
+def _shortest_tau(fwhm, dt):
+    """The shortest lifetime a fit may end on, in ps: a tenth of the time bin
+    of the fitted data (``dt``).
+
+    A component much shorter than the IRF has the IRF's own shape - scattered
+    excitation light is one - and only its amplitude x lifetime is determined.
+    The limit lets a fit hold such a component without the lifetime running
+    off to 1e-10 ps and the amplitude to 1e15. (Up to 1.5 the global fit
+    stopped at FWHM / 9.42 instead, which such a component does not fit under:
+    on the two sample files the RMS was 10 to 50 % higher for it.)
+    """
+    return dt / 10.0
+
+
+SHORTEST_TAU_IS = "a tenth of a time bin"
+SHORTEST_TAU_MEANS = ("a component with the shape of the IRF itself (scattered "
+                      "light, for instance); only amplitude x τ is determined.")
+
+
+def _limits(t, fwhm_init, n_tau, n_beta, t0_free, fwhm_free):
+    """Limits of a fit's free parameters, in the optimiser's own variables
+    (log tau ..., log beta ..., t0, log FWHM): a list of (low, high), or None
+    when the starting FWHM or the time axis leaves nothing to build them from
+    (the fit then ends on _refuse()).
+
+    tau:  _shortest_tau() ... 100 x the fit range
+    beta: 0.001 ... 2
+    t0:   free
+    FWHM: a quarter of a time bin ... the fit range
+    The optimisers are held inside these, so a parameter the data pull out of
+    them stops ON the limit - and _fit_warnings() says so - instead of running
+    on to a lifetime of 1e-10 ps with an amplitude of 1e15.
+    """
+    t = np.asarray(t, float).ravel()
+    span = float(t.max() - t.min()) if t.size else 0.0
+    dt = _bin_width(t)
+    if not (np.isfinite(fwhm_init) and fwhm_init > 0 and span > 0 and dt > 0):
+        return None
+    shortest = _shortest_tau(fwhm_init, dt)
+    if not (0 < shortest < 100.0 * span and dt / 4.0 < span):
+        return None
+    out = [(float(np.log(shortest)), float(np.log(100.0 * span)))] * n_tau
+    out += [(float(np.log(1e-3)), float(np.log(2.0)))] * n_beta
+    if t0_free:
+        out.append((None, None))
+    if fwhm_free:
+        out.append((float(np.log(dt / 4.0)), float(np.log(span))))
+    return out
+
+
+def _into(x0, limits):
+    """(x0 moved onto the nearest limit where it starts outside, lows, highs)."""
+    lo = np.array([-np.inf if a is None else a for a, _ in limits])
+    hi = np.array([np.inf if b is None else b for _, b in limits])
+    return np.clip(x0, lo, hi), lo, hi
+
+
 def _refuse(t, tau, beta, stretch_on, fwhm, tau_limits):
     """Say, in words, why the model is not evaluated at these parameters.
 
@@ -199,14 +261,14 @@ def _refuse(t, tau, beta, stretch_on, fwhm, tau_limits):
     if fwhm > span:
         raise FitInputError(f"The IRF FWHM ({fwhm:g} ps) is wider than the fit "
                          f"range ({span:g} ps).")
-    shortest = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0))) / 4.0
+    shortest = _shortest_tau(fwhm, _bin_width(t))
     for i, tv in enumerate(tau):
         if not np.isfinite(tv) or tv <= 0:
             raise FitInputError(f"τ {i + 1} must be above 0 ps (it is {tv:g}).")
         if tau_limits and tv < shortest:
             raise FitInputError(
                 f"τ {i + 1} = {tv:g} ps is below the shortest lifetime the "
-                f"global fit allows for this IRF ({shortest:.4g} ps = FWHM / 9.42).")
+                f"global fit allows ({shortest:.4g} ps = {SHORTEST_TAU_IS}).")
         if tau_limits and tv > 100.0 * span:
             raise FitInputError(
                 f"τ {i + 1} = {tv:g} ps is more than 100 x the fit range "
@@ -218,25 +280,29 @@ def _refuse(t, tau, beta, stretch_on, fwhm, tau_limits):
                         "(a component has no signal in the fit range).")
 
 
-def _fit_warnings(t, tau, fwhm, A, data, tau_limits):
+def _fit_warnings(t, tau, fwhm, A, data, tau_limits, fwhm_start=None, free=None):
     """What in a result should not be read as a fitted lifetime, in words.
 
     Nothing is changed by this - it only looks at the numbers: a lifetime on
-    one of the global fit's internal limits (tau_limits), below one time bin,
-    or beyond the fit range, and amplitudes far above the data (components
-    cancelling each other).
+    one of the fit's limits (tau_limits; they were built from fwhm_start, the
+    FWHM the fit began with, and hold the lifetimes marked in ``free``), below
+    one time bin, or beyond the fit range, and amplitudes far above the data
+    (components cancelling each other).
     """
     notes = []
     t = np.asarray(t, float).ravel()
     span = float(t.max() - t.min())
     dt = float(np.median(np.diff(t))) if t.size > 1 else 0.0
-    shortest = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0))) / 4.0
-    for i, tv in enumerate(np.asarray(tau, float).ravel()):
+    shortest = _shortest_tau(fwhm if fwhm_start is None else fwhm_start, dt)
+    tau = np.asarray(tau, float).ravel()
+    free = np.ones(tau.size, bool) if free is None else np.asarray(free, bool)
+    for i, tv in enumerate(tau):
         name = f"τ {i + 1} = {tv:.4g} ps"
-        if tau_limits and tv <= shortest * (1.0 + 1e-3):
-            notes.append(f"{name} is on the lower limit of the fit (FWHM / 9.42 "
-                         f"= {shortest:.4g} ps): not a fitted lifetime.")
-        elif tau_limits and tv >= 100.0 * span * (1.0 - 1e-3):
+        limited = bool(tau_limits and free[i])
+        if limited and tv <= shortest * (1.0 + 1e-3):
+            notes.append(f"{name} is on the lower limit of the fit ({SHORTEST_TAU_IS} "
+                         f"= {shortest:.4g} ps): " + SHORTEST_TAU_MEANS)
+        elif limited and tv >= 100.0 * span * (1.0 - 1e-3):
             notes.append(f"{name} is on the upper limit of the fit (100 x the "
                          f"fit range): not a fitted lifetime.")
         elif tv < dt:
@@ -322,7 +388,12 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     if not fwhm_fixed:
         x0_list.append(float(np.log(fwhm_init)))
     x0 = np.array(x0_list, float)
+    limits = _limits(t_arr, fwhm_init, n_free_tau, n_free_beta,
+                     not t0_fixed, not fwhm_fixed)
+    if limits is not None and x0.size:
+        x0, x_lo, x_hi = _into(x0, limits)
 
+    dt_fit = _bin_width(t_arr)
     skip_mask_active = any_stretched and irf_mode.lower() == "skip"
     # "skip" leaves the delays under the IRF out of the loss. Which ones is
     # settled here, from the starting t0 and FWHM, as fit_single_trace does:
@@ -369,9 +440,8 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         if not fwhm_fixed:
             fwhm_cur = float(np.exp(x[idx])); idx += 1
 
-        sigma_cur = fwhm_cur / (2.0 * np.sqrt(2.0 * np.log(2.0)))
         t_span = t_arr.max() - t_arr.min()
-        if (np.any(tau_cur < sigma_cur / 4.0) or
+        if (np.any(tau_cur < _shortest_tau(fwhm_cur, dt_fit)) or
                 np.any(tau_cur > 100.0 * t_span) or
                 fwhm_cur <= 0 or fwhm_cur > t_span or
                 (any_stretched and (np.any(beta_cur[stretch_on] <= 0)
@@ -456,7 +526,8 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
             return R.ravel()
 
         res = _least_squares(_residuals, x0, method="trf",
-                             xtol=1e-8, ftol=1e-10, gtol=1e-8, max_nfev=5000)
+                             xtol=1e-8, ftol=1e-10, gtol=1e-8, max_nfev=5000,
+                             **({} if limits is None else {"bounds": (x_lo, x_hi)}))
         loss, A_out, fit_out = objective(res.x)
         iters = int(getattr(res, "nfev", 0))
         n_fev = int(getattr(res, "nfev", 0))
@@ -465,6 +536,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         init_loss, _, _ = objective(x0)
         init_cells = n_cells[0]
         res = _minimize(lambda x: objective(x)[0], x0, method="Nelder-Mead",
+                        bounds=limits,
                         options={"xatol": 1e-8, "fatol": _nm_fatol(D),
                                  "maxiter": 5000, "maxfev": 20000,
                                  "disp": False})
@@ -483,7 +555,8 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         "rss": loss, "iters": iters, "nfev": n_fev, "method": method_used,
         "success": verdict[0], "status": verdict[1], "message": verdict[2],
         "n_objective": n_model[0],
-        "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True)
+        "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True,
+                                  fwhm_start=float(fwhm_init), free=~tau_fixed)
         + _skip_warning(skip_mask_active, t0_fixed, fwhm_fixed),
         "rms": float(np.sqrt(loss / n_cells[0])),
         "initialLoss": init_loss,
@@ -597,6 +670,11 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
     if not fwhm_fixed:
         x0.append(float(np.log(max(fwhm_init, 1e-12))))
     x0 = np.asarray(x0, float)
+    # the limits of the free parameters; a fixed lifetime is the user's own
+    limits = _limits(t, fwhm_init, free_tau_idx.size, free_beta_idx.size,
+                     not t0_fixed, not fwhm_fixed)
+    if limits is not None and x0.size:
+        x0 = _into(x0, limits)[0]
 
     cur = {"tau": tau_init.copy(), "beta": beta_init.copy(),
            "t0": float(t0_init), "fwhm": float(fwhm_init)}
@@ -654,7 +732,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
         return L if np.isfinite(L) else 1e30
 
     if x0.size:
-        res = _minimize(loss, x0, method="Nelder-Mead",
+        res = _minimize(loss, x0, method="Nelder-Mead", bounds=limits,
                         options={"xatol": 1e-8, "fatol": _nm_fatol(y[mask]),
                                  "maxiter": 5000, "maxfev": 20000,
                                  "disp": False})
@@ -683,7 +761,9 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                  "success": verdict[0], "status": verdict[1],
                  "message": verdict[2], "nfev": verdict[3],
                  "warnings": _fit_warnings(t, cur["tau"], cur["fwhm"], A_final,
-                                           y[mask], False)
+                                           y[mask], limits is not None,
+                                           fwhm_start=float(fwhm_init),
+                                           free=~tau_fixed)
                  + _skip_warning(irf_mode.lower() == "skip" and stretch_on.any(),
                                  t0_fixed, fwhm_fixed)},
     }
