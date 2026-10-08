@@ -26,8 +26,9 @@ def _ensure_scipy():
             raise FitInputError(
                 "The Kinetics and Global-analysis tools need SciPy.\n"
                 "Install it with:  pip install scipy") from exc
-        _erfc, _erfcx = erfc, erfcx
         _minimize, _least_squares = minimize, least_squares
+        _erfcx = erfcx
+        _erfc = erfc        # the guard above: set last, when the others are there
 
 
 def exp_irf_conv(t, tau, t0, fwhm):
