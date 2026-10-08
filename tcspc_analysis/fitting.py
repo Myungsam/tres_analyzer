@@ -129,6 +129,24 @@ def build_ga_basis(t, tau_vec, t0, fwhm, has_inf):
     return C
 
 
+def _column_memo():
+    """exp_irf_conv() that remembers, per model column, the curve of its last
+    arguments. Inside a fit most columns keep theirs from one evaluation to
+    the next - a fixed lifetime, the offset - as long as the IRF is fixed
+    too; the same arguments give the same curve, so nothing changes but the
+    work."""
+    last = {}
+
+    def conv(column, t, tau, t0, fwhm):
+        key = (float(tau), float(t0), float(fwhm))
+        hit = last.get(column)
+        if hit is None or hit[0] != key:
+            hit = last[column] = (key, exp_irf_conv(t, tau, t0, fwhm))
+        return hit[1]
+
+    return conv
+
+
 def _nm_fatol(data):
     """Nelder-Mead's stop tolerance on the loss, for a fit of ``data``.
 
@@ -299,9 +317,11 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
     n_model = [0]                   # times the model was really evaluated
     n_cells = [D.size]              # residuals in the loss of the latest call
 
+    conv = _column_memo()
+
     def build_basis_local(tau_v, beta_v, t0_v, fwhm_v):
-        if not any_stretched:
-            return build_ga_basis(t_arr, tau_v, t0_v, fwhm_v, has_inf)
+        # the columns of build_ga_basis(), each recomputed only when its own
+        # arguments changed
         n_cols = n_nl + (1 if has_inf else 0)
         C = np.zeros((N, n_cols))
         for j in range(n_nl):
@@ -309,9 +329,9 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                 C[:, j] = stretched_irf_conv(
                     t_arr, tau_v[j], beta_v[j], t0_v, fwhm_v, irf_mode)
             else:
-                C[:, j] = exp_irf_conv(t_arr, tau_v[j], t0_v, fwhm_v)
+                C[:, j] = conv(j, t_arr, tau_v[j], t0_v, fwhm_v)
         if has_inf:
-            C[:, -1] = exp_irf_conv(t_arr, np.inf, t0_v, fwhm_v)
+            C[:, -1] = conv("inf", t_arr, np.inf, t0_v, fwhm_v)
         return C
 
     def objective(x):
@@ -569,6 +589,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
            "t0": float(t0_init), "fwhm": float(fwhm_init)}
     t_span = float(t.max() - t.min()) if t.size else 1.0
     n_cols = n_nl + (1 if has_inf else 0)
+    conv = _column_memo()
 
     def unpack(x):
         i = 0
@@ -599,9 +620,9 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                     t, cur["tau"][j], cur["beta"][j],
                     cur["t0"], cur["fwhm"], irf_mode)
             else:
-                Mb[:, j] = exp_irf_conv(t, cur["tau"][j], cur["t0"], cur["fwhm"])
+                Mb[:, j] = conv(j, t, cur["tau"][j], cur["t0"], cur["fwhm"])
         if has_inf:
-            Mb[:, -1] = exp_irf_conv(t, np.inf, cur["t0"], cur["fwhm"])
+            Mb[:, -1] = conv("inf", t, np.inf, cur["t0"], cur["fwhm"])
 
         try:
             A = _lsqminnorm(Mb[mask, :], y[mask])
