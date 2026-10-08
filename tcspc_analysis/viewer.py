@@ -31,8 +31,15 @@ from .dialogs.kinetics import KineticsDialog
 from .dialogs.global_analysis import GlobalAnalysisDialog
 
 CMAPS = ["turbo", "viridis", "inferno", "magma", "plasma", "cividis", "gray"]
-BIN_CHOICES = [("4 ps", 1), ("8 ps", 2), ("16 ps", 4), ("32 ps", 8),
-               ("64 ps", 16), ("128 ps", 32), ("256 ps", 64)]
+BIN_FACTORS = (1, 2, 4, 8, 16, 32, 64)      # time bins of the file summed into one
+
+
+def bin_choices(res_ps):
+    """The BIN choices for a file with ``res_ps`` per time bin: (label, factor)."""
+    return [(f"{res_ps * k:g} ps", k) for k in BIN_FACTORS]
+
+
+BIN_CHOICES = bin_choices(4.0)              # before a file is loaded (PicoHarp default)
 
 
 class TRESViewer:
@@ -193,10 +200,12 @@ class TRESViewer:
 
         ttk.Label(row, text="BIN").pack(side="left", padx=(0, 5))
         self.var_bin = tk.StringVar(value="16 ps")
+        self._bins = dict(BIN_CHOICES)          # label -> rebin factor, for the loaded file
         cb2 = ttk.Combobox(row, textvariable=self.var_bin,
-                           values=[b[0] for b in BIN_CHOICES], width=7, state="readonly")
+                           values=list(self._bins), width=7, state="readonly")
         cb2.pack(side="left", padx=(0, 16))
         cb2.bind("<<ComboboxSelected>>", lambda e: self.apply_params())
+        self.cb_bin = cb2
 
         self.var_log = tk.BooleanVar(value=True)
         ttk.Checkbutton(row, text="Log color", variable=self.var_log,
@@ -425,7 +434,15 @@ class TRESViewer:
             # measurement is the user's call via the "First curve is IRF" checkbox.
             model.first_is_irf = self.var_irf.get()
             model.t0_align = self.var_t0.get()
-            model.rebin = dict(BIN_CHOICES)[self.var_bin.get()]
+            # the choices are this file's bin widths; keep the width that was
+            # selected (16 ps stays 16 ps on an 8 ps file), or the nearest one
+            bins = dict(bin_choices(phu["res_ps"]))
+            try:
+                wanted = float(self.var_bin.get().split()[0])
+            except (ValueError, IndexError):
+                wanted = 4.0 * phu["res_ps"]
+            bin_label = min(bins, key=lambda k: abs(bins[k] * phu["res_ps"] - wanted))
+            model.rebin = bins[bin_label]
             model.bg_sub = self.var_bgsub.get()
             # the offset calibrates the spectrograph, not the file, so it carries over
             model.wl_offset = self._float_var(self.var_offset, 0.0)
@@ -433,6 +450,9 @@ class TRESViewer:
             model.t_max_ps = model.t_data_ps
             model.rebuild()
             self.model = model
+            self._bins = bins
+            self.cb_bin.configure(values=list(bins))
+            self.var_bin.set(bin_label)
             self.var_tmax.set(f"{model.t_max_ps:.0f}")
             self._set_bg_window(model.t_lo, model.t_lo + 100.0)
         except Exception as exc:        # noqa: BLE001 - whatever the file trips over
@@ -500,7 +520,7 @@ class TRESViewer:
         """The same settings as the model holds them, written the way the
         controls show them - so a box that was not touched compares equal."""
         m = self.model
-        label = next((k for k, v in BIN_CHOICES if v == m.rebin), None)
+        label = next((k for k, v in self._bins.items() if v == m.rebin), None)
         return (f"{m.t_max_ps:.0f}", label, bool(m.first_is_irf),
                 bool(m.t0_align), bool(m.bg_sub), f"{m.bg_lo_ps:g}",
                 f"{m.bg_hi_ps:g}", bool(m.solvent_sub))
@@ -533,7 +553,7 @@ class TRESViewer:
         m.t_max_ps = min(tmax, m.t_full_ps)
         if tmax > m.t_max_ps:           # asked for more delay than was measured
             self.var_tmax.set(f"{m.t_max_ps:.0f}")
-        m.rebin = dict(BIN_CHOICES)[self.var_bin.get()]
+        m.rebin = self._bins[self.var_bin.get()]
         m.first_is_irf = self.var_irf.get()
         m.t0_align = self.var_t0.get()
         m.bg_sub = self.var_bgsub.get()
