@@ -15,7 +15,7 @@ from tkinter import messagebox, ttk
 from ..origin import _origin_fill_table
 from ..fitting import FitStopped, fit_single_trace
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN
-from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, read_number
+from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, fmt_ps, in_range, read_number
 
 
 class KineticsDialog(_AnalysisDialog):
@@ -92,7 +92,7 @@ class KineticsDialog(_AnalysisDialog):
         t0d, fwd = self._irf_defaults()
         irf = ttk.Labelframe(left, text="IRF (Gaussian)", padding=6)
         irf.pack(fill="x", pady=(2, 6))
-        self.var_t0 = tk.StringVar(value=f"{t0d:.4g}")
+        self.var_t0 = tk.StringVar(value=fmt_ps(t0d))
         self.var_t0_fix = tk.BooleanVar(value=True)
         self.var_fw = tk.StringVar(value=f"{fwd:.4g}")
         self.var_fw_fix = tk.BooleanVar(value=True)
@@ -108,8 +108,8 @@ class KineticsDialog(_AnalysisDialog):
         # fit window
         win_row = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
         win_row.pack(fill="x", pady=(2, 6))
-        self.var_tmin = tk.StringVar(value=f"{m.times[0]:.4g}")
-        self.var_tmax = tk.StringVar(value=f"{m.times[-1]:.4g}")
+        self.var_tmin = tk.StringVar(value=fmt_ps(m.times[0]))
+        self.var_tmax = tk.StringVar(value=fmt_ps(m.times[-1]))
         ttk.Label(win_row, text="From").pack(side="left")
         ttk.Entry(win_row, textvariable=self.var_tmin, width=9,
                   font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
@@ -202,8 +202,8 @@ class KineticsDialog(_AnalysisDialog):
 
     def _t_full(self):
         m = self.model
-        self.var_tmin.set(f"{m.times[0]:.4g}")
-        self.var_tmax.set(f"{m.times[-1]:.4g}")
+        self.var_tmin.set(fmt_ps(m.times[0]))
+        self.var_tmax.set(fmt_ps(m.times[-1]))
 
     def _get_trace(self):
         """(t, y, wl_actual, n_avg) - the decay to fit/plot at the chosen wl."""
@@ -236,7 +236,7 @@ class KineticsDialog(_AnalysisDialog):
         self.var_n.set("2"); self.table.set_n(2)
         self.var_inf.set(False)
         t0d, fwd = self._irf_defaults()
-        self.var_t0.set(f"{t0d:.4g}"); self.var_t0_fix.set(True)
+        self.var_t0.set(fmt_ps(t0d)); self.var_t0_fix.set(True)
         self.var_fw.set(f"{fwd:.4g}"); self.var_fw_fix.set(True)
         self.var_irf_mode.set("numerical")
         self._t_full()
@@ -274,7 +274,7 @@ class KineticsDialog(_AnalysisDialog):
         t_full, y_full, wl_actual, n_avg = self._get_trace()
         if t_lo > t_hi:
             t_lo, t_hi = t_hi, t_lo
-        sel = (t_full >= t_lo) & (t_full <= t_hi)
+        sel = in_range(t_full, t_lo, t_hi)
         n_in = int(sel.sum())
         n_min = int(tau.size) + (1 if self.var_inf.get() else 0) + 1
         if n_in < n_min:

@@ -24,6 +24,21 @@ def read_number(var, name):
     return value
 
 
+def fmt_ps(value):
+    """A time for an entry box, with every digit it needs to read back as the
+    same delay (four digits wrote 21,824 ps as 2.182e+04)."""
+    return f"{value:.10g}"
+
+
+def in_range(t, lo, hi):
+    """Which of the delays ``t`` lie in [lo, hi]. The two ends count as inside
+    up to a millionth of a time bin, so a range typed (or filled in) as the
+    first and last delay keeps both: -3184.000000000001 is shown as -3184."""
+    t = np.asarray(t, float)
+    tol = 1e-6 * float(np.median(np.diff(t))) if t.size > 1 else 0.0
+    return (t >= lo - tol) & (t <= hi + tol)
+
+
 # ==========================================================================
 # 6. Analysis dialogs - Kinetics + Global analysis, each its own window
 # ==========================================================================
@@ -246,7 +261,7 @@ class _AnalysisDialog:
             return
         for var in (self.var_t0, self.var_tmin, self.var_tmax):
             try:
-                var.set(f"{float(var.get()) + shift:.6g}")
+                var.set(fmt_ps(float(var.get()) + shift))
             except ValueError:
                 pass
 

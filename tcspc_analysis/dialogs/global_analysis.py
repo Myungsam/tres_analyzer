@@ -16,7 +16,7 @@ from tkinter import messagebox, ttk
 from ..origin import _origin_fill_table
 from ..fitting import GlobalAnalysisStopped, compute_eads_from_dads, fit_global_analysis
 from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL
-from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, read_number
+from .common import ComponentTable, _AnalysisDialog, _dark_toolbar, _style_analysis_ax, fmt_ps, in_range, read_number
 
 
 class GlobalAnalysisDialog(_AnalysisDialog):
@@ -80,7 +80,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         t0d, fwd = self._irf_defaults()
         irf = ttk.Labelframe(left, text="IRF (Gaussian)", padding=6)
         irf.pack(fill="x", pady=(2, 6))
-        self.var_t0 = tk.StringVar(value=f"{t0d:.4g}")
+        self.var_t0 = tk.StringVar(value=fmt_ps(t0d))
         self.var_t0_fix = tk.BooleanVar(value=True)
         self.var_fw = tk.StringVar(value=f"{fwd:.4g}")
         self.var_fw_fix = tk.BooleanVar(value=True)
@@ -90,8 +90,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         tr = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
         tr.pack(fill="x", pady=(2, 6))
         r1 = ttk.Frame(tr); r1.pack(fill="x")
-        self.var_tmin = tk.StringVar(value=f"{m.times[0]:.4g}")
-        self.var_tmax = tk.StringVar(value=f"{m.times[-1]:.4g}")
+        self.var_tmin = tk.StringVar(value=fmt_ps(m.times[0]))
+        self.var_tmax = tk.StringVar(value=fmt_ps(m.times[-1]))
         ttk.Label(r1, text="From").pack(side="left")
         e0 = ttk.Entry(r1, textvariable=self.var_tmin, width=9, font=("TkFixedFont", 9))
         e0.pack(side="left", padx=(4, 8))
@@ -185,8 +185,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
     # -- small helpers ---------------------------------------------------
     def _t_full(self):
         m = self.model
-        self.var_tmin.set(f"{m.times[0]:.4g}")
-        self.var_tmax.set(f"{m.times[-1]:.4g}")
+        self.var_tmin.set(fmt_ps(m.times[0]))
+        self.var_tmax.set(fmt_ps(m.times[-1]))
         self._update_tcount()
 
     def _update_tcount(self):
@@ -197,7 +197,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             self.var_tcount.set(""); return
         if lo > hi:
             lo, hi = hi, lo
-        n_in = int(((m.times >= lo) & (m.times <= hi)).sum())
+        n_in = int(in_range(m.times, lo, hi).sum())
         self.var_tcount.set(f"  -> fit will use {n_in} of {m.n_t} delay points")
 
     def model_changed(self):
@@ -232,7 +232,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self.var_inf.set(False)
         self.var_opt.set("TRF (fast)"); self.var_irf_mode.set("numerical")
         t0d, fwd = self._irf_defaults()
-        self.var_t0.set(f"{t0d:.4g}"); self.var_t0_fix.set(True)
+        self.var_t0.set(fmt_ps(t0d)); self.var_t0_fix.set(True)
         self.var_fw.set(f"{fwd:.4g}"); self.var_fw_fix.set(True)
         self._t_full()
         self._last = None
@@ -266,7 +266,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             return
         if lo > hi:
             lo, hi = hi, lo
-        tsel = (m.times >= lo) & (m.times <= hi)
+        tsel = in_range(m.times, lo, hi)
         if int(tsel.sum()) < tau.size + 2:
             messagebox.showwarning("Window too narrow",
                                    "Widen the fit t-range.", parent=self.win)
