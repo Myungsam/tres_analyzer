@@ -5,7 +5,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from .theme import apply_theme
+from .theme import apply_theme, dpi_aware, ui_scale
 from .flim import FLIMViewer
 from .viewer import TRESViewer
 from .freezelog import FreezeLog
@@ -13,13 +13,18 @@ from .paths import program_dir
 from .version import APP_VERSION
 
 
-def initial_window_size(screen_w, screen_h):
-    """The window's size at start: 1440 x 920, or what the screen has room for
-    (a laptop, or a display scaled to 125 / 150 %)."""
-    return (max(600, min(1440, screen_w - 40)), max(400, min(920, screen_h - 100)))
+def initial_window_size(screen_w, screen_h, scale=1.0):
+    """The window's size at start: 1440 x 920 at 100 %, or what the screen has
+    room for (a laptop, or a display scaled to 125 / 150 %). ``scale`` is
+    ui_scale(): the screen size is in real pixels, the numbers here are for
+    100 %."""
+    def s(n):
+        return int(round(n * scale))
+    return (max(s(600), min(s(1440), screen_w - s(40))), max(s(400), min(s(920), screen_h - s(100))))
 
 
 def main():
+    dpi_aware()                 # before any window, the "file not found" box included
     path = None
     for arg in sys.argv[1:]:
         if not arg.startswith("-"):
@@ -52,9 +57,10 @@ def main():
             root.iconbitmap(default=icon)
         except tk.TclError:
             pass
-    w, h = initial_window_size(root.winfo_screenwidth(), root.winfo_screenheight())
+    scale = ui_scale(root)
+    w, h = initial_window_size(root.winfo_screenwidth(), root.winfo_screenheight(), scale)
     root.geometry(f"{w}x{h}")
-    root.minsize(min(980, w), min(660, h))
+    root.minsize(min(int(round(980 * scale)), w), min(int(round(660 * scale)), h))
     apply_theme(root)
 
     nb = ttk.Notebook(root)

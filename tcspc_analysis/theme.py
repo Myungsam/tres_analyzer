@@ -1,4 +1,7 @@
 """Colours, the ttk theme and the plot helpers every window shares."""
+import os
+import sys
+
 import numpy as np
 
 import matplotlib
@@ -68,6 +71,55 @@ def preview_norm_cmap(vmax, log, cmap_name):
         norm = Normalize(vmin=0.0, vmax=max(vmax, 1e-9))
         transform = lambda E: E
     return transform, norm, cmap
+
+
+def dpi_aware():
+    """Tell Windows that this program draws at the display's own resolution.
+
+    Without it Windows draws the window at 96 dpi and stretches the picture on
+    a display set to 125 or 150 %: everything is the right size, and blurred.
+    With it Tk gets the real resolution and scales its fonts (and matplotlib
+    its figures) itself; ui_scale() does the same for the sizes this program
+    gives in pixels. "System aware", not per monitor: Tk does not rescale a
+    window that is dragged to a display with another setting.
+    Must run before the first window is made. TCSPC_DPI_AWARE=0 in the
+    environment switches it off (the old, stretched picture).
+    """
+    if os.environ.get("TCSPC_DPI_AWARE", "1") == "0" or sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)      # Windows 8.1 and later
+        except (AttributeError, OSError):
+            ctypes.windll.user32.SetProcessDPIAware()           # Vista / 7
+        return True
+    except Exception:                   # noqa: BLE001 - already set, or not allowed: go on as before
+        return False
+
+
+def ui_scale(widget):
+    """How many real pixels one "pixel at 100 %" is on this display: 1.0 at
+    100 %, 1.5 at 150 % (and 1.0 whatever the display says while the program
+    is not dpi_aware(): Windows then does the stretching)."""
+    try:
+        # Windows' settings are steps of 25 %; Tk reports 96.02 for 96 dpi
+        return max(1.0, round(float(widget.winfo_fpixels("1i")) / 96.0, 2))
+    except Exception:                   # noqa: BLE001
+        return 1.0
+
+
+def px(widget, n):
+    """``n`` pixels at 100 % as pixels of this display."""
+    return int(round(n * ui_scale(widget)))
+
+
+def scaled_geometry(widget, geometry):
+    """A "WxH" geometry given for 100 % as one for this display, no larger
+    than the screen has room for."""
+    w, h = (int(v) for v in geometry.lower().split("x"))
+    return (f"{min(px(widget, w), widget.winfo_screenwidth() - px(widget, 40))}"
+            f"x{min(px(widget, h), widget.winfo_screenheight() - px(widget, 100))}")
 
 
 def apply_theme(root):

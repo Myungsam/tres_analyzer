@@ -93,6 +93,13 @@ the launcher's environment; the .exe build excludes it in any case
 - **The console window stays open** behind the app. That is normal — it shows
   any error messages. Close it after quitting the app. (The .exe build below
   has no console window.)
+- **The windows look wrong on a display set to 125 % or 150 %** (too large,
+  cut off, mixed sizes). Since 1.6 the program handles the display's scaling
+  itself, which keeps the text sharp; this could only be tried on an imitated
+  150 % display, not on a real one. To go back to the old behaviour (Windows
+  stretches the window: right size, slightly blurred), set the environment
+  variable `TCSPC_DPI_AWARE=0` before starting the program - in a console:
+  `set TCSPC_DPI_AWARE=0` and then `TCSPC_analysis.bat` (or the .exe).
 
 The launcher already handles the two things that usually break a portable
 Python GUI, so you should not have to:

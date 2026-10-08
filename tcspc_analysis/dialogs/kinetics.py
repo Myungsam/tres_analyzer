@@ -14,7 +14,7 @@ from tkinter import messagebox, ttk
 
 from ..origin import _origin_fill_table
 from ..fitting import FitStopped, fit_single_trace
-from ..theme import ACCENT, INK, INK_DIM, LINE, PANEL, PIN
+from ..theme import ACCENT, INK, INK_DIM, LINE, PANEL, PIN, px
 from .common import (ComponentTable, _FitDialog, _dark_toolbar, _style_analysis_ax, in_range, ink_legend,
                      read_number, set_time_scale, write_fit_csv)
 
@@ -47,7 +47,7 @@ class KineticsDialog(_FitDialog):
 
         left = ttk.Labelframe(outer, text="Fit setup", padding=8)
         left.pack(side="left", fill="y")
-        left.configure(width=430)
+        left.configure(width=px(self.win, 430))
         left.pack_propagate(False)
 
         # wavelength + averaging window

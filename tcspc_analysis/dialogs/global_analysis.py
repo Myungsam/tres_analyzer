@@ -16,7 +16,7 @@ from tkinter import messagebox, ttk
 from ..origin import _origin_fill_table
 from ..fitting import GlobalAnalysisStopped, compute_eads_from_dads, fit_global_analysis
 from ..model import wavelength_grid
-from ..theme import ACCENT, INK, INK_DIM, INK_FAINT, LINE, PANEL
+from ..theme import ACCENT, INK, INK_DIM, INK_FAINT, LINE, PANEL, px
 from .common import (ComponentTable, _FitDialog, _dark_toolbar, _style_analysis_ax, in_range, ink_legend,
                      read_number, set_time_scale, write_fit_csv)
 
@@ -49,7 +49,7 @@ class GlobalAnalysisDialog(_FitDialog):
 
         left = ttk.Labelframe(outer, text="Fit setup", padding=8)
         left.pack(side="left", fill="y")
-        left.configure(width=380)
+        left.configure(width=px(self.win, 380))
         left.pack_propagate(False)
 
         self._components_row(left, default=3, most=5)

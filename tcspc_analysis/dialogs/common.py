@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from ..fitting import FitInputError
-from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL
+from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, px, scaled_geometry
 
 
 def read_number(var, name):
@@ -175,8 +175,9 @@ class _AnalysisDialog:
         self.app = app
         self.win = tk.Toplevel(app.win)
         self.win.title(title)
-        self.win.geometry(geometry)
-        self.win.minsize(*minsize)
+        # the sizes are given for a display at 100 %
+        self.win.geometry(scaled_geometry(self.win, geometry))
+        self.win.minsize(*(px(self.win, v) for v in minsize))
         self.win.configure(bg=BG)
         self.alive = True
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
