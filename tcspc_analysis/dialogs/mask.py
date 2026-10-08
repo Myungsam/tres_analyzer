@@ -45,7 +45,7 @@ class MaskDialog(_AnalysisDialog):
         # window the figure and the list give way, not the buttons
         side = ttk.Frame(mid, padding=(4, 6))
         side.pack(side="right", fill="y")
-        ttk.Label(side, text="Masked regions (NaN)").pack(anchor="w")
+        ttk.Label(side, text="Masked regions").pack(anchor="w")
         ttk.Button(side, text="Close",
                    command=self._on_close).pack(side="bottom", fill="x", pady=(10, 1))
         ttk.Button(side, text="Clear all",

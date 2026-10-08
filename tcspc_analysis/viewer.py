@@ -123,7 +123,7 @@ class TRESViewer:
     def open_kinetics(self):
         """Open (or raise) the single-wavelength kinetics-fit window."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
+            messagebox.showinfo("No file loaded", "Load a .phu file first.", parent=self.win)
             return
         if self._kinetics_win is not None and self._kinetics_win.alive:
             self._kinetics_win.lift_and_refresh()
@@ -133,7 +133,7 @@ class TRESViewer:
     def open_global_analysis(self):
         """Open (or raise) the global-analysis window."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
+            messagebox.showinfo("No file loaded", "Load a .phu file first.", parent=self.win)
             return
         if self._global_win is not None and self._global_win.alive:
             self._global_win.lift_and_refresh()
@@ -143,7 +143,7 @@ class TRESViewer:
     def open_crop(self):
         """Open (or raise) the crop window (wavelength + time window)."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
+            messagebox.showinfo("No file loaded", "Load a .phu file first.", parent=self.win)
             return
         if self._crop_win is not None and self._crop_win.alive:
             self._crop_win.lift_and_refresh()
@@ -153,7 +153,7 @@ class TRESViewer:
     def open_mask(self):
         """Open (or raise) the wavelength-mask window."""
         if not self.model:
-            messagebox.showinfo("No data", "Load a .phu file first.", parent=self.win)
+            messagebox.showinfo("No file loaded", "Load a .phu file first.", parent=self.win)
             return
         if self._mask_win is not None and self._mask_win.alive:
             self._mask_win.lift_and_refresh()
@@ -190,7 +190,7 @@ class TRESViewer:
         cb.pack(side="left", padx=(0, 16))
         cb.bind("<<ComboboxSelected>>", lambda e: self.redraw(full=True))
 
-        ttk.Label(row, text="TIME SPAN").pack(side="left", padx=(0, 5))
+        ttk.Label(row, text="TIME END").pack(side="left", padx=(0, 5))
         self.var_tmax = tk.StringVar(value="")   # filled from the file on open
         e = ttk.Entry(row, textvariable=self.var_tmax, width=8, font=("TkFixedFont", 9))
         e.pack(side="left")
@@ -233,7 +233,7 @@ class TRESViewer:
         ttk.Checkbutton(row2, text="Subtract background", variable=self.var_bgsub,
                         command=self.apply_params).pack(side="left", padx=(0, 10))
 
-        ttk.Label(row2, text="WINDOW").pack(side="left", padx=(0, 5))
+        ttk.Label(row2, text="BG WINDOW").pack(side="left", padx=(0, 5))
         self.var_bg_lo = tk.StringVar(value="0")
         self.var_bg_hi = tk.StringVar(value="100")
         for var, pad in ((self.var_bg_lo, (0, 0)), (self.var_bg_hi, (0, 3))):
@@ -257,7 +257,7 @@ class TRESViewer:
         ent.pack(side="left")
         ent.bind("<Return>", lambda ev: self.apply_offset())
         ttk.Label(row2, text="nm").pack(side="left", padx=(3, 6))
-        ttk.Button(row2, text="offset 적용",
+        ttk.Button(row2, text="Apply offset",
                    command=self.apply_offset).pack(side="left")
 
         # packed last: in a narrow window this text is cut, not a button
@@ -888,7 +888,7 @@ class TRESViewer:
                 art.set_color(edge)
 
             self.txt.set_text(
-                f"lambda   {wl:>8,.0f} nm\n"
+                f"λ        {wl:>8,.0f} nm\n"
                 f"t        {t_ps:>8,.0f} ps\n"
                 f"counts   {val:>8,.0f}"
                 + ("\nPINNED - click to release" if self.pinned else "")
@@ -1031,7 +1031,7 @@ class TRESViewer:
         if self._busy_reading():
             return
         if not self.model:
-            messagebox.showinfo("Nothing to save", "Load a .phu file first.", parent=self.win)
+            messagebox.showinfo("No file loaded", "Load a .phu file first.", parent=self.win)
             return
 
         base = os.path.splitext(os.path.basename(self.model.phu["path"]))[0]
@@ -1253,7 +1253,7 @@ class TRESViewer:
         if self._exporting or self._busy_reading():
             return
         if not self.model:
-            messagebox.showinfo("Nothing to export", "Load a .phu file first.", parent=self.win)
+            messagebox.showinfo("No file loaded", "Load a .phu file first.", parent=self.win)
             return
         want_csv = self.var_out_csv.get()
         want_opju = self.var_out_opju.get()
@@ -1514,7 +1514,7 @@ class TRESViewer:
         if not (want_csv or want_opju):
             messagebox.showwarning(
                 "No output selected",
-                "Tick CSV and/or .opju on the main window before exporting.", parent=(owner or self.win))
+                "Tick at least one of CSV / .opju before exporting.", parent=(owner or self.win))
             return
 
         data_dir = self._default_data_dir()

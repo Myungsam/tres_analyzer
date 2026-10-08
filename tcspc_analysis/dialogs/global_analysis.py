@@ -58,7 +58,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         cb.pack(side="left", padx=(4, 10))
         cb.bind("<<ComboboxSelected>>", lambda e: self.table.set_n(int(self.var_n.get())))
         self.var_inf = tk.BooleanVar(value=False)
-        ttk.Checkbutton(n_row, text="Include τ = ∞",
+        ttk.Checkbutton(n_row, text="Include τ = ∞ offset",
                         variable=self.var_inf).pack(side="left")
 
         self.table = ComponentTable(left)
@@ -71,7 +71,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         ttk.Combobox(opt, textvariable=self.var_opt,
                      values=["TRF (fast)", "Nelder-Mead"], width=13,
                      state="readonly").pack(side="left", padx=(4, 10))
-        ttk.Label(opt, text="Stretched-IRF").pack(side="left")
+        ttk.Label(opt, text="Stretched-IRF mode").pack(side="left")
         self.var_irf_mode = tk.StringVar(value="numerical")
         ttk.Combobox(opt, textvariable=self.var_irf_mode,
                      values=["numerical", "skip"], width=10,
@@ -87,7 +87,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._irf_row(irf, "t₀ (ps)", self.var_t0, self.var_t0_fix)
         self._irf_row(irf, "FWHM (ps)", self.var_fw, self.var_fw_fix)
 
-        tr = ttk.Labelframe(left, text="Fit t-range (ps)", padding=6)
+        tr = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
         tr.pack(fill="x", pady=(2, 6))
         r1 = ttk.Frame(tr); r1.pack(fill="x")
         self.var_tmin = tk.StringVar(value=f"{m.times[0]:.4g}")
@@ -107,7 +107,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         self._update_tcount()
 
         btns = ttk.Frame(left); btns.pack(fill="x", pady=(2, 6))
-        self.btn_run = ttk.Button(btns, text="Run Fit", command=self.run_fit)
+        self.btn_run = ttk.Button(btns, text="Run fit", command=self.run_fit)
         self.btn_run.pack(side="left")
         self.btn_stop = ttk.Button(btns, text="Stop", command=self.stop_fit,
                                    state="disabled")
@@ -118,7 +118,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         ttk.Label(exp, text="Export").pack(side="left")
         ttk.Button(exp, text="Export results",
                    command=self.export_results).pack(side="left", padx=(6, 0))
-        ttk.Label(exp, text="(DADS + EADS; uses main CSV / .opju)",
+        ttk.Label(exp, text="(DADS + EADS; formats chosen in the main window)",
                   style="Val.TLabel", foreground=INK_FAINT).pack(side="left", padx=(6, 0))
 
         self.var_status = tk.StringVar(value="Ready.")
@@ -135,14 +135,14 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         right.pack(side="left", fill="both", expand=True, padx=(8, 0))
 
         kin = ttk.Frame(right); kin.pack(fill="x")
-        ttk.Label(kin, text="Kinetics λ (nm)").pack(side="left")
+        ttk.Label(kin, text="λ (nm)").pack(side="left")
         self.var_kin_wl = tk.StringVar(value=f"{self._kin_wl:.2f}")
         ek = ttk.Entry(kin, textvariable=self.var_kin_wl, width=9, font=("TkFixedFont", 9))
         ek.pack(side="left", padx=(4, 8))
         ek.bind("<Return>", lambda ev: self._set_kin_wl())
         ttk.Button(kin, text="Use cursor λ",
                    command=self._use_cursor_kin).pack(side="left")
-        ttk.Label(kin, text="Scale").pack(side="left", padx=(10, 4))
+        ttk.Label(kin, text="Time scale").pack(side="left", padx=(10, 4))
         self.var_kin_scale = tk.StringVar(value="Log")
         sc = ttk.Combobox(kin, textvariable=self.var_kin_scale,
                           values=["Log", "Linear"], width=8, state="readonly")
@@ -262,7 +262,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
             messagebox.showwarning("Invalid input", str(exc), parent=self.win)
             return
         if tau.size == 0:
-            messagebox.showwarning("Invalid input", "Add at least one component.", parent=self.win)
+            messagebox.showwarning("No components", "Add at least one component.", parent=self.win)
             return
         if lo > hi:
             lo, hi = hi, lo
@@ -382,7 +382,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         res["_tau_sorted"] = tau_sorted
         self._report_global(res)
         self._finish_run(f"Fit done - RMS = {res['info']['rms']:.4g} "
-                         f"({res['info']['iters']} evals)"
+                         f"({res['info']['iters']} iterations)"
                          + ("" if res["info"]["success"] else "  (not converged)")
                          + (f"  ({len(res['info']['warnings'])} warning"
                             f"{'s' if len(res['info']['warnings']) > 1 else ''}, "
@@ -394,7 +394,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         L = [f"Global fit: RMS = {res['info']['rms']:.4g}  "
              f"(initial {res['info']['initialRMS']:.4g})",
              f"method = {res['info']['method']}, "
-             f"{res['info']['iters']} objective evals",
+             f"{res['info']['iters']} iterations "
+             f"({res['info']['n_objective']} model evaluations)",
              f"IRF: t₀ = {res['t0']:.4g} ps, FWHM = {res['fwhm']:.4g} ps",
              f"IRF mode: {res['info']['irf_mode']}"]
         if not res["info"]["success"]:
@@ -444,8 +445,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
                           vmin=0, vmax=vmax, origin="upper",
                           interpolation="nearest")
             ax.set_title(title)
-            ax.set_xlabel("wavelength (nm)")
-        self.ax_data.set_ylabel("delay (ps)")
+            ax.set_xlabel("Wavelength (nm)")
+        self.ax_data.set_ylabel("Time (ps)")
 
     def _plot_spectra(self):
         res = self._last
@@ -484,8 +485,8 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         ax.axhline(0, color=LINE, linestyle=":", linewidth=0.6)
         axn.axhline(0, color=LINE, linestyle=":", linewidth=0.6)
         ax.set_title(kind); axn.set_title(kind + " (norm.)")
-        ax.set_ylabel("amplitude"); ax.set_xlabel("wavelength (nm)")
-        axn.set_xlabel("wavelength (nm)")
+        ax.set_ylabel("Amplitude"); ax.set_xlabel("Wavelength (nm)")
+        axn.set_xlabel("Wavelength (nm)")
         leg = ax.legend(loc="best", fontsize=7, facecolor=PANEL, edgecolor=LINE,
                         ncol=2)
         if leg:
@@ -511,7 +512,7 @@ class GlobalAnalysisDialog(_AnalysisDialog):
         else:
             ax.set_xscale("linear"); ax.set_xlim(t.min(), t.max())
         ax.set_title(f"kinetics @ {wl[wi]:.2f} nm")
-        ax.set_xlabel("delay (ps)"); ax.set_ylabel("intensity")
+        ax.set_xlabel("Time (ps)"); ax.set_ylabel("Intensity")
         leg = ax.legend(loc="best", fontsize=8, facecolor=PANEL, edgecolor=LINE)
         for txt in leg.get_texts():
             txt.set_color(INK)

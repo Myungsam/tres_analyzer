@@ -190,7 +190,7 @@ class CropDialog(_AnalysisDialog):
                    command=self._clear_solvent).pack(side="left", padx=(6, 8))
         ttk.Label(srow, textvariable=self.var_solv_name, style="Val.TLabel",
                   foreground=PIN).pack(side="left", padx=(0, 12))
-        ttk.Label(srow, text="SCALE").pack(side="left", padx=(0, 5))
+        ttk.Label(srow, text="SOLVENT SCALE").pack(side="left", padx=(0, 5))
         self.scale = ttk.Scale(srow, from_=0.0, to=2.0, length=150,
                                command=self._on_slider)
         self.scale.pack(side="left")
@@ -212,7 +212,7 @@ class CropDialog(_AnalysisDialog):
                         command=self._on_color).pack(side="left", padx=(8, 0))
         ttk.Checkbutton(vrow, text="Log time", variable=self.var_tlog,
                         command=self._on_tscale).pack(side="left", padx=(8, 0))
-        ttk.Button(vrow, text="Fit", width=6,
+        ttk.Button(vrow, text="Fit view", width=9,
                    command=self._fit_view).pack(side="left", padx=(12, 0))
         ttk.Label(vrow, text="wheel zooms (Ctrl: time, Shift: λ)  |  right-drag moves",
                   foreground=INK_FAINT).pack(side="left", padx=(12, 0))
@@ -435,7 +435,7 @@ class CropDialog(_AnalysisDialog):
                 else "NO CURVE in this range - nothing to keep")
         self.var_info.set(f"{kept},  {wl_lo:g}-{wl_hi:g} nm,  "
                           f"{t_lo:g}-{t_hi:g} ps"
-                          + ("" if clipped is None else f",  clipped {clipped:.0%}"))
+                          + ("" if clipped is None else f",  {clipped:.0%} of bins clipped to 0"))
         self.canvas.draw_idle()
 
     def _curves_in(self, wl_lo, wl_hi):

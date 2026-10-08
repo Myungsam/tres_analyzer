@@ -44,19 +44,19 @@ class KineticsDialog(_AnalysisDialog):
         outer = ttk.Frame(self.win, padding=8)
         outer.pack(fill="both", expand=True)
 
-        left = ttk.Labelframe(outer, text="Setup", padding=8)
+        left = ttk.Labelframe(outer, text="Fit setup", padding=8)
         left.pack(side="left", fill="y")
         left.configure(width=430)
         left.pack_propagate(False)
 
         # wavelength + averaging window
         wl_row = ttk.Frame(left); wl_row.pack(fill="x")
-        ttk.Label(wl_row, text="Centre λ (nm)").pack(side="left")
+        ttk.Label(wl_row, text="λ (nm)").pack(side="left")
         self.var_wl = tk.StringVar(value=f"{self._cursor_wl():.2f}")
         e_wl = ttk.Entry(wl_row, textvariable=self.var_wl, width=9,
                          font=("TkFixedFont", 9))
         e_wl.pack(side="left", padx=(4, 8))
-        ttk.Label(wl_row, text="± hw").pack(side="left")
+        ttk.Label(wl_row, text="± half-width (nm)").pack(side="left")
         self.var_hw = tk.StringVar(value="0")
         e_hw = ttk.Entry(wl_row, textvariable=self.var_hw, width=6,
                          font=("TkFixedFont", 9))
@@ -81,7 +81,7 @@ class KineticsDialog(_AnalysisDialog):
         cb.pack(side="left", padx=(4, 10))
         cb.bind("<<ComboboxSelected>>", lambda e: self.table.set_n(int(self.var_n.get())))
         self.var_inf = tk.BooleanVar(value=False)
-        ttk.Checkbutton(n_row, text="τ = ∞ offset",
+        ttk.Checkbutton(n_row, text="Include τ = ∞ offset",
                         variable=self.var_inf).pack(side="left")
 
         self.table = ComponentTable(left)
@@ -106,7 +106,7 @@ class KineticsDialog(_AnalysisDialog):
                      state="readonly").pack(side="left", padx=(6, 0))
 
         # fit window
-        win_row = ttk.Labelframe(left, text="Fit window (delay, ps)", padding=6)
+        win_row = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
         win_row.pack(fill="x", pady=(2, 6))
         self.var_tmin = tk.StringVar(value=f"{m.times[0]:.4g}")
         self.var_tmax = tk.StringVar(value=f"{m.times[-1]:.4g}")
@@ -126,7 +126,7 @@ class KineticsDialog(_AnalysisDialog):
                           values=["Log", "Linear"], width=8, state="readonly")
         sc.pack(side="left", padx=(4, 10))
         sc.bind("<<ComboboxSelected>>", lambda e: self._refresh_plot())
-        self.btn_run = ttk.Button(run_row, text="Run Fit", command=self.run_fit)
+        self.btn_run = ttk.Button(run_row, text="Run fit", command=self.run_fit)
         self.btn_run.pack(side="left")
         self.btn_stop = ttk.Button(run_row, text="Stop", command=self.stop_fit,
                                    state="disabled")
@@ -137,7 +137,7 @@ class KineticsDialog(_AnalysisDialog):
         ttk.Label(exp_row, text="Export").pack(side="left")
         ttk.Button(exp_row, text="Export results",
                    command=self.export_results).pack(side="left", padx=(6, 0))
-        ttk.Label(exp_row, text="(uses main CSV / .opju)",
+        ttk.Label(exp_row, text="(formats chosen in the main window)",
                   style="Val.TLabel", foreground=INK_FAINT).pack(side="left", padx=(6, 0))
 
         self.var_status = tk.StringVar(value="Ready.")
@@ -147,7 +147,7 @@ class KineticsDialog(_AnalysisDialog):
                            insertbackground=INK, relief="flat",
                            font=("TkFixedFont", 9), wrap="none")
         self.txt.pack(fill="both", expand=True)
-        self.txt.insert("1.0", "Set up the fit on the left, then Run Fit.")
+        self.txt.insert("1.0", "Set up the fit on the left, then Run fit.")
 
         # right: plots
         right = ttk.Labelframe(outer, text="Trace, fit, residual", padding=6)
@@ -377,10 +377,10 @@ class KineticsDialog(_AnalysisDialog):
 
     def _report(self, res, wl, n_avg, t_lo, t_hi, n_in):
         info = res["info"]
-        head = (f"Fit converged ({info['iters']} iters), " if info["success"]
-                else f"NOT converged ({info['iters']} iters: {info['message']}), ")
+        head = (f"Fit converged ({info['iters']} iterations), " if info["success"]
+                else f"NOT converged ({info['iters']} iterations: {info['message']}), ")
         L = [head + f"RMS = {info['rms']:.4g}",
-             f"λ centre = {wl:.2f} nm  (avg of {n_avg} px)",
+             f"λ = {wl:.2f} nm  (average of {n_avg} curves)",
              f"Window: [{t_lo:.4g}, {t_hi:.4g}] ps, n = {n_in}",
              f"IRF mode: {res['info']['irf_mode']}", "",
              "  i   τ (ps)        β       A          (type)"]
@@ -430,9 +430,9 @@ class KineticsDialog(_AnalysisDialog):
         else:
             ax.set_xscale("linear"); axR.set_xscale("linear")
             ax.set_xlim(t.min(), t.max()); axR.set_xlim(t.min(), t.max())
-        ax.set_ylabel("intensity"); axR.set_ylabel("residual")
-        axR.set_xlabel("delay (ps)")
-        ax.set_title(f"λ = {wl:.2f} nm   (avg {n_avg} px)")
+        ax.set_ylabel("Intensity"); axR.set_ylabel("Residual")
+        axR.set_xlabel("Time (ps)")
+        ax.set_title(f"λ = {wl:.2f} nm   (average of {n_avg} curves)")
         leg = ax.legend(loc="best", fontsize=8, facecolor=PANEL, edgecolor=LINE)
         for txt in leg.get_texts():
             txt.set_color(INK)
