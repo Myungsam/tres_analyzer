@@ -338,8 +338,9 @@ class KineticsDialog(_AnalysisDialog):
                 if kind == "done":
                     self._on_done(*payload)
                 elif kind == "stopped":
-                    self.var_status.set("Stopped by user." if payload == self._job
-                                        else "Reset to defaults.")
+                    # stopped by Reset or by a new λ: the status already says so
+                    if payload == self._job:
+                        self.var_status.set("Stopped by user.")
                 else:
                     exc, wl, job = payload
                     self.var_status.set("Fit failed.")
@@ -374,8 +375,7 @@ class KineticsDialog(_AnalysisDialog):
     def _report(self, res, wl, n_avg, t_lo, t_hi, n_in):
         info = res["info"]
         head = (f"Fit converged ({info['iters']} iters), " if info["success"]
-                else f"Fit stopped, not converged ({info['iters']} iters: "
-                     f"{info['message']}), ")
+                else f"NOT converged ({info['iters']} iters: {info['message']}), ")
         L = [head + f"RMS = {info['rms']:.4g}",
              f"λ centre = {wl:.2f} nm  (avg of {n_avg} px)",
              f"Window: [{t_lo:.4g}, {t_hi:.4g}] ps, n = {n_in}",
