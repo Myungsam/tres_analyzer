@@ -61,15 +61,15 @@ run of the tests.
 
 ### Enabling the optional GPU feature
 
-Install the extra into the **same** environment the launcher built, only if you
-want GPU-accelerated FLIM:
-
-```bat
-"%LOCALAPPDATA%\TCSPC_analysis\venv\Scripts\python" -m pip install -r requirements-optional.txt
-```
-
-- **FLIM GPU** needs `tensorflow==2.10.1` plus CUDA 11.2 / cuDNN 8.1. Without
-  it the FLIM tab still runs on the CPU.
+The FLIM tab runs on the CPU without anything extra. Its GPU path needs
+`tensorflow==2.10.1` with CUDA 11.2 / cuDNN 8.1, and that TensorFlow exists
+only for **Python 3.10 or older** and needs **numpy below 2**: it cannot be
+installed into the environment the launcher builds on a current Python (3.11+,
+numpy 2). To use the GPU, make a separate environment with Python 3.10 by
+hand, install `requirements.txt` and `requirements-optional.txt` into it and
+start `run_tcspc_analysis.py` with that Python. Do not install TensorFlow into
+the launcher's environment; the .exe build excludes it in any case
+(`--exclude-module tensorflow`).
 
 ## Resetting / updating
 
