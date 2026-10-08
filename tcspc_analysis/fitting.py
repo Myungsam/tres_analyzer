@@ -153,6 +153,10 @@ def _lsqminnorm(A, B):
     return X
 
 
+class FitInputError(ValueError):
+    """The kernel refuses its input; the message is a sentence for the user."""
+
+
 class FitStopped(Exception):
     """Raised inside a fit's objective when stop_check() reports a cancel."""
 
@@ -161,34 +165,39 @@ class GlobalAnalysisStopped(FitStopped):
     """The same, from the global fit."""
 
 
-def _check_start(t, tau, beta, stretch_on, fwhm, tau_limits):
-    """Refuse, in words, start values the model is not evaluated at.
+def _refuse(t, tau, beta, stretch_on, fwhm, tau_limits):
+    """Say, in words, why the model is not evaluated at these parameters.
 
     These are the conditions under which the objectives below hand back a
-    zero model; started there, the "fit" was that zero model. tau_limits adds
-    the global fit's window for a lifetime: sigma/4 ... 100 x the fit range.
+    zero model. A fit that ENDS there (it started there and could not get
+    away - a fixed value, or a start too far out) used to be returned as an
+    all-zero "result"; the kernels call this instead. A start outside the
+    limits that the optimiser recovers from is fitted as before. tau_limits
+    adds the global fit's window for a lifetime: sigma/4 ... 100 x fit range.
     """
     span = float(t.max() - t.min()) if t.size else 0.0
     if not np.isfinite(fwhm) or fwhm <= 0:
-        raise ValueError(f"The IRF FWHM must be above 0 ps (it is {fwhm:g}).")
+        raise FitInputError(f"The IRF FWHM must be above 0 ps (it is {fwhm:g}).")
     if fwhm > span:
-        raise ValueError(f"The IRF FWHM ({fwhm:g} ps) is wider than the fit "
+        raise FitInputError(f"The IRF FWHM ({fwhm:g} ps) is wider than the fit "
                          f"range ({span:g} ps).")
     shortest = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0))) / 4.0
     for i, tv in enumerate(tau):
         if not np.isfinite(tv) or tv <= 0:
-            raise ValueError(f"τ {i + 1} must be above 0 ps (it is {tv:g}).")
+            raise FitInputError(f"τ {i + 1} must be above 0 ps (it is {tv:g}).")
         if tau_limits and tv < shortest:
-            raise ValueError(
-                f"τ {i + 1} = {tv:g} ps is below the shortest lifetime this "
-                f"IRF can resolve ({shortest:.4g} ps = FWHM / 9.42).")
+            raise FitInputError(
+                f"τ {i + 1} = {tv:g} ps is below the shortest lifetime the "
+                f"global fit allows for this IRF ({shortest:.4g} ps = FWHM / 9.42).")
         if tau_limits and tv > 100.0 * span:
-            raise ValueError(
+            raise FitInputError(
                 f"τ {i + 1} = {tv:g} ps is more than 100 x the fit range "
                 f"({span:g} ps).")
     for i, bv in enumerate(beta):
         if (stretch_on[i] or not tau_limits) and not (np.isfinite(bv) and 0 < bv <= 2):
-            raise ValueError(f"β {i + 1} must be above 0 and at most 2 (it is {bv:g}).")
+            raise FitInputError(f"β {i + 1} must be above 0 and at most 2 (it is {bv:g}).")
+    raise FitInputError("The model could not be evaluated at these parameters "
+                        "(a component has no signal in the fit range).")
 
 
 def _fit_warnings(t, tau, fwhm, A, data, tau_limits):
@@ -264,8 +273,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
                          "must match tau_init")
     any_stretched = bool(stretch_on.any())
     if n_nl == 0 and not has_inf:
-        raise ValueError("Nothing to fit: no component and no τ = ∞ offset.")
-    _check_start(t_arr, tau_init, beta_init, stretch_on, float(fwhm_init), True)
+        raise FitInputError("Nothing to fit: no component and no τ = ∞ offset.")
 
     tau_cur = tau_init.copy()
     beta_cur = beta_init.copy()
@@ -433,6 +441,9 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         n_fev = int(getattr(res, "nfev", iters))
         verdict = (bool(res.success), int(res.status), str(res.message))
 
+    if loss >= 1e30:        # the fit ended on a point the model is not evaluated at
+        _refuse(t_arr, tau_cur, beta_cur, stretch_on, fwhm_cur, True)
+
     # "iters" is what the exports have always quoted (TRF: its nfev, which
     # leaves out the Jacobian's evaluations; Nelder-Mead: iterations);
     # n_objective is the number of model evaluations actually made.
@@ -529,8 +540,6 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
     beta_fixed = np.asarray(beta_fixed, bool).ravel()
     stretch_on = np.asarray(stretch_on, bool).ravel()
 
-    _check_start(t, tau_init, beta_init, stretch_on, float(fwhm_init), False)
-
     mask = np.isfinite(y)
     if irf_mode.lower() == "skip" and stretch_on.any():
         sig = fwhm_init / (2.0 * np.sqrt(2.0 * np.log(2.0)))
@@ -538,7 +547,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
 
     n_min = n_nl + (1 if has_inf else 0) + 1
     if int(mask.sum()) < n_min:
-        raise ValueError(
+        raise FitInputError(
             f"Not enough data points for the fit "
             f"(need >= {n_min}, have {int(mask.sum())} after masking).")
 
@@ -579,7 +588,9 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                 or np.any(cur["beta"] <= 0) or np.any(cur["beta"] > 2)
                 or not np.isfinite(cur["fwhm"]) or cur["fwhm"] <= 0
                 or cur["fwhm"] > t_span):
+            cur["refused"] = True
             return (np.zeros(n_cols), np.zeros_like(t))
+        cur["refused"] = False
 
         Mb = np.zeros((t.size, n_cols))
         for j in range(n_nl):
@@ -622,6 +633,9 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
         iters = 0
         fval = float(np.sum(((y - fit_v)[mask]) ** 2))
         verdict = (True, 0, "No free parameter: amplitudes only.", 1)
+
+    if cur["refused"]:      # the fit ended on a point the model is not evaluated at
+        _refuse(t, cur["tau"], cur["beta"], stretch_on, cur["fwhm"], False)
 
     res_v = y - fit_v
     res_v[~mask] = np.nan
