@@ -236,6 +236,7 @@ class _AnalysisDialog:
         self.win.deiconify()
         self.win.lift()
         self.win.focus_force()
+        self.model_changed()        # another window may have changed the model
 
     # -- defaults pulled from the current model --------------------------
     def _irf_defaults(self):
