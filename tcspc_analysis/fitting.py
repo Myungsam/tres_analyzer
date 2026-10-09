@@ -390,13 +390,14 @@ def _fit_warnings(t, tau, fwhm, A, data, tau_limits, fwhm_start=None, free=None)
     return notes
 
 
-def _limit_warnings(limits, x, n_tau, n_beta, t0_free, fwhm_free):
+def _limit_warnings(limits, x, n_tau, beta_of, t0_free, fwhm_free):
     """A free beta or FWHM that the fit left ON one of its limits, in words
     (a lifetime on a limit is _fit_warnings()'s). ``x`` is the optimiser's
-    final vector, ``limits`` what _limits() gave for it."""
+    final vector, ``limits`` what _limits() gave for it, ``beta_of`` the
+    components whose beta is free."""
     if limits is None or len(x) == 0:
         return []
-    names = [None] * n_tau + [f"β of free component {k + 1}" for k in range(n_beta)] \
+    names = [None] * n_tau + [f"β {int(k) + 1}" for k in beta_of] \
         + ([None] if t0_free else []) + (["The IRF FWHM"] if fwhm_free else [])
     notes = []
     for name, value, (low, high) in zip(names, x, limits):
@@ -405,7 +406,7 @@ def _limit_warnings(limits, x, n_tau, n_beta, t0_free, fwhm_free):
         for edge, which in ((low, "lower"), (high, "upper")):
             if abs(value - edge) <= 1e-3 * max(1.0, abs(edge)):
                 notes.append(f"{name} ended on the {which} limit of the fit "
-                             f"({np.exp(edge):.4g}): the data do not determine it.")
+                             f"({np.exp(edge):.4g}): not a fitted value.")
     return notes
 
 
@@ -641,7 +642,7 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True,
                                   fwhm_start=float(fwhm_init), free=~tau_fixed)
         + _limit_warnings(limits, res.x if x0.size else x0, n_free_tau,
-                          n_free_beta, not t0_fixed, not fwhm_fixed)
+                          idx_free_beta, not t0_fixed, not fwhm_fixed)
         + _skip_warning(skip_mask_active, t0_fixed, fwhm_fixed),
         "rms": float(np.sqrt(loss / n_cells[0])),
         "initialLoss": init_loss,
@@ -843,7 +844,7 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                                            fwhm_start=float(fwhm_init),
                                            free=~tau_fixed)
                  + _limit_warnings(limits, res.x if x0.size else x0,
-                                   free_tau_idx.size, free_beta_idx.size,
+                                   free_tau_idx.size, free_beta_idx,
                                    not t0_fixed, not fwhm_fixed)
                  + _skip_warning(irf_mode.lower() == "skip" and stretch_on.any(),
                                  t0_fixed, fwhm_fixed)},

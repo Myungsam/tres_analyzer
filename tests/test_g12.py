@@ -140,9 +140,9 @@ if section("FA-2"):
     try:
         k.run_fit(); pump(0.2)
         k.var_wl.set(f"{float(k.var_wl.get()) + 20:.2f}"); k._on_wl_change(); pump(0.1)
-        k.stop_fit(); pump(0.1)
+        k.stop_fit()                          # read at once: the fit ends within 20 ms and the window
         check("(Stop pressed after λ was changed: the status reads Stopping...)", k.var_status.get() == "Stopping...",
-              k.var_status.get())
+              k.var_status.get())               # then says how it ended - the fix this section is about
         wait(lambda: not k._running, 20); pump(0.3)
         check("when the fit has ended the status says so, not 'Stopping...'",
               not k._running and k.var_status.get() == "Stopped by user.", k.var_status.get())
@@ -215,7 +215,7 @@ if section("FC-2"):
         g.var_n.set("2"); g.table.set_n(2)
         g.run_fit(); pump(0.2)
         g._job += 1                           # what Reset does to a running fit, without stopping it yet
-        g.stop_fit(); pump(0.05)
+        g.stop_fit()                          # read at once, as in FA-2
         check("(Global: Stop pressed on a run that was already set aside reads Stopping...)",
               g.var_status.get() == "Stopping...", g.var_status.get())
         wait(lambda: not g._running, 20); pump(0.3)
@@ -252,6 +252,12 @@ if section("FC-3"):
     noisy[20000:] = 0.0
     w = NEW.fwhm_of(noisy, 4.0)[1]
     check("with Poisson background of 40 counts and an empty tail: within 2 %", abs(w - 300.0) < 6.0, f"{w:.2f}")
+    # counts that end within three widths of the peak, on a background (FD-3): no bin lies "away"
+    xs = np.arange(400) * 4.0
+    short = 1e4 * np.exp(-0.5 * ((xs - 800.0) / (244.0 / S2)) ** 2) + 5000.0
+    w = NEW.fwhm_of(np.concatenate([short, np.zeros(5000)]), 4.0)[1]
+    check("a 244 ps peak on a 50 % background whose record ends 2.3 widths after it reads 244 ps (within 2 %)",
+          abs(w - 244.0) < 5.0, f"{w:.2f}")
     one = np.zeros(50); one[7] = 5.0
     check("a single bin with counts, or none: no width", NEW.fwhm_of(one, 4.0)[1] == 0.0
           and NEW.fwhm_of(np.zeros(50), 4.0)[1] == 0.0, str(NEW.fwhm_of(one, 4.0)))
@@ -358,7 +364,8 @@ if section("FC-8"):
     r = kin(1.0)                                  # on the lower limit (a quarter of a 4 ps bin)
     stuck = abs(r["fwhm"] - 1.0) < 1e-2
     check("a free FWHM that ends on its limit is reported (the fit used to say nothing)",
-          (not stuck) or any("FWHM ended on the lower limit" in w for w in r["info"]["warnings"]),
+          (not stuck) or any("FWHM ended on the lower limit" in w and "not a fitted value" in w
+                             for w in r["info"]["warnings"]),
           f"FWHM {r['fwhm']:.4g} {r['info']['warnings']}")
     check("(this start does end on the limit: the case exists)", stuck, f"FWHM {r['fwhm']:.4g}")
     r = kin(30.0)
@@ -368,6 +375,18 @@ if section("FC-8"):
     r = kin(40.0, fwhm_fixed=True)
     check("nor does a fit with nothing on a limit", not any("ended on" in w for w in r["info"]["warnings"]),
           str(r["info"]["warnings"]))
+    # a stretched component is named by its place among the components, as the lifetimes are (FD-2)
+    yb = 500.0 * np.exp(-(np.clip(t - 400.0, 0, None) / 300.0) ** 2.0) * (t > 400.0) + 300.0 * np.exp(
+        -np.clip(t - 400.0, 0, None) / 2000.0) * (t > 400.0)
+    r = NEW.fit_single_trace(t, yb, tau_init=np.array([2000.0, 300.0]), tau_fixed=np.zeros(2, bool),
+                             stretch_on=np.array([False, True]), beta_init=np.array([1.0, 1.9]),
+                             beta_fixed=np.zeros(2, bool), t0_init=400.0, t0_fixed=True, fwhm_init=40.0,
+                             fwhm_fixed=True, irf_mode="skip")
+    on_limit = abs(r["beta"][1] - 2.0) < 2e-3
+    check("the β of component 2 ending on its limit is called β 2",
+          (not on_limit) or any(w.startswith("β 2 ended on the upper limit") for w in r["info"]["warnings"]),
+          f"beta {r['beta']} {r['info']['warnings']}")
+    check("(this fit does end with β on the limit: the case exists)", on_limit, f"beta {r['beta']}")
     D = np.vstack([y, 0.5 * y])
     g = NEW.fit_global_analysis(D, t, np.array([100.0, 1000.0]), 400.0, 1.0, np.zeros(2, bool), True, False, False,
                                 method="nm")

@@ -50,8 +50,10 @@ def fwhm_of(trace, res_ps):
     the sync period, and its empty part would make any median 0) that lie
     more than three widths away from the peak. The width is therefore taken
     twice - first above the median of that whole stretch, to know where the
-    peak is, then above the baseline. A peak with no such bins beside it has
-    no background to subtract: its baseline is 0.
+    peak is, then above the baseline. When no bin lies that far from the peak
+    (the counts end within three widths of it), the baseline is the lowest
+    tenth of the stretch: next to nothing for a peak that stands alone, the
+    background where there is one.
     """
     trace = np.asarray(trace, float)
     pk = int(np.argmax(trace))
@@ -64,7 +66,8 @@ def fwhm_of(trace, res_ps):
         return pk * res_ps, 0.0
     where = np.arange(first, last + 1)
     away = where[np.abs(where - pk) > 3.0 * rough]
-    base = float(np.median(trace[away])) if away.size else 0.0
+    base = float(np.median(trace[away])) if away.size \
+        else float(np.percentile(trace[first:last + 1], 10))
     return pk * res_ps, float(_width_above(trace, pk, base) * res_ps)
 
 
