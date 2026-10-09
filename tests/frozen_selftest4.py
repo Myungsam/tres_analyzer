@@ -92,7 +92,7 @@ try:
           and os.path.normcase(os.path.dirname(user_dir())) != os.path.normcase(os.path.dirname(HERE))
           and not os.path.exists(os.path.join(HERE, "Data"))
           and not os.path.exists(os.path.join(HERE, FreezeLog.NAME))
-          and "MISSING" not in out[2] and out[2].count("=ok") == 6
+          and "MISSING" not in out[2] and out[2].count("=ok") == 5 and "pandas=absent" in out[2]
           and os.path.normcase(tres_data) == os.path.normcase(os.path.join(user_dir(), "Data"))
           and "version=1.6 " in out[0] and "started, version " + APP_VERSION + "," in body)
     out.append(body[-1800:])
