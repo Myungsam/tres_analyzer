@@ -93,6 +93,10 @@ REM The .opju export only: the program must start without these. The tested
 REM versions first, then whatever this Python has wheels for.
 "%VPY%" -m pip install -r "%REQ_OPJU_LOCK%"
 if not errorlevel 1 goto deps_done
+echo.
+echo   The tested versions of the .opju packages are not all available for this
+echo   Python - trying the newest ones instead.
+echo.
 "%VPY%" -m pip install -r "%REQ_OPJU%"
 if errorlevel 1 (
     echo.

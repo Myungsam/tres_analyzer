@@ -39,21 +39,40 @@ def wavelength_to_rgb(wl):
 def fwhm_of(trace, res_ps):
     """Peak position (ps) and FWHM (ps) of a histogram, at native resolution.
 
-    The width is measured above the baseline - the median of the trace up to
-    its last bin with counts: an IRF is short, so most of those bins hold only
-    background (the empty rest of a record that is longer than the sync
-    period would make the median 0) - and the two
-    half-height crossings are interpolated between the bins on either side
-    (counting whole bins read 4 to 20 % wide for an IRF of 30 to 60 ps at
-    4 ps per bin). A trace without a peak above its baseline gives 0. The
-    peak position is the left edge of the highest bin, as before.
+    The width is measured above the baseline, and the two half-height
+    crossings are interpolated between the bins on either side (counting whole
+    bins read 4 to 20 % wide for an IRF of 30 to 60 ps at 4 ps per bin). A
+    trace without a peak above its baseline gives 0. The peak position is the
+    left edge of the highest bin, as before.
+
+    The baseline is the median of the bins that hold the background: those
+    between the first and the last bin with counts (a record is longer than
+    the sync period, and its empty part would make any median 0) that lie
+    more than three widths away from the peak. The width is therefore taken
+    twice - first above the median of that whole stretch, to know where the
+    peak is, then above the baseline. A peak with no such bins beside it has
+    no background to subtract: its baseline is 0.
     """
     trace = np.asarray(trace, float)
     pk = int(np.argmax(trace))
     filled = np.nonzero(trace)[0]
-    base = float(np.median(trace[:filled[-1] + 1])) if filled.size else 0.0
-    if not trace[pk] > base:
+    if not filled.size:
         return pk * res_ps, 0.0
+    first, last = int(filled[0]), int(filled[-1])
+    rough = _width_above(trace, pk, float(np.median(trace[first:last + 1])))
+    if rough <= 0:
+        return pk * res_ps, 0.0
+    where = np.arange(first, last + 1)
+    away = where[np.abs(where - pk) > 3.0 * rough]
+    base = float(np.median(trace[away])) if away.size else 0.0
+    return pk * res_ps, float(_width_above(trace, pk, base) * res_ps)
+
+
+def _width_above(trace, pk, base):
+    """Full width at half maximum of the peak at bin ``pk`` above ``base``,
+    in bins (0 when the peak is not above it)."""
+    if not trace[pk] > base:
+        return 0.0
     half = base + (trace[pk] - base) / 2.0
     lo = pk
     while lo > 0 and trace[lo] > half:
@@ -71,7 +90,7 @@ def fwhm_of(trace, res_ps):
 
     left = crossing(lo, min(lo + 1, pk))
     right = crossing(hi, max(hi - 1, pk))
-    return pk * res_ps, float((right - left) * res_ps)
+    return float(right - left)
 
 
 def short_name(path, limit=24):

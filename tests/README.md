@@ -27,10 +27,11 @@ bash tests/run_all.sh mylabel
 시험 하나만 돌릴 때는 Tcl/Tk 위치를 알려 줘야 합니다(런처가 하는 일과 같습니다).
 
 ```bash
-BASE=$(python -c "import sys;print(sys.base_prefix.replace(chr(92),'/'))")
+VPY="$LOCALAPPDATA/TCSPC_analysis/venv/Scripts/python.exe"
+BASE=$("$VPY" -c "import sys;print(sys.base_prefix.replace(chr(92),'/'))")
 export TCL_LIBRARY="$BASE/tcl/tcl8.6" TK_LIBRARY="$BASE/tcl/tk8.6" PYTHONIOENCODING=utf-8
-"$LOCALAPPDATA/TCSPC_analysis/venv/Scripts/python.exe" -B tests/test_g7.py          # 파일 전체
-"$LOCALAPPDATA/TCSPC_analysis/venv/Scripts/python.exe" -B tests/test_g7.py A-13     # 한 항목만
+"$VPY" -B tests/test_g7.py          # 파일 전체
+"$VPY" -B tests/test_g7.py A-13     # 한 항목만
 ```
 
 ## 무엇이 들어 있나

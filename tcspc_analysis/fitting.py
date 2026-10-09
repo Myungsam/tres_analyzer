@@ -302,13 +302,15 @@ def _simplex(x0, lo, hi):
     x0 = np.asarray(x0, float)
     sim = np.tile(x0, (x0.size + 1, 1))
     for k in range(x0.size):
-        step = 0.05 * x0[k] if x0[k] != 0 else 0.00025
-        if not lo[k] <= x0[k] + step <= hi[k]:
-            step = -step
-        if not lo[k] <= x0[k] + step <= hi[k]:      # a range narrower than the step
+        # written as scipy writes it: (1 + 0.05) * x and x + 0.05 * x differ in
+        # the last bit for a quarter of all x, enough to send a fit another way
+        new = (1 + 0.05) * x0[k] if x0[k] != 0 else 0.00025
+        if not lo[k] <= new <= hi[k]:
+            new = 2.0 * x0[k] - new                 # the same step, the other way
+        if not lo[k] <= new <= hi[k]:               # a range narrower than the step
             far = hi[k] if hi[k] - x0[k] >= x0[k] - lo[k] else lo[k]
-            step = 0.5 * (far - x0[k])
-        sim[k + 1, k] = x0[k] + step
+            new = x0[k] + 0.5 * (far - x0[k])
+        sim[k + 1, k] = new
     return sim
 
 
@@ -385,6 +387,25 @@ def _fit_warnings(t, tau, fwhm, A, data, tau_limits, fwhm_start=None, free=None)
             and float(np.nanmax(np.abs(A))) > 1e3 * top:
         notes.append("An amplitude is more than 1000 x the largest data value: "
                      "components are cancelling each other.")
+    return notes
+
+
+def _limit_warnings(limits, x, n_tau, n_beta, t0_free, fwhm_free):
+    """A free beta or FWHM that the fit left ON one of its limits, in words
+    (a lifetime on a limit is _fit_warnings()'s). ``x`` is the optimiser's
+    final vector, ``limits`` what _limits() gave for it."""
+    if limits is None or len(x) == 0:
+        return []
+    names = [None] * n_tau + [f"β of free component {k + 1}" for k in range(n_beta)] \
+        + ([None] if t0_free else []) + (["The IRF FWHM"] if fwhm_free else [])
+    notes = []
+    for name, value, (low, high) in zip(names, x, limits):
+        if name is None or low is None:
+            continue
+        for edge, which in ((low, "lower"), (high, "upper")):
+            if abs(value - edge) <= 1e-3 * max(1.0, abs(edge)):
+                notes.append(f"{name} ended on the {which} limit of the fit "
+                             f"({np.exp(edge):.4g}): the data do not determine it.")
     return notes
 
 
@@ -619,6 +640,8 @@ def fit_global_analysis(D, t, tau_init, t0_init, fwhm_init,
         "n_objective": n_model[0],
         "warnings": _fit_warnings(t_arr, tau_cur, fwhm_cur, A_out, D, True,
                                   fwhm_start=float(fwhm_init), free=~tau_fixed)
+        + _limit_warnings(limits, res.x if x0.size else x0, n_free_tau,
+                          n_free_beta, not t0_fixed, not fwhm_fixed)
         + _skip_warning(skip_mask_active, t0_fixed, fwhm_fixed),
         "rms": float(np.sqrt(loss / n_cells[0])),
         "initialLoss": init_loss,
@@ -819,6 +842,9 @@ def fit_single_trace(t, y, *, tau_init, tau_fixed,
                                            y[mask], limits is not None,
                                            fwhm_start=float(fwhm_init),
                                            free=~tau_fixed)
+                 + _limit_warnings(limits, res.x if x0.size else x0,
+                                   free_tau_idx.size, free_beta_idx.size,
+                                   not t0_fixed, not fwhm_fixed)
                  + _skip_warning(irf_mode.lower() == "skip" and stretch_on.any(),
                                  t0_fixed, fwhm_fixed)},
     }

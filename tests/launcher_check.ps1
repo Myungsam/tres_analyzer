@@ -43,7 +43,7 @@ $copy = Join-Path $work "copy"
 New-Item -ItemType Directory -Force $copy | Out-Null
 Copy-Item "$root\TCSPC_analysis.bat", "$root\requirements.txt", "$root\run_tcspc_analysis.py", "$root\TCSPC_analysis.ico" $copy
 Copy-Item "$root\tcspc_analysis" $copy -Recurse
-# no lock file that installs, and an .opju list naming a package that does not exist
+# no lock file that installs, and .opju lists that cannot be installed
 Set-Content (Join-Path $copy "requirements-lock.txt") "--only-binary=:all:`r`nnumpy==0.0.1"
 # (versions that do not exist of packages that do: a made-up package NAME could be registered by anyone)
 Set-Content (Join-Path $copy "requirements-opju-lock.txt") "--only-binary=:all:`r`npywin32==0.0.1"

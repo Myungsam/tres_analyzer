@@ -287,8 +287,10 @@ class GlobalAnalysisDialog(_FitDialog):
                 self._finish_run("Fit done, but showing the result failed.")
                 raise
         elif kind == "stopped":
-            # stopped by Reset: the status already says so
-            self._finish_run("Stopped by user." if payload == self._job
+            # stopped by Reset: the status already says so - unless Stop was
+            # pressed after that and it reads "Stopping..."
+            self._finish_run("Stopped by user."
+                             if payload == self._job or getattr(self, "_stop_asked", False)
                              else self.var_status.get())
         elif kind == "error":
             self._finish_run("Fit failed.")

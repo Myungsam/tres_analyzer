@@ -27,7 +27,7 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
     lightweight rectangle / dim overlays (debounced ~130 ms), the same
     cheap-overlay pattern the TA analyzer's crop window uses so the dialog stays
     responsive on a big map. Time is in ps from the record start (like the main
-    TIME SPAN box), independent of any "t0 at IRF peak" display shift.
+    TIME END box), independent of any "t0 at IRF peak" display shift.
 
     The window also holds the solvent subtraction: load a pure-solvent .phu
     taken on the same grid, then move SCALE until its signal is gone. The
@@ -147,7 +147,7 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
                         pass
             if delta or now[0] != was[0]:       # the wavelength axis itself moved
                 self._fit_view()
-        # A new time range of the main window (TIME SPAN) is taken over: it is
+        # A new time range of the main window (TIME END) is taken over: it is
         # the same setting as "t ... to".
         if (m.t_min_ps, m.t_max_ps) != self._seen_t:
             self._seen_t = (m.t_min_ps, m.t_max_ps)
@@ -598,7 +598,7 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
             return
         self._configure(m, box, with_solvent=with_solvent, sub=not self._left_off())
         m.rebuild()
-        # keep the main viewer's TIME SPAN box and derived state consistent
+        # keep the main viewer's TIME END box and derived state consistent
         self.app.var_tmax.set(f"{m.t_max_ps:.0f}")
         self._seen_t = (m.t_min_ps, m.t_max_ps)
         self.app.clim = None

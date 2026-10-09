@@ -125,25 +125,26 @@ def read_phu(path):
     nbins = whole(need("HistResDscr_HistogramBins", 0), "bin count")
     if nbins <= 0:
         raise ValueError(f"Bad header: {nbins} time bins per curve.")
-    if ncurves * 4 * nbins > len(data):     # before anything is done once per curve
-        raise ValueError(f"Bad header: {ncurves} curves of {nbins} bins do not "
-                         f"fit into the file ({len(data):,} bytes).")
     res_s = need("HistResDscr_MDescResolution", 0)
     if not isinstance(res_s, float) or not np.isfinite(res_s) or res_s <= 0:
         raise ValueError(f"Bad header: the time resolution is {res_s!r} s.")
     res_ps = res_s * 1e12
     # one time axis for the whole map: every curve must have curve 0's
-    all_bins, all_res = many("HistResDscr_HistogramBins"), many("HistResDscr_MDescResolution")
-    for i in range(1, ncurves):
-        bins_i = all_bins.get(i, nbins)
-        if bins_i != nbins:
+    # (the tags that are there are gone through, not the curve count: a header
+    #  may claim any number of curves)
+    for i, bins_i in sorted(many("HistResDscr_HistogramBins").items()):
+        if 0 < i < ncurves and bins_i != nbins:
             raise ValueError(f"Curve {i} has {bins_i} bins, curve 0 has {nbins}: "
                              "curves with different time axes are not supported.")
-        res_i = all_res.get(i, res_s)
-        if not isinstance(res_i, float) or abs(res_i - res_s) > 1e-9 * res_s:
+    for i, res_i in sorted(many("HistResDscr_MDescResolution").items()):
+        if 0 < i < ncurves and (not isinstance(res_i, float)
+                                or abs(res_i - res_s) > 1e-9 * res_s):
             raise ValueError(
                 f"Curve {i} has a time resolution of {res_i!r} s, curve 0 "
                 f"{res_s!r} s: curves with different time axes are not supported.")
+    if ncurves * 4 * nbins > len(data):     # before room is made for the counts
+        raise ValueError(f"Bad header: {ncurves} curves of {nbins} bins do not "
+                         f"fit into the file ({len(data):,} bytes).")
     wl_map = many("ParValue0")
 
     counts = np.zeros((ncurves, nbins), dtype=np.uint32)
