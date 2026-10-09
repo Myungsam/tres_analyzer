@@ -253,8 +253,8 @@ if section("FC-3"):
     w = NEW.fwhm_of(noisy, 4.0)[1]
     check("with Poisson background of 40 counts and an empty tail: within 2 %", abs(w - 300.0) < 6.0, f"{w:.2f}")
     # counts that end within three widths of the peak, on a background (FD-3): no bin lies "away"
-    xs = np.arange(400) * 4.0
-    short = 1e4 * np.exp(-0.5 * ((xs - 800.0) / (244.0 / S2)) ** 2) + 5000.0
+    xs = np.arange(300) * 4.0                 # 2.6 widths before the peak, 2.3 after: none beyond three
+    short = 1e4 * np.exp(-0.5 * ((xs - 640.0) / (244.0 / S2)) ** 2) + 5000.0
     w = NEW.fwhm_of(np.concatenate([short, np.zeros(5000)]), 4.0)[1]
     check("a 244 ps peak on a 50 % background whose record ends 2.3 widths after it reads 244 ps (within 2 %)",
           abs(w - 244.0) < 5.0, f"{w:.2f}")
