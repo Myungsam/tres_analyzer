@@ -54,7 +54,7 @@ export TCL_LIBRARY="$BASE/tcl/tcl8.6" TK_LIBRARY="$BASE/tcl/tk8.6" PYTHONIOENCOD
 
 `_versions.py`가 버전을 불러옵니다. 1.4까지는 `TCSPC_analysis_<버전>ver.py` 파일을, 그 뒤는 `tcspc_analysis/` 패키지를 한 이름공간처럼 다룹니다.
 
-1.6은 일부 결과를 일부러 바꿨습니다(피팅 한계, IRF 폭 재는 법 등, `README.md`의 "1.6에서 달라진 것"). 이전 버전과 값을 비교하는 시험은 `_versions.rules_of_1_5(NEW)`로 그 규칙들을 1.5의 것으로 되돌린 뒤 비교합니다. 그렇게 해서 "일부러 바꾼 것 말고는 달라지지 않았다"를 확인합니다. `run_all.sh`의 마지막 단계도 같은 방식으로 1.4.2의 산출물(`tests/out/ref_1.4.2/`, 처음 실행 때 `TCSPC_analysis_1.4ver.py`에서 만듦)과 비교하며, 남는 차이는 `rules_of_1_5`의 설명에 적힌 것(피팅 CSV 머리말의 두 줄, Origin의 단위 한 곳, solvent를 쓰는 경우)뿐이어야 합니다.
+1.6은 일부 결과를 일부러 바꿨습니다(피팅 한계, IRF 폭 재는 법 등, `CHANGELOG.md`의 "1.6에서 달라진 것"). 이전 버전과 값을 비교하는 시험은 `_versions.rules_of_1_5(NEW)`로 그 규칙들을 1.5의 것으로 되돌린 뒤 비교합니다. 그렇게 해서 "일부러 바꾼 것 말고는 달라지지 않았다"를 확인합니다. `run_all.sh`의 마지막 단계도 같은 방식으로 1.4.2의 산출물(`tests/out/ref_1.4.2/`, 처음 실행 때 `TCSPC_analysis_1.4ver.py`에서 만듦)과 비교하며, 남는 차이는 `rules_of_1_5`의 설명에 적힌 것(피팅 CSV 머리말의 두 줄, Origin의 단위 한 곳, solvent를 쓰는 경우)뿐이어야 합니다.
 
 ## 이 PC에서 확인할 수 없는 것
 
