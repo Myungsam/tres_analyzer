@@ -23,6 +23,7 @@ The latest version is **1.6**. What changed in each version is in the [version t
 - [If the program hangs](#if-the-program-hangs)
 - [PTU · FLIM tab](#ptu--flim-tab)
 - [Versions](#versions)
+- [License](#license)
 
 ## Installation
 
@@ -276,3 +277,9 @@ Up to 1.4 each version is one source file. From 1.5 on, the one package `tcspc_a
 `TCSPC_analysis.bat` and the documents (`SETUP.md`, `ARCHITECTURE.md`) describe the package. No executable was released for 1.5 (its results are those of 1.4.2). To run a version up to 1.4 directly, name the file, e.g. `python TCSPC_analysis_1.2ver.py [file.phu]`.
 
 The program's structure is in [ARCHITECTURE.md](ARCHITECTURE.md); the regression tests and how to run them are in [tests/README.md](tests/README.md) (in Korean; two measurement files are needed separately).
+
+## License
+
+This program is released under the [MIT License](LICENSE); the earlier versions (1.0–1.6) are under the same terms. Anyone may use, change and redistribute it freely as long as the copyright notice and the license text go along; it comes without any warranty.
+
+The executable (zip) also contains software by others - Python, Tcl/Tk, numpy, scipy, matplotlib, pywin32, originpro and more - each under its own license. Their list and full license texts go into `THIRD-PARTY-NOTICES.txt` inside the zip from the next release on.

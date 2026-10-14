@@ -23,6 +23,7 @@ PicoQuant PicoHarp 300 TCSPC 측정 파일을 후처리하는 Windows용 GUI 프
 - [프로그램이 멈췄을 때](#프로그램이-멈췄을-때)
 - [PTU · FLIM 탭](#ptu--flim-탭)
 - [버전](#버전)
+- [라이선스](#라이선스)
 
 ## 설치
 
@@ -276,3 +277,9 @@ FLIM 탭의 정비는 별도 계획으로 남아 있습니다.
 `TCSPC_analysis.bat`과 문서(`SETUP.md`, `ARCHITECTURE.md`)는 패키지를 기준으로 합니다. 1.5에는 실행 파일을 따로 올리지 않았습니다(계산 결과는 1.4.2와 같습니다). 1.4까지의 버전을 직접 실행하려면 `python TCSPC_analysis_1.2ver.py [file.phu]`처럼 파일을 지정합니다.
 
 프로그램 구조는 [ARCHITECTURE.md](ARCHITECTURE.md), 회귀 시험과 돌리는 방법은 [tests/README.md](tests/README.md)에 있습니다(측정 파일 두 개가 따로 필요합니다).
+
+## 라이선스
+
+이 프로그램은 [MIT 라이선스](LICENSE)로 배포합니다. 이전 버전(1.0–1.6)도 같은 조건입니다. 저작권 표시와 라이선스 문구를 함께 두는 한, 누구나 자유롭게 쓰고 고치고 다시 배포할 수 있으며, 프로그램은 아무 보증 없이 제공됩니다.
+
+실행 파일(zip)에는 Python, Tcl/Tk, numpy, scipy, matplotlib, pywin32, originpro 등 다른 사람이 만든 소프트웨어가 함께 들어 있고, 각각은 자기 라이선스를 따릅니다. 그 목록과 라이선스 전문은 다음 릴리스부터 zip 안의 `THIRD-PARTY-NOTICES.txt`에 넣습니다.

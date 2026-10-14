@@ -175,11 +175,28 @@ set "TK_LIBRARY=%BP%\tcl\tk8.6"
     --workpath "%BUILD%\work" --specpath "%BUILD%" --distpath "%BUILD%\dist" ^
     --exclude-module tensorflow --exclude-module pandas ^
     --collect-submodules originpro --collect-all OriginExt run_tcspc_analysis.py
+"%VENV%\Scripts\python" -B tools\third_party_notices.py "%BUILD%\dist\TCSPC_analysis"
 if not exist release mkdir release
 "%VENV%\Scripts\python" -c "import shutil;shutil.make_archive(r'release\TCSPC_analysis_1.6','zip',r'%BUILD%\dist','TCSPC_analysis')"
 ```
 
 (Typed at a prompt rather than saved in a `.bat`, write `%P` instead of `%%P`.)
+
+`tools\third_party_notices.py` puts `LICENSE` (this program, MIT) and
+`THIRD-PARTY-NOTICES.txt` next to the .exe before it is zipped. The build
+contains Python, Tcl/Tk, numpy, scipy, matplotlib and the libraries they use,
+pywin32, originpro and OriginExt; their licenses (BSD, PSF, MIT and similar)
+ask for their notices to go along with a binary copy, and the script collects
+those notices from the packages installed in the venv. It finds the bundled
+packages by itself (folders in `_internal\` and the modules in the .exe's
+archive) and stops with exit code 1, naming it, if one of them has no license
+file. Python's part (with the OpenSSL, expat, libffi, zlib and libmpdec it
+brings along) comes from the license page of Python's own documentation
+(`Doc\html\license.html` in the Python folder) - not from `LICENSE.txt` in the
+Python folder, which originpro / OriginExt overwrite with their own. That
+page is installed with the python.org installer's default "Documentation"
+option; without it the script stops and says so. bzip2's license is kept in
+`tools\notices\`.
 
 `tensorflow` is excluded (the GPU path is optional and would add several
 hundred MB), and so is `pandas`: the program does not use it since 1.6, but
