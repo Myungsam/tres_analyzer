@@ -5,12 +5,14 @@
 ## 준비
 
 1. **실행 환경.** 프로그램과 같은 가상 환경을 씁니다(`TCSPC_analysis.bat`을 한 번 실행하면 `%LOCALAPPDATA%\TCSPC_analysis\venv`에 만들어집니다).
-2. **시료 측정 파일 두 개.** 측정 데이터는 저장소에 없습니다. `samples.example.json`을 `samples.json`으로 복사하고 두 `.phu` 파일의 경로를 적습니다(상대 경로는 프로젝트 폴더 기준). `samples.json`은 git에 올라가지 않습니다. 시험의 기대값은 다음과 같은 두 파일에 맞춰져 있습니다.
+2. **시료 측정 파일 두 개(와 세 번째 하나).** 측정 데이터는 저장소에 없습니다. `samples.example.json`을 `samples.json`으로 복사하고 `.phu` 파일의 경로를 적습니다(상대 경로는 프로젝트 폴더 기준). `samples.json`은 git에 올라가지 않습니다. 시험의 기대값은 다음과 같은 두 파일에 맞춰져 있습니다.
 
    | | 곡선 | 파장 | 시간 bin |
    |---|---|---|---|
    | A | 64개(첫 곡선이 IRF) | 435–750 nm, 5 nm 간격 | 4 ps |
    | B | 42개(첫 곡선이 IRF) | 첫 곡선 535 nm, 나머지 550–750 nm, 5 nm 간격 | 4 ps |
+
+   `C`는 `test_v17.py`만 씁니다. 프로그램 README의 그림에 쓴 시료처럼 IRF 봉우리가 늦은 파일, 곧 봉우리에서 FWHM의 세 배를 뺀 곳이 기록 시작에서 10 ns보다 뒤인 파일이면 됩니다.
 
    다른 파일로 돌리면 곡선 수나 수치를 직접 적은 검사는 실패합니다.
 
@@ -42,6 +44,7 @@ export TCL_LIBRARY="$BASE/tcl/tcl8.6" TK_LIBRARY="$BASE/tcl/tk8.6" PYTHONIOENCOD
 | `test_v14.py`, `test_v14_native.py`, `test_fatol.py` | 1.4의 멈춤 기록·스레드 피팅, 1.4.2의 종료 기준 |
 | `test_facade.py`, `test_paths.py` | 패키지 구조, 프로그램이 쓰는 폴더 |
 | `test_g1.py` – `test_g12.py`, `test_dpi.py` | 1.6에서 고친 리뷰 항목마다 한 구역(`section("A-13")`처럼 항목 ID로 고름). `test_g12.py`는 최종 리뷰의 지적 |
+| `test_v17.py`, `ui_inventory.py` | 1.7에서 바꾼 것: 배경 구간의 기본값(`BG-…`), BIN 잠금(`BIN-…`), 새 화면(`UI-…`, `FLIM`). `UI-8`은 1.6의 창마다 모든 조작 요소와 그 변수·명령·이벤트 연결이 1.7에도 있는지 `ui_inventory.py`로 비교함(1.6 코드는 git의 `4dfd887`에서 꺼냄, `TCSPC_V16_ROOT`로 다른 폴더 지정 가능) |
 | `check_doc.py`, `sync_doc_ranges.py` | `ARCHITECTURE.md`가 코드와 맞는지 / 모듈을 고친 뒤 문서의 줄 수를 맞추는 도구(직접 실행. `run_all.sh`는 돌리지 않음) |
 | `artefacts.py` | 여러 설정에서의 계산 배열, 내보낸 CSV, Origin에 넘기는 값, 창의 위젯과 그림을 한 폴더에 모으고 두 폴더를 비교 |
 | `launcher_check.ps1`, `launcher_step.ps1`, `smoke_entry.py` | `TCSPC_analysis.bat`을 새 환경을 포함한 네 가지 환경에서 실제로 실행(PowerShell에서 실행) |

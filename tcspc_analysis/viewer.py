@@ -13,8 +13,9 @@ from tkinter import filedialog, messagebox, ttk
 
 from .phu import read_phu
 from .util import short_name
-from .model import TRESModel
-from .theme import INK, INK_FAINT, PIN
+from .model import TRESModel, BG_WINDOW_PS
+from .ui import ExportButtons, button, group, spin
+from .theme import FIXED_FONT, INK_FAINT, PIN, px
 from .viewer_figure import _MapFigure
 from .viewer_export import _Export
 from .dialogs.crop import CropDialog
@@ -57,60 +58,54 @@ class TRESViewer(_MapFigure, _Export):
 
     # -- chrome -----------------------------------------------------------
     def _build_filebar(self):
-        bar = ttk.Frame(self.parent, padding=(10, 8))
+        """The row of action buttons along the top: open / prepare the file,
+        the analysis windows, and what writes files."""
+        p = lambda n: px(self.parent, n)   # pixels at the display scaling
+        bar = ttk.Frame(self.parent, padding=(p(10), p(6), p(10), p(4)))
         bar.pack(fill="x")
+        self._bar2 = bar                      # (1.6: the row of the pop-up buttons)
 
-        ttk.Label(bar, text="TRES", font=("TkDefaultFont", 10, "bold"),
-                  foreground=INK).pack(side="left", padx=(0, 12))
-        ttk.Label(bar, text="FILE").pack(side="left", padx=(0, 6))
-
-        self.var_path = tk.StringVar(value="No file loaded")
-        entry = ttk.Entry(bar, textvariable=self.var_path, state="readonly",
-                          font=("TkFixedFont", 9))
-        entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        def sep():
+            ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=p(6))
 
         self._loading = False                 # a file is being read (load_async)
-        self.btn_open = ttk.Button(bar, text="Open file...", command=self.open_dialog)
-        self.btn_open.pack(side="left")
-        ttk.Button(bar, text="Save map image...",
-                   command=self.save_map_image).pack(side="left", padx=(6, 0))
-
-        # -- combined data export: TRES map + steady state, always together --
-        self._exporting = False               # an .opju export is driving Origin
-        self.btn_export = ttk.Button(bar, text="Export data...",
-                                     command=self.export_data)
-        self.btn_export.pack(side="left", padx=(12, 4))
-        self.var_out_csv = tk.BooleanVar(value=True)
-        ttk.Checkbutton(bar, text="CSV",
-                        variable=self.var_out_csv).pack(side="left")
-        self.var_out_opju = tk.BooleanVar(value=False)
-        ttk.Checkbutton(bar, text=".opju",
-                        variable=self.var_out_opju).pack(side="left", padx=(4, 0))
-
-        # -- a second row: the pop-up windows. On one row with the file
-        #    controls the last buttons were squeezed out of a narrow window.
-        bar = ttk.Frame(self.parent, padding=(10, 0, 10, 6))
-        bar.pack(fill="x")
-        self._bar2 = bar
+        self.btn_open = button(bar, "Open file...", self.open_dialog)
+        self.btn_open.pack(side="left", padx=(0, p(4)))
 
         # -- preprocessing: crop + wavelength masks, each its own pop-up --
-        ttk.Label(bar, text="PREP").pack(side="left", padx=(0, 6))
-        ttk.Button(bar, text="Crop...", command=self.open_crop).pack(side="left")
-        ttk.Button(bar, text="Mask λ...",
-                   command=self.open_mask).pack(side="left", padx=(6, 0))
+        button(bar, "Crop...", self.open_crop).pack(side="left", padx=(0, p(4)))
+        button(bar, "Mask λ...", self.open_mask).pack(side="left")
         self._crop_win = None
         self._mask_win = None
 
         # -- analysis tools, each in its own pop-up window --
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=(12, 8))
-        ttk.Label(bar, text="ANALYSIS").pack(side="left", padx=(0, 6))
-        ttk.Button(bar, text="Kinetics...",
-                   command=self.open_kinetics).pack(side="left")
-        ttk.Button(bar, text="Global analysis...",
-                   command=self.open_global_analysis).pack(side="left", padx=(6, 0))
+        sep()
+        button(bar, "Kinetics...", self.open_kinetics,
+                  role="Analysis").pack(side="left", padx=(0, p(4)))
+        button(bar, "Global analysis...", self.open_global_analysis,
+                  role="Analysis").pack(side="left")
         # one live window of each kind, so a second click just raises it
         self._kinetics_win = None
         self._global_win = None
+
+        # -- what writes files. The data export (TRES map + steady state,
+        #    always together) turns orange while ".opju" is ticked, as do the
+        #    analysis windows' Export buttons (they add themselves to
+        #    self._export_buttons)
+        sep()
+        button(bar, "Save map image...", self.save_map_image,
+                  role="Export").pack(side="left", padx=(0, p(4)))
+        self._exporting = False               # an .opju export is driving Origin
+        self.var_out_csv = tk.BooleanVar(value=True)
+        self.var_out_opju = tk.BooleanVar(value=False)
+        self._export_buttons = ExportButtons(self.var_out_opju)
+        self.btn_export = self._export_buttons.add(
+            button(bar, "Export data...", self.export_data))
+        self.btn_export.pack(side="left", padx=(0, p(6)))
+        ttk.Checkbutton(bar, text="CSV",
+                        variable=self.var_out_csv).pack(side="left")
+        ttk.Checkbutton(bar, text=".opju",
+                        variable=self.var_out_opju).pack(side="left", padx=(p(4), 0))
 
     def _open(self, attr, make):
         """Open the window kept in ``attr`` - or raise it when it is open."""
@@ -159,116 +154,148 @@ class TRESViewer(_MapFigure, _Export):
                 w.model_changed()
 
     def _build_controls(self):
-        row = ttk.Frame(self.parent, padding=(10, 0, 10, 4))
+        """The groups under the button row - Data, Background, Solvent,
+        Display - and the status bar at the bottom of the tab."""
+        p = lambda n: px(self.parent, n)   # pixels at the display scaling
+        row = ttk.Frame(self.parent, padding=(p(6), 0, p(6), p(4)))
         row.pack(fill="x")
+        groups = []
 
-        ttk.Label(row, text="COLORMAP").pack(side="left", padx=(0, 5))
-        self.var_cmap = tk.StringVar(value="turbo")
-        cb = ttk.Combobox(row, textvariable=self.var_cmap, values=CMAPS,
-                          width=9, state="readonly")
-        cb.pack(side="left", padx=(0, 16))
-        cb.bind("<<ComboboxSelected>>", lambda e: self._on_colormap())
+        def line(parent):
+            f = ttk.Frame(parent)
+            f.pack(fill="x", anchor="w", pady=(0, p(2)))
+            return f
 
-        ttk.Label(row, text="TIME END").pack(side="left", padx=(0, 5))
+        def label(parent, text, gap=0):
+            ttk.Label(parent, text=text).pack(side="left", padx=(gap, p(3)))
+
+        # -- Data: what the map is built from --
+        g = group(row, "Data")
+        groups.append(g)
+        a, b, c = line(g), line(g), line(g)
+
+        label(a, "Time end:")
         self.var_tmax = tk.StringVar(value="")   # filled from the file on open
-        e = ttk.Entry(row, textvariable=self.var_tmax, width=8, font=("TkFixedFont", 9))
+        e = spin(a, self.var_tmax, 1000, lo=1, on_change=self.apply_params)
         e.pack(side="left")
         e.bind("<Return>", lambda ev: self.apply_params())
         e.bind("<FocusOut>", lambda ev: self.apply_params())
-        ttk.Label(row, text="ps").pack(side="left", padx=(3, 16))
+        label(a, "ps", gap=p(3))
 
-        ttk.Label(row, text="BIN").pack(side="left", padx=(0, 5))
+        label(a, "Bin:", gap=p(7))
         self.var_bin = tk.StringVar(value="16 ps")
         self._bins = dict(BIN_CHOICES)          # label -> rebin factor, for the loaded file
-        cb2 = ttk.Combobox(row, textvariable=self.var_bin,
-                           values=list(self._bins), width=7, state="readonly")
-        cb2.pack(side="left", padx=(0, 16))
+        # locked until a file is loaded: the choices are that file's bin widths
+        cb2 = ttk.Combobox(a, textvariable=self.var_bin,
+                           values=list(self._bins), width=7, state="disabled")
+        cb2.pack(side="left")
         cb2.bind("<<ComboboxSelected>>", lambda e: self.apply_params())
         self.cb_bin = cb2
-
-        self.var_log = tk.BooleanVar(value=True)
-        ttk.Checkbutton(row, text="Log color", variable=self.var_log,
-                        command=self._on_log_color).pack(side="left", padx=(0, 12))
-
-        self.var_t0 = tk.BooleanVar(value=False)
-        ttk.Checkbutton(row, text="t0 at IRF peak", variable=self.var_t0,
-                        command=self.apply_params).pack(side="left", padx=(0, 12))
 
         # A .phu header carries no IRF flag and an IRF cannot be told apart from
         # the wavelength grid (it often sits on it), so whether curve 0 is an
         # IRF-only measurement is a manual choice - this checkbox. When on,
         # curve 0 is kept out of the map and only used to put t0 on its peak.
         self.var_irf = tk.BooleanVar(value=True)
-        ttk.Checkbutton(row, text="First curve is IRF", variable=self.var_irf,
+        ttk.Checkbutton(b, text="First curve is IRF", variable=self.var_irf,
+                        command=self.apply_params).pack(side="left", padx=(0, p(8)))
+
+        self.var_t0 = tk.BooleanVar(value=False)
+        ttk.Checkbutton(b, text="t0 at IRF peak", variable=self.var_t0,
                         command=self.apply_params).pack(side="left")
 
-        self.var_meta = tk.StringVar(value="")      # shown in the third row
+        label(c, "Offset:")
+        self.var_offset = tk.StringVar(value="-50")   # default spectrograph calibration
+        ent = spin(c, self.var_offset, 1, width=7, on_change=self.apply_offset)
+        ent.pack(side="left")
+        ent.bind("<Return>", lambda ev: self.apply_offset())
+        label(c, "nm", gap=p(3))
+        button(c, "Apply offset", self.apply_offset).pack(side="left", padx=(p(3), 0))
 
-        # -- second row: background subtraction, view resets, mouse legend --
-        row2 = ttk.Frame(self.parent, padding=(10, 0, 10, 4))
-        row2.pack(fill="x")
+        # -- Background: the pre-pulse level taken off every curve --
+        g = group(row, "Background")
+        groups.append(g)
+        a, b = line(g), line(g)
 
         self.var_bgsub = tk.BooleanVar(value=True)
-        ttk.Checkbutton(row2, text="Subtract background", variable=self.var_bgsub,
-                        command=self.apply_params).pack(side="left", padx=(0, 10))
+        ttk.Checkbutton(a, text="Subtract background", variable=self.var_bgsub,
+                        command=self.apply_params).pack(side="left")
 
-        ttk.Label(row2, text="BG WINDOW").pack(side="left", padx=(0, 5))
-        self.var_bg_lo = tk.StringVar(value="0")
-        self.var_bg_hi = tk.StringVar(value="100")
-        for var, pad in ((self.var_bg_lo, (0, 0)), (self.var_bg_hi, (0, 3))):
-            ent = ttk.Entry(row2, textvariable=var, width=7, font=("TkFixedFont", 9))
-            ent.pack(side="left", padx=pad)
+        label(b, "BG window:")
+        self.var_bg_lo = tk.StringVar(value=f"{BG_WINDOW_PS[0]:g}")
+        self.var_bg_hi = tk.StringVar(value=f"{BG_WINDOW_PS[1]:g}")
+        for var in (self.var_bg_lo, self.var_bg_hi):
+            ent = spin(b, var, 100, on_change=self.apply_params)
+            ent.pack(side="left")
             ent.bind("<Return>", lambda ev: self.apply_params())
             ent.bind("<FocusOut>", lambda ev: self.apply_params())
             if var is self.var_bg_lo:
-                ttk.Label(row2, text="-").pack(side="left", padx=4)
-        ttk.Label(row2, text="ps").pack(side="left", padx=(0, 10))
+                ttk.Label(b, text="-").pack(side="left", padx=p(3))
+        label(b, "ps", gap=p(3))
 
-        self.var_bginfo = tk.StringVar(value="")    # its label ends the row, below
+        self.var_bginfo = tk.StringVar(value="")
+        # the default window the file was opened with, in record time, and what
+        # the info label says about it while it is unchanged: (window, kind)
+        self._bg_auto = None
+        # wraps instead of widening the row: a long note grows the group downwards
+        self.lbl_bginfo = ttk.Label(g, textvariable=self.var_bginfo, style="Val.TLabel",
+                                    foreground=PIN, wraplength=p(220), justify="left")
+        self.lbl_bginfo.pack(anchor="w")
 
-        ttk.Button(row2, text="Reset zoom", command=self.reset_view).pack(side="left")
-        ttk.Button(row2, text="Auto contrast",
-                   command=self.reset_contrast).pack(side="left", padx=(6, 0))
-
-        ttk.Label(row2, text="OFFSET").pack(side="left", padx=(16, 5))
-        self.var_offset = tk.StringVar(value="-50")   # default spectrograph calibration
-        ent = ttk.Entry(row2, textvariable=self.var_offset, width=7, font=("TkFixedFont", 9))
-        ent.pack(side="left")
-        ent.bind("<Return>", lambda ev: self.apply_offset())
-        ttk.Label(row2, text="nm").pack(side="left", padx=(3, 6))
-        ttk.Button(row2, text="Apply offset",
-                   command=self.apply_offset).pack(side="left")
-
-        # packed last: in a narrow window this text is cut, not a button
-        ttk.Label(row2, textvariable=self.var_bginfo, style="Val.TLabel",
-                  foreground=PIN).pack(side="left", padx=(16, 0))
-
-        # (the mouse legend was here; it did not fit and now sits beside the
-        #  pop-up buttons, where there is room)
-        ttk.Label(self._bar2,
-                  text="map: drag = zoom | click = pin | right-click = reset      "
-                       "colorbar: drag = contrast | right-click = auto"
-                  ).pack(side="right")
-
-        # -- third row: solvent subtraction on / off. The solvent itself is
-        #    loaded and scaled in the Crop window; this only switches it, so
-        #    the data can be compared with and without. A row of its own: the
-        #    one above is already wider than the window.
-        row3 = ttk.Frame(self.parent, padding=(10, 0, 10, 8))
-        row3.pack(fill="x")
-
+        # -- Solvent: on / off. The solvent itself is loaded and scaled in
+        #    the Crop window; this only switches it, so the data can be
+        #    compared with and without.
+        g = group(row, "Solvent")
+        groups.append(g)
         self.var_solv = tk.BooleanVar(value=False)
-        self.chk_solv = ttk.Checkbutton(row3, text="Subtract solvent",
+        self.chk_solv = ttk.Checkbutton(g, text="Subtract solvent",
                                         variable=self.var_solv,
                                         command=self.apply_params, state="disabled")
-        self.chk_solv.pack(side="left", padx=(0, 10))
+        self.chk_solv.pack(anchor="w", pady=(0, p(2)))
         self.var_solvinfo = tk.StringVar(value=self.NO_SOLVENT)
-        ttk.Label(row3, textvariable=self.var_solvinfo, style="Val.TLabel",
-                  foreground=PIN).pack(side="left")
-        # the file's own numbers: the longest text of the window, on the row
-        # with the most room
-        ttk.Label(row3, textvariable=self.var_meta, style="Val.TLabel",
-                  foreground=INK_FAINT).pack(side="right")
+        ttk.Label(g, textvariable=self.var_solvinfo, style="Val.TLabel",
+                  foreground=PIN, wraplength=p(160), justify="left").pack(anchor="w")
+
+        # -- Display: how the map is shown --
+        g = group(row, "Display")
+        groups.append(g)
+        a, b, c = line(g), line(g), line(g)
+
+        label(a, "Colormap:")
+        self.var_cmap = tk.StringVar(value="turbo")
+        cb = ttk.Combobox(a, textvariable=self.var_cmap, values=CMAPS,
+                          width=9, state="readonly")
+        cb.pack(side="left")
+        cb.bind("<<ComboboxSelected>>", lambda e: self._on_colormap())
+
+        self.var_log = tk.BooleanVar(value=True)
+        ttk.Checkbutton(b, text="Log color", variable=self.var_log,
+                        command=self._on_log_color).pack(side="left")
+
+        button(c, "Reset zoom", self.reset_view).pack(side="left", padx=(0, p(4)))
+        button(c, "Auto contrast", self.reset_contrast).pack(side="left")
+
+        for i, g in enumerate(groups):
+            g.pack(side="left", fill="y", padx=(0, p(4) if i < len(groups) - 1 else 0))
+
+        # -- status bar: the file, its numbers and what the mouse does. Packed
+        #    to the bottom before the figure, so the figure takes what is left.
+        #    Two lines: the file and its numbers (in full at the smallest
+        #    window), then the mouse legend.
+        bar = ttk.Frame(self.parent, style="Status.TFrame", padding=(p(6), p(2), p(6), p(3)))
+        bar.pack(side="bottom", fill="x")
+        ttk.Separator(self.parent, orient="horizontal").pack(side="bottom", fill="x")
+        line1 = ttk.Frame(bar, style="Status.TFrame")
+        line1.pack(fill="x")
+        self.var_path = tk.StringVar(value="No file loaded")
+        ttk.Entry(line1, textvariable=self.var_path, state="readonly", width=40,
+                  font=FIXED_FONT).pack(side="left", padx=(0, p(8)))
+        self.var_meta = tk.StringVar(value="")
+        ttk.Label(line1, textvariable=self.var_meta, style="Status.TLabel",
+                  foreground=INK_FAINT).pack(side="left")
+        ttk.Label(bar, style="Status.TLabel",
+                  text="map: drag = zoom | click = pin | right-click = reset      "
+                       "colorbar: drag = contrast | right-click = auto").pack(anchor="w", pady=(p(1), 0))
 
     NO_SOLVENT = "no solvent - load one in Crop..."
 
@@ -357,6 +384,7 @@ class TRESViewer(_MapFigure, _Export):
         # given up: a file that cannot be shown leaves the window as it was.
         old, old_tmax = self.model, self.var_tmax.get()
         old_bg = (self.var_bg_lo.get(), self.var_bg_hi.get())
+        old_bins = (self._bins, self.var_bin.get(), str(self.cb_bin.cget("state")))
         try:
             model = TRESModel(phu, build=False)     # built once, below, with the settings
             # A .phu header has no IRF flag, so whether curve 0 is an IRF-only
@@ -380,14 +408,21 @@ class TRESViewer(_MapFigure, _Export):
             model.rebuild()
             self.model = model
             self._bins = bins
-            self.cb_bin.configure(values=list(bins))
+            self.cb_bin.configure(values=list(bins), state="readonly")
             self.var_bin.set(bin_label)
             self.var_tmax.set(f"{model.t_max_ps:.0f}")
-            self._set_bg_window(model.t_lo, model.t_lo + 100.0)
+            # the default window is in record time: on screen it moves with t0
+            window = model.default_bg_window()
+            self._set_bg_window(window[0] - model.t0, window[1] - model.t0)
+            self._bg_auto = (window, "short" if model.bg_short(window)
+                             else "clipped" if window[1] < BG_WINDOW_PS[1] else None)
         except Exception as exc:        # noqa: BLE001 - whatever the file trips over
             self.model = old
             self.var_tmax.set(old_tmax)
             self.var_bg_lo.set(old_bg[0]); self.var_bg_hi.set(old_bg[1])
+            self._bins = old_bins[0]
+            self.cb_bin.configure(values=list(self._bins), state=old_bins[2])
+            self.var_bin.set(old_bins[1])
             messagebox.showerror(
                 "Could not read file",
                 f"{os.path.basename(path)} was read but cannot be shown:\n"
@@ -412,6 +447,23 @@ class TRESViewer(_MapFigure, _Export):
             f'{phu["nbins"]:,} bins @ {phu["res_ps"]:g} ps | acq {acq}/curve{sync}'
         )
         self.redraw(full=True)
+
+    def _bg_note(self):
+        """What the background info label adds while the window is still the
+        one the file opened with: (text, is a warning). A window typed in the
+        boxes is the user's and gets no note."""
+        m, auto = self.model, self._bg_auto
+        if not m or not auto or auto[1] is None or not m.bg_sub:
+            return "", False
+        (lo, hi), kind = auto
+        # the boxes are rounded to 0.1 ps at every t0 change, which adds up:
+        # "unchanged" means within half a time bin
+        tol = 0.5 * m.dt_ps
+        if abs(m.bg_lo_ps + m.t0 - lo) > tol or abs(m.bg_hi_ps + m.t0 - hi) > tol:
+            return "", False
+        if kind == "short":
+            return "  ** no pre-pulse region - set BG window by hand", True
+        return "  (ends before IRF peak)", False
 
     @staticmethod
     def _float_var(var, default):
@@ -473,6 +525,7 @@ class TRESViewer(_MapFigure, _Export):
             self.var_tmax.set(f"{tmax:.0f}")
 
         t0_before = m.t0
+        default = m.default_bg_window()     # for an unreadable window box
         # where the cursor is, in wavelength and in delay from the start of
         # the record - its indices mean something else after the rebuild
         at = None
@@ -486,8 +539,8 @@ class TRESViewer(_MapFigure, _Export):
         m.first_is_irf = self.var_irf.get()
         m.t0_align = self.var_t0.get()
         m.bg_sub = self.var_bgsub.get()
-        m.bg_lo_ps = self._float_var(self.var_bg_lo, 0.0)
-        m.bg_hi_ps = self._float_var(self.var_bg_hi, 100.0)
+        m.bg_lo_ps = self._float_var(self.var_bg_lo, default[0] - t0_before)
+        m.bg_hi_ps = self._float_var(self.var_bg_hi, default[1] - t0_before)
         m.solvent_sub = self.var_solv.get() and m.solvent is not None
         m.rebuild()
 

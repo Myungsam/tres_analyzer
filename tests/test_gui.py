@@ -107,16 +107,34 @@ def rows_of(tab):
     return [c for c in tab.winfo_children() if c.winfo_class() == "TFrame"]
 
 
-def snapshot(frame):
+def snapshot(frame, skip=()):
+    """(class, text, mapped, width, asked width) of every control in ``frame``, nested frames included
+    (1.7: a group box holds its controls in rows of their own); widgets in ``skip`` are left out."""
     out = []
     for w in frame.winfo_children():
+        if w.winfo_class() == "TFrame":
+            out += snapshot(w, skip)
+            continue
+        if w in skip:
+            continue
         try:
-            text = "" if w.winfo_class() == "TEntry" else w.cget("text")
+            text = "" if w.winfo_class() in ("TEntry", "TSpinbox") else w.cget("text")
         except tk.TclError:
             text = ""
         out.append((w.winfo_class(), str(text), w.winfo_ismapped(), w.winfo_width(),
                     w.winfo_reqwidth()))
     return out
+
+
+def group_box(win, title):
+    """The group box (ttk.Labelframe) titled ``title`` in ``win``."""
+    todo = [win]
+    while todo:
+        w = todo.pop()
+        if w.winfo_class() == "TLabelframe" and str(w.cget("text")) == title:
+            return w
+        todo.extend(w.winfo_children())
+    raise LookupError(title)
 
 
 # ---- layout: row 2 unchanged vs the backup, row 3 fully visible ------------
@@ -136,19 +154,19 @@ for width in (980, 1440):
     pump(0.1)
 
     top_n, tab_n, app_n = build(NEW, width)
-    rows = rows_of(tab_n)
-    # B-2 (1.6): the rows are file / pop-up buttons / controls / background / solvent. The background
-    # row is no longer the 1.0 one (it was wider than the window): every control of it must be shown in
-    # full, only the info text that ends the row may be cut in a narrow window. The solvent row ends
-    # with the file's info line, which may be cut as well.
-    snap_new = snapshot(rows[3])
-    layout_ok &= all(m and w == rw for _, _, m, w, rw in snap_new[:-1]) and snap_new[-1][0] == "TLabel"
+    # B-2 (1.6): every control of the background settings must be shown in full; only the info text may
+    # be cut. 1.7: they are the group box "Background" (its info text wraps), the solvent switch and its
+    # label the group box "Solvent".
+    bg_box = group_box(tab_n, "Background")
+    snap_new = snapshot(bg_box, skip=(app_n.lbl_bginfo,))
+    layout_ok &= (len(snap_new) >= 5 and all(m and w == rw for _, _, m, w, rw in snap_new)
+                  and app_n.lbl_bginfo.winfo_class() == "TLabel" and app_n.lbl_bginfo.master is bg_box)
     if not layout_ok:
-        print("  background row at", width, snap_new)
-    r3 = snapshot(rows[4])
-    row3_ok &= len(rows) == 5 and all(m and w == rw for _, _, m, w, rw in r3[:2])
+        print("  background group at", width, snap_new)
+    r3 = snapshot(group_box(tab_n, "Solvent"))
+    row3_ok &= len(r3) == 2 and r3[0][0] == "TCheckbutton" and all(m and w == rw for _, _, m, w, rw in r3)
     if width == 980:
-        print("  solvent row @980:", r3)
+        print("  solvent group @980:", r3)
     if width == 1440:
         break
     top_n.destroy()
@@ -203,7 +221,7 @@ check("no solvent: only 'sample' shown and it equals the main steady state",
 
 dlg.win.geometry("780x680")
 pump(0.3)
-srow = [c for c in dlg.win.winfo_children() if c.winfo_class() == "TFrame"][1]
+srow = group_box(dlg.win, "Solvent")          # 1.7: a group box (1.6: the second row)
 s_snap = snapshot(srow)
 check("Crop solvent row fully visible at the minimum width 780",
       all(mm and w == rw for _, _, mm, w, rw in s_snap), str([(c, t, w, rw) for c, t, _, w, rw in s_snap]))

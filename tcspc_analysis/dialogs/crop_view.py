@@ -91,6 +91,8 @@ class _CropView:
         if y0 <= 0.5 * self._full.dt_ps:    # was at the bottom: stay there
             y0 = f_lo
         self.ax.set_ylim(y0, min(y1, f_hi))
+        # views kept on the other scale do not fit this one (a 0 on a log axis)
+        self.toolbar.forget_history()
         self._update_overlay()              # the box is drawn from the axis bottom
 
     def _moved(self, lim, full, log, k=1.0, at=None, shift=0.0):
@@ -136,7 +138,8 @@ class _CropView:
         """Wheel over the map: zoom about the pointer. Ctrl zooms the time axis
         only, Shift the wavelength axis only."""
         if (event.inaxes is not self.ax or event.xdata is None
-                or self._pan is not None):      # a drag owns the view until released
+                or self._pan is not None        # a drag owns the view until released
+                or self.toolbar.locked()):      # ... and so does the toolbar's pan / zoom mode
             return
         f = self._full
         step = float(np.clip(event.step, -20, 20))  # a free-spinning wheel sends many at once

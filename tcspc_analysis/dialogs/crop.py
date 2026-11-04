@@ -14,7 +14,8 @@ from tkinter import messagebox, ttk
 
 from ..model import TRESModel
 from ..theme import ACCENT, BG, INK_DIM, INK_FAINT, LINE, PANEL, PIN, preview_norm_cmap, style_plot_ax
-from .common import _AnalysisDialog
+from ..ui import attach_toolbar, button, group, spin
+from .common import _AnalysisDialog, wl_step
 from .crop_view import _CropView
 from .crop_slice import _CropSlice
 from .crop_solvent import _CropSolvent
@@ -147,6 +148,7 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
                         pass
             if delta or now[0] != was[0]:       # the wavelength axis itself moved
                 self._fit_view()
+            self.toolbar.forget_history()       # the map was rebuilt: a new Home
         # A new time range of the main window (TIME END) is taken over: it is
         # the same setting as "t ... to".
         if (m.t_min_ps, m.t_max_ps) != self._seen_t:
@@ -157,49 +159,45 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
 
     # -- layout ----------------------------------------------------------
     def _build_ui(self):
-        top = ttk.Frame(self.win, padding=(8, 8, 8, 4))
-        top.pack(fill="x")
+        top = group(self.win, "Range")
+        top.pack(fill="x", padx=8, pady=(8, 4))
 
-        def field(var):
-            e = ttk.Entry(top, textvariable=var, width=8, font=("TkFixedFont", 9))
+        def field(var, step):
+            e = spin(top, var, step, on_change=self._on_typed, width=8)
             e.pack(side="left", padx=2)
             e.bind("<KeyRelease>", lambda ev: self._on_typed())
             e.bind("<Return>", lambda ev: self._update_overlay())
             return e
 
-        ttk.Label(top, text="λ").pack(side="left")
-        field(self.var_wl_lo)
+        step = wl_step(self._full.wls)
+        ttk.Label(top, text="λ:").pack(side="left")
+        field(self.var_wl_lo, step)
         ttk.Label(top, text="to").pack(side="left", padx=2)
-        field(self.var_wl_hi)
+        field(self.var_wl_hi, step)
         ttk.Label(top, text="nm").pack(side="left", padx=(2, 4))
-        ttk.Button(top, text="Full λ", width=6,
-                   command=self._full_wl).pack(side="left", padx=(0, 16))
+        button(top, "Full λ", self._full_wl, width=6).pack(side="left", padx=(0, 16))
 
-        ttk.Label(top, text="t").pack(side="left")
-        field(self.var_t_lo)
+        ttk.Label(top, text="t:").pack(side="left")
+        field(self.var_t_lo, 100)
         ttk.Label(top, text="to").pack(side="left", padx=2)
-        field(self.var_t_hi)
+        field(self.var_t_hi, 100)
         ttk.Label(top, text="ps").pack(side="left", padx=(2, 4))
-        ttk.Button(top, text="Full t", width=6,
-                   command=self._full_t).pack(side="left")
+        button(top, "Full t", self._full_t, width=6).pack(side="left")
 
-        # -- solvent: file + scale. The slider covers 0-2; the entry takes any
+        # -- solvent: file + scale. The slider covers 0-2; the box takes any
         #    value >= 0, so a larger factor can still be typed.
-        srow = ttk.Frame(self.win, padding=(8, 0, 8, 4))
-        srow.pack(fill="x")
-        ttk.Label(srow, text="SOLVENT").pack(side="left", padx=(0, 6))
-        ttk.Button(srow, text="Load solvent...",
-                   command=self._load_solvent).pack(side="left")
-        ttk.Button(srow, text="Clear", width=6,
-                   command=self._clear_solvent).pack(side="left", padx=(6, 8))
+        srow = group(self.win, "Solvent")
+        srow.pack(fill="x", padx=8, pady=(0, 4))
+        button(srow, "Load solvent...", self._load_solvent).pack(side="left")
+        button(srow, "Clear", self._clear_solvent, width=6).pack(side="left", padx=(6, 8))
         ttk.Label(srow, textvariable=self.var_solv_name, style="Val.TLabel",
                   foreground=PIN).pack(side="left", padx=(0, 12))
-        ttk.Label(srow, text="SOLVENT SCALE").pack(side="left", padx=(0, 5))
+        ttk.Label(srow, text="Solvent scale:").pack(side="left", padx=(0, 5))
         self.scale = ttk.Scale(srow, from_=0.0, to=2.0, length=150,
                                command=self._on_slider)
         self.scale.pack(side="left")
-        self.ent_scale = ttk.Entry(srow, textvariable=self.var_scale, width=7,
-                                   font=("TkFixedFont", 9))
+        self.ent_scale = spin(srow, self.var_scale, 0.05, lo=0,
+                              on_change=self._on_scale_entry, width=7)
         self.ent_scale.pack(side="left", padx=(6, 0))
         self.ent_scale.bind("<Return>", lambda ev: self._on_scale_entry())
         self.ent_scale.bind("<FocusOut>", lambda ev: self._on_scale_entry())
@@ -207,17 +205,15 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
         self._sync_solvent_controls()
 
         # -- view: how the map is drawn, nothing more
-        vrow = ttk.Frame(self.win, padding=(8, 0, 8, 4))
-        vrow.pack(fill="x")
-        ttk.Label(vrow, text="VIEW").pack(side="left", padx=(0, 6))
+        vrow = group(self.win, "View")
+        vrow.pack(fill="x", padx=8, pady=(0, 4))
         ttk.Checkbutton(vrow, text="Log color", variable=self.var_zlog,
                         command=self._on_color).pack(side="left")
         ttk.Checkbutton(vrow, text="Auto color", variable=self.var_auto,
                         command=self._on_color).pack(side="left", padx=(8, 0))
         ttk.Checkbutton(vrow, text="Log time", variable=self.var_tlog,
                         command=self._on_tscale).pack(side="left", padx=(8, 0))
-        ttk.Button(vrow, text="Fit view", width=9,
-                   command=self._fit_view).pack(side="left", padx=(12, 0))
+        button(vrow, "Fit view", self._fit_view, width=9).pack(side="left", padx=(12, 0))
         ttk.Label(vrow, text="wheel zooms (Ctrl: time, Shift: λ)  |  right-drag moves",
                   foreground=INK_FAINT).pack(side="left", padx=(12, 0))
 
@@ -225,16 +221,22 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
         # the first thing a short window squeezed out
         bar = ttk.Frame(self.win, padding=(8, 4, 8, 8))
         bar.pack(side="bottom", fill="x")
-        ttk.Button(bar, text="Close", command=self._on_close).pack(side="right")
-        ttk.Button(bar, text="Reset (full)",
-                   command=self._reset).pack(side="right", padx=6)
-        ttk.Button(bar, text="Apply", command=self._apply).pack(side="right")
-        # what Apply would keep, then the tip: the tip is what gives way
-        ttk.Label(bar, textvariable=self.var_info,
-                  foreground=INK_DIM).pack(side="right", padx=12)
-        ttk.Label(bar, text="tip: click two opposite corners on the map to set the box"
-                            "  |  double-click pins the spectrum at that time",
-                  foreground=INK_FAINT).pack(side="left")
+        button(bar, "Close", self._on_close).pack(side="right")
+        button(bar, "Reset (full)", self._reset).pack(side="right", padx=6)
+        button(bar, "Apply", self._apply).pack(side="right")
+        # what Apply would keep fills the rest of the line and wraps there,
+        # so it never runs under the buttons
+        info = ttk.Label(bar, textvariable=self.var_info, foreground=INK_DIM,
+                         anchor="w", justify="left")
+        info.pack(side="left", fill="x", expand=True, padx=(0, 12))
+        info.bind("<Configure>", lambda ev: info.configure(wraplength=max(ev.width, 50)))
+        # the tip on a line of its own above them, wrapping in a narrow window
+        tip = ttk.Label(self.win, foreground=INK_FAINT, anchor="w", justify="left",
+                        padding=(8, 2, 8, 0),
+                        text="tip: click two opposite corners on the map to set the box"
+                             "  |  double-click pins the spectrum at that time")
+        tip.pack(side="bottom", fill="x")
+        tip.bind("<Configure>", lambda ev: tip.configure(wraplength=max(ev.width - 16, 50)))
 
         self.fig = Figure(figsize=(8.8, 6.6), dpi=100, facecolor=PANEL)
         gs = GridSpec(2, 1, figure=self.fig, height_ratios=[3.0, 1.3],
@@ -252,6 +254,13 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
         self.ax_t.yaxis.label.set_color(INK_FAINT)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.win)
         self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=8, pady=4)
+        # Home frames the whole map (as Fit view); a toolbar zoom or pan is
+        # taken as the view, so the panel below follows it
+        self.toolbar = attach_toolbar(
+            self.canvas, self.win, before=self.canvas.get_tk_widget(),
+            on_home=self._fit_view,
+            on_nav=lambda: self._set_view(self.ax.get_xlim(), self.ax.get_ylim()))
+        self.toolbar.pack_configure(padx=8)
         self.canvas.mpl_connect("button_press_event", self._on_click)
         self.canvas.mpl_connect("motion_notify_event", self._on_motion)
         # two ways off the map: onto another part of the figure (matplotlib
@@ -323,6 +332,7 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
         self._slice_key = None      # ... and the lines it was made for
         self._bg = None             # the figure without the slice, from the last draw
         self._draw_slice()
+        self.toolbar.forget_history()       # what is drawn now is Home
         self.canvas.draw_idle()
 
     def _update_preview(self, box):
@@ -483,8 +493,8 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
             state = getattr(event.guiEvent, "state", None)
             if isinstance(state, int):
                 held = (3,) if state & 0x400 else ()
-        if held is not None and 3 not in held:
-            self._pan = None
+        if (held is not None and 3 not in held) or self.toolbar.locked():
+            self._pan = None        # (the toolbar's pan / zoom mode owns the drags)
         if self._pan is not None:
             x, y, xlim, ylim = self._pan
             full_x, full_y = self._view_full()
@@ -494,7 +504,8 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
                 self._moved(ylim, full_y, self.var_tlog.get(),
                             shift=(y - event.y) / box.height))
             return
-        if self._slice_pinned or event.inaxes is not self.ax or event.ydata is None:
+        if (self._slice_pinned or event.inaxes is not self.ax or event.ydata is None
+                or self.toolbar.dragging()):
             return
         ti = self._time_bin(event.ydata)
         if ti != self._slice_ti:
@@ -506,12 +517,16 @@ class CropDialog(_CropView, _CropSlice, _CropSolvent, _AnalysisDialog):
         """The pointer left the map (or the whole figure): drop an unpinned slice."""
         if event.name == "axes_leave_event" and event.inaxes is not self.ax:
             return
+        if self.toolbar.dragging():
+            return
         if not self._slice_pinned and self._slice_ti is not None:
             self._slice_ti = None
             self._draw_slice()
             self._show_slice()
 
     def _on_click(self, event):
+        if self.toolbar.locked():   # the toolbar's pan / zoom mode owns the clicks
+            return
         if event.button != 1:       # the right button drags the view, no more
             if event.button == 3 and event.inaxes is self.ax:
                 self._pan = (event.x, event.y, self.ax.get_xlim(), self.ax.get_ylim())

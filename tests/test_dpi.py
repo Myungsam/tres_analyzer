@@ -147,6 +147,22 @@ for label, geom in (("its start-up size", f"{w}x{h}"),
                         min(int(round(at_100[1] * scale)), screen[1] - NEW.px(root, 100)))
                 check(f"{name} window: its 100 % size times the scaling, or what the screen has room for",
                       abs(got[0] - want[0]) <= 2 and abs(got[1] - want[1]) <= 2, f"{got} wanted {want}")
+            # 1.7: at its smallest size too, and the fixed column of a fit window holds what is in it
+            mw, mh = d.win.minsize()
+            d.win.geometry(f"{mw}x{mh}"); pump(0.6)
+            cut = squeezed(d.win)
+            check(f"{name} window at its smallest size ({mw}x{mh}): no control cut off", not cut, "; ".join(cut[:4]))
+            if name in ("Kinetics", "Global"):
+                col = d.win.winfo_children()[0].winfo_children()[0]
+                width = NEW.px(root, 430 if name == "Kinetics" else 380)
+                todo, wide = list(col.winfo_children()), []
+                while todo:
+                    w = todo.pop()
+                    todo.extend(w.winfo_children())
+                    if w.winfo_manager() and w.winfo_reqwidth() > col.winfo_width():
+                        wide.append(f"{w.winfo_class()} {w.winfo_reqwidth()}")
+                check(f"{name} window: the fixed column is {width} px and nothing in it asks for more",
+                      abs(col.winfo_width() - width) <= 2 and not wide, f"{col.winfo_width()} {wide[:4]}")
             d._on_close(); pump(0.2)
     top.destroy()
 check("no error in a callback", not errors, str(errors[:2]))

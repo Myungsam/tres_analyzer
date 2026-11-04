@@ -91,7 +91,10 @@ if section("A-13"):
 
 # ---------------------------------------------------------------------------------------------
 if section("A-1"):
+    # the numbers below were measured on the map with 1.6's default background window (the first 100 ps)
+    back_bg = _versions.bg_default_of_1_6(NEW)
     m = NEW.TRESModel(NEW.read_phu(SAMPLE_A))
+    back_bg()
     t, t0, fw = m.times, float(m.irf_peak_ps), float(m.irf_fwhm_ps)
     floor = m.dt_ps / 10.0
     span = float(t[-1] - t[0])

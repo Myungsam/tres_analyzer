@@ -17,8 +17,9 @@ from ..origin import _origin_fill_table
 from ..fitting import GlobalAnalysisStopped, compute_eads_from_dads, fit_global_analysis
 from ..model import wavelength_grid
 from ..theme import ACCENT, INK, INK_DIM, INK_FAINT, LINE, PANEL, px
-from .common import (ComponentTable, _FitDialog, _dark_toolbar, _style_analysis_ax, in_range, ink_legend,
-                     read_number, set_time_scale, write_fit_csv)
+from ..ui import attach_toolbar, button, group, spin
+from .common import (ComponentTable, _FitDialog, _style_analysis_ax, in_range, ink_legend,
+                     read_number, set_time_scale, wl_step, write_fit_csv)
 
 
 class GlobalAnalysisDialog(_FitDialog):
@@ -47,10 +48,14 @@ class GlobalAnalysisDialog(_FitDialog):
         outer = ttk.Frame(self.win, padding=8)
         outer.pack(fill="both", expand=True)
 
-        left = ttk.Labelframe(outer, text="Fit setup", padding=8)
-        left.pack(side="left", fill="y")
-        left.configure(width=px(self.win, 380))
-        left.pack_propagate(False)
+        # the left column has a fixed width: Fit setup, then Export, then
+        # the report; Results is the centre
+        column = ttk.Frame(outer)
+        column.pack(side="left", fill="y")
+        column.configure(width=px(self.win, 380))
+        column.pack_propagate(False)
+        left = group(column, "Fit setup", padding=8)
+        left.pack(fill="x")
 
         self._components_row(left, default=3, most=5)
 
@@ -58,13 +63,15 @@ class GlobalAnalysisDialog(_FitDialog):
         self.table.pack(fill="x", pady=(4, 6))
         self.table.set_n(3)
 
-        opt = ttk.Frame(left); opt.pack(fill="x", pady=(0, 4))
-        ttk.Label(opt, text="Optimizer").pack(side="left")
+        # one setting per row: side by side they were wider than the column
+        opt = ttk.Frame(left); opt.pack(fill="x", pady=(0, 2))
+        ttk.Label(opt, text="Optimizer:").pack(side="left")
         self.var_opt = tk.StringVar(value="TRF (fast)")
         ttk.Combobox(opt, textvariable=self.var_opt,
                      values=["TRF (fast)", "Nelder-Mead"], width=13,
                      state="readonly").pack(side="left", padx=(4, 10))
-        ttk.Label(opt, text="Stretched-IRF mode").pack(side="left")
+        opt = ttk.Frame(left); opt.pack(fill="x", pady=(0, 4))
+        ttk.Label(opt, text="Stretched-IRF mode:").pack(side="left")
         self.var_irf_mode = tk.StringVar(value="numerical")
         ttk.Combobox(opt, textvariable=self.var_irf_mode,
                      values=["numerical", "skip"], width=10,
@@ -72,10 +79,10 @@ class GlobalAnalysisDialog(_FitDialog):
 
         self._irf_box(left)
 
-        tr = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
+        tr = group(left, "Fit range (ps)")
         tr.pack(fill="x", pady=(2, 6))
         r1 = ttk.Frame(tr); r1.pack(fill="x")
-        e0, e1 = self._range_entries(r1)
+        e0, e1 = self._range_entries(r1, on_change=self._update_tcount)
         self.var_tcount = tk.StringVar(value="")
         ttk.Label(tr, textvariable=self.var_tcount, style="Val.TLabel",
                   foreground=INK_FAINT).pack(anchor="w", pady=(3, 0))
@@ -85,23 +92,23 @@ class GlobalAnalysisDialog(_FitDialog):
 
         btns = ttk.Frame(left); btns.pack(fill="x", pady=(2, 6))
         self._run_buttons(btns)
-        self._export_row(left, "(DADS + EADS; formats chosen in the main window)")
-        self._report_box(left, height=14, width=42,
+        self._export_row(column, "(DADS + EADS; formats chosen in the main window)")
+        self._report_box(column, height=14, width=42,
                          hint="Results will appear here after fitting.")
 
         # right: kinetics controls + figure
-        right = ttk.Labelframe(outer, text="Results", padding=6)
+        right = group(outer, "Results", padding=6)
         right.pack(side="left", fill="both", expand=True, padx=(8, 0))
 
         kin = ttk.Frame(right); kin.pack(fill="x")
-        ttk.Label(kin, text="λ (nm)").pack(side="left")
+        ttk.Label(kin, text="λ (nm):").pack(side="left")
         self.var_kin_wl = tk.StringVar(value=f"{self._kin_wl:.2f}")
-        ek = ttk.Entry(kin, textvariable=self.var_kin_wl, width=9, font=("TkFixedFont", 9))
+        ek = spin(kin, self.var_kin_wl, wl_step(self.model.wls),
+                  on_change=self._set_kin_wl, width=9)
         ek.pack(side="left", padx=(4, 8))
         ek.bind("<Return>", lambda ev: self._set_kin_wl())
-        ttk.Button(kin, text="Use cursor λ",
-                   command=self._use_cursor_kin).pack(side="left")
-        ttk.Label(kin, text="Time scale").pack(side="left", padx=(10, 4))
+        button(kin, "Use cursor λ", self._use_cursor_kin).pack(side="left")
+        ttk.Label(kin, text="Time scale:").pack(side="left", padx=(10, 4))
         self.var_kin_scale = tk.StringVar(value="Log")
         sc = ttk.Combobox(kin, textvariable=self.var_kin_scale,
                           values=["Log", "Linear"], width=8, state="readonly")
@@ -128,9 +135,10 @@ class GlobalAnalysisDialog(_FitDialog):
         for ax in self._all_axes:
             _style_analysis_ax(ax)
         self.canvas = FigureCanvasTkAgg(self.fig, master=right)
-        tb = _dark_toolbar(self.canvas, right)
-        tb.pack(fill="x")
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.toolbar = attach_toolbar(self.canvas, right,
+                                      before=self.canvas.get_tk_widget())
+        self.toolbar.push_current()         # Home: the empty axes, until a result is drawn
         self.canvas.mpl_connect("button_press_event", self._on_map_click)
         self._draw_when_sized(self.canvas)
 
@@ -171,6 +179,8 @@ class GlobalAnalysisDialog(_FitDialog):
         self._plot_kinetics()
 
     def _on_map_click(self, event):
+        if self.toolbar.locked():           # pan / zoom mode owns the clicks
+            return
         if event.inaxes in (self.ax_data, self.ax_fit, self.ax_resid) \
                 and event.xdata is not None:
             self._kin_wl = float(event.xdata)
@@ -191,6 +201,7 @@ class GlobalAnalysisDialog(_FitDialog):
         self.ax_kin.set_xscale("linear")    # avoid clear() warning on log axis
         for ax in self._all_axes:           # the result is gone: so is its picture
             ax.clear(); _style_analysis_ax(ax)
+        self.toolbar.forget_history()       # the cleared axes are the new Home
         self.canvas.draw_idle()
 
     # -- run (threaded) --------------------------------------------------
@@ -354,9 +365,12 @@ class GlobalAnalysisDialog(_FitDialog):
 
     # -- drawing ---------------------------------------------------------
     def _draw_all(self):
+        # every axis is cleared and drawn again: the toolbar's history starts
+        # afresh from what this draws
         self._plot_maps()
         self._plot_spectra()
         self._plot_kinetics()
+        self.toolbar.forget_history()
         self.canvas.draw_idle()
 
     def _plot_maps(self):
@@ -457,6 +471,9 @@ class GlobalAnalysisDialog(_FitDialog):
         ax.set_xlabel("Time (ps)"); ax.set_ylabel("Intensity")
         ink_legend(ax.legend(loc="best", fontsize=8, facecolor=PANEL, edgecolor=LINE), INK)
         ax.grid(True, color=LINE, alpha=0.4)
+        # this axis was cleared: its old views are gone (the other panels'
+        # zoom history stays)
+        self.toolbar.rebase(ax)
         self.canvas.draw_idle()
 
     # -- export ----------------------------------------------------------

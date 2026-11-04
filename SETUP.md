@@ -177,7 +177,7 @@ set "TK_LIBRARY=%BP%\tcl\tk8.6"
     --collect-submodules originpro --collect-all OriginExt run_tcspc_analysis.py
 "%VENV%\Scripts\python" -B tools\third_party_notices.py "%BUILD%\dist\TCSPC_analysis"
 if not exist release mkdir release
-"%VENV%\Scripts\python" -c "import shutil;shutil.make_archive(r'release\TCSPC_analysis_1.6','zip',r'%BUILD%\dist','TCSPC_analysis')"
+"%VENV%\Scripts\python" -c "import shutil;shutil.make_archive(r'release\TCSPC_analysis_1.7','zip',r'%BUILD%\dist','TCSPC_analysis')"
 ```
 
 (Typed at a prompt rather than saved in a `.bat`, write `%P` instead of `%%P`.)

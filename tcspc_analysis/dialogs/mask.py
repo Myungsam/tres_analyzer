@@ -7,7 +7,8 @@ from matplotlib.figure import Figure
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from ..theme import ACCENT, BG, INK, INK_FAINT, LINE, PANEL, preview_norm_cmap, shade_wl_masks, style_plot_ax
+from ..theme import ACCENT, BG, FIXED_FONT, INK, INK_FAINT, LINE, PANEL, preview_norm_cmap, shade_wl_masks, style_plot_ax
+from ..ui import attach_toolbar, button, group, spin
 from .common import _AnalysisDialog
 
 
@@ -26,16 +27,14 @@ class MaskDialog(_AnalysisDialog):
         self._refresh_list()
 
     def _build_ui(self):
-        top = ttk.Frame(self.win, padding=(8, 8, 8, 4))
-        top.pack(fill="x")
-        ttk.Label(top, text="From").pack(side="left")
-        ttk.Entry(top, textvariable=self.var_lo, width=8,
-                  font=("TkFixedFont", 9)).pack(side="left", padx=2)
-        ttk.Label(top, text="To").pack(side="left")
-        ttk.Entry(top, textvariable=self.var_hi, width=8,
-                  font=("TkFixedFont", 9)).pack(side="left", padx=2)
+        top = group(self.win, "Region")
+        top.pack(fill="x", padx=8, pady=(8, 4))
+        ttk.Label(top, text="From:").pack(side="left")
+        spin(top, self.var_lo, 1, width=8).pack(side="left", padx=2)
+        ttk.Label(top, text="To:").pack(side="left", padx=(4, 0))
+        spin(top, self.var_hi, 1, width=8).pack(side="left", padx=2)
         ttk.Label(top, text="nm").pack(side="left", padx=(2, 8))
-        ttk.Button(top, text="Add region", command=self._add).pack(side="left")
+        button(top, "Add region", self._add).pack(side="left")
         ttk.Label(top, textvariable=self.var_info,
                   foreground=INK_FAINT).pack(side="left", padx=12)
 
@@ -43,27 +42,30 @@ class MaskDialog(_AnalysisDialog):
         mid.pack(fill="both", expand=True)
         # the side column first and, in it, the buttons first: in a small
         # window the figure and the list give way, not the buttons
-        side = ttk.Frame(mid, padding=(4, 6))
-        side.pack(side="right", fill="y")
-        ttk.Label(side, text="Masked regions").pack(anchor="w")
-        ttk.Button(side, text="Close",
-                   command=self._on_close).pack(side="bottom", fill="x", pady=(10, 1))
-        ttk.Button(side, text="Clear all",
-                   command=self._clear).pack(side="bottom", fill="x", pady=1)
-        ttk.Button(side, text="Remove selected",
-                   command=self._remove).pack(side="bottom", fill="x", pady=1)
+        col = ttk.Frame(mid, padding=(4, 4, 8, 6))
+        col.pack(side="right", fill="y")
+        button(col, "Close", self._on_close).pack(side="bottom", fill="x", pady=(10, 1))
+        side = group(col, "Masked regions")
+        side.pack(fill="both", expand=True)
+        button(side, "Clear all", self._clear).pack(side="bottom", fill="x", pady=1)
+        button(side, "Remove selected", self._remove).pack(side="bottom", fill="x", pady=1)
         self.listbox = tk.Listbox(side, width=20, height=14, bg=BG, fg=INK,
                                   selectbackground=ACCENT, selectforeground=BG,
                                   highlightthickness=1, highlightbackground=LINE,
-                                  activestyle="none", font=("TkFixedFont", 9))
+                                  activestyle="none", font=FIXED_FONT)
         self.listbox.pack(fill="y", expand=True, pady=3)
 
         self.fig = Figure(figsize=(7.6, 4.8), dpi=100, facecolor=PANEL)
         self.ax = self.fig.add_subplot(111)
         style_plot_ax(self.ax)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=mid)
-        self.canvas.get_tk_widget().pack(side="left", fill="both", expand=True,
-                                         padx=(8, 4), pady=4)
+        # the canvas sits left of the list: a frame holds it, with its
+        # toolbar on top
+        plot = ttk.Frame(mid)
+        plot.pack(side="left", fill="both", expand=True, padx=(8, 4), pady=4)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=plot)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.toolbar = attach_toolbar(self.canvas, plot, before=self.canvas.get_tk_widget(),
+                                      on_home=self._full_view)
         self.canvas.mpl_connect("button_press_event", self._on_click)
 
     def _draw(self):
@@ -81,6 +83,14 @@ class MaskDialog(_AnalysisDialog):
         self.ax.set_ylim(m.t_lo, m.t_hi)
         self.ax.set_xlabel("Wavelength (nm)", fontsize=9)
         self.ax.set_ylabel("Time (ps)", fontsize=9)
+        self.toolbar.forget_history()       # the map was drawn again: a new Home
+        self.canvas.draw_idle()
+
+    def _full_view(self):
+        """Home: the whole map."""
+        m = self.model
+        self.ax.set_xlim(*m.wl_edges)
+        self.ax.set_ylim(m.t_lo, m.t_hi)
         self.canvas.draw_idle()
 
     def _refresh_list(self):
@@ -93,6 +103,8 @@ class MaskDialog(_AnalysisDialog):
         self._refresh_list()
 
     def _on_click(self, event):
+        if self.toolbar.locked():           # the toolbar's pan / zoom mode owns the clicks
+            return
         if event.inaxes is not self.ax or event.xdata is None:
             return
         wl = float(event.xdata)

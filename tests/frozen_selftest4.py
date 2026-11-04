@@ -94,7 +94,7 @@ try:
           and not os.path.exists(os.path.join(HERE, FreezeLog.NAME))
           and "MISSING" not in out[2] and out[2].count("=ok") == 5 and "pandas=absent" in out[2]
           and os.path.normcase(tres_data) == os.path.normcase(os.path.join(user_dir(), "Data"))
-          and "version=1.6 " in out[0] and "started, version " + APP_VERSION + "," in body)
+          and "version=1.7 " in out[0] and "started, version " + APP_VERSION + "," in body)
     out.append(body[-1800:])
     if body.count("started, version") == 1:        # the log holds only this run: leave nothing behind
         os.remove(log.path)

@@ -5,6 +5,15 @@ import numpy as np
 
 from .util import fwhm_of
 
+# The subtract-background window a new file opens with, nominally: the first
+# 10 ns of the record, in ps of record time (display time + t0). It ends three
+# IRF widths before the IRF peak when that comes first (default_bg_window).
+# The viewer shows it shifted by t0, so with "t0 at IRF peak" on it reads e.g.
+# -13496 ... -3496.
+BG_WINDOW_PS = (0.0, 10000.0)
+# fewer time bins than this left before the pulse: no usable background region
+MIN_BG_BINS = 4
+
 
 def solvent_mismatch(sample, solvent):
     """Compare a solvent .phu against the sample it is to be subtracted from.
@@ -87,8 +96,7 @@ class TRESModel:
         self.first_is_irf = True
         self.t0_align = False
         self.bg_sub = True
-        self.bg_lo_ps = 0.0
-        self.bg_hi_ps = 100.0
+        self.bg_lo_ps, self.bg_hi_ps = BG_WINDOW_PS   # until the IRF is known (below)
         self.wl_offset = 0.0     # nm added to every wavelength in the file
         # -- preprocessing (Crop dialog + Mask lambda dialog) ------------------
         # A crop keeps only a rectangular (wavelength, time) window; t_max_ps
@@ -114,6 +122,32 @@ class TRESModel:
         self.rev = 0
         if build:
             self.rebuild()
+            # the default needs the IRF; t0 is 0 here, so record = display time
+            window = self.default_bg_window()
+            if window != (self.bg_lo_ps, self.bg_hi_ps):
+                self.bg_lo_ps, self.bg_hi_ps = window
+                self.subtract_background()
+
+    def default_bg_window(self):
+        """The background window a file opens with, in ps of record time: (lo, hi).
+
+        BG_WINDOW_PS, ended three IRF widths (FWHM) - at least one time bin,
+        since bg_slice() rounds up to whole bins - before the IRF peak when
+        that comes earlier, so the window does not reach into the pulse. The
+        peak and width are the ones the map's title shows; without an IRF
+        curve (or one with no measurable peak, or before the first build)
+        the window is not shortened. It always keeps one time bin; bg_short()
+        tells when the region before the pulse is too short to be a background.
+        """
+        lo, hi = BG_WINDOW_PS
+        if getattr(self, "irf", None) is not None and self.irf_fwhm_ps > 0:
+            hi = min(hi, self.irf_peak_ps - max(3.0 * self.irf_fwhm_ps, self.dt_ps))
+        return float(lo), float(max(hi, lo + self.dt_ps))
+
+    def bg_short(self, window):
+        """True when ``window`` (record-time ps, from default_bg_window) holds
+        fewer than MIN_BG_BINS time bins: no region before the pulse to speak of."""
+        return window[1] - window[0] < MIN_BG_BINS * self.dt_ps - 1e-9
 
     @property
     def solvent_active(self):
@@ -305,6 +339,16 @@ class TRESModel:
         self.spec_total = np.nansum(self.E, axis=1)
         self.decay_total = np.nansum(self.E, axis=0)
         self.spec_total[np.isnan(self.E).all(axis=1)] = np.nan
+
+    def bg_sample_mean(self):
+        """Mean counts per bin of the sample alone over the background window:
+        E_raw with the solvent put back, masked curves left out."""
+        i0, i1 = self.bg_slice()
+        block = self.E_raw[:, i0:i1]
+        if self.solvent_active:
+            block = block + self.solvent_scale * self.S_raw[:, i0:i1]
+        finite = block[np.isfinite(block)]
+        return float(finite.mean()) if finite.size else 0.0
 
     def bg_slice(self):
         """Background window as display-bin indices [i0, i1), always non-empty.

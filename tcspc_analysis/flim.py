@@ -11,7 +11,8 @@ from matplotlib.figure import Figure
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from .theme import ACCENT, BG, GOOD, INK_DIM, INK_FAINT, LINE, PANEL, PIN
+from .theme import ACCENT, BG, FIXED_FONT, GOOD, INK_DIM, INK_FAINT, LINE, PANEL, PIN
+from .ui import attach_toolbar, button, group, spin
 
 
 # ==========================================================================
@@ -268,12 +269,12 @@ class FLIMViewer:
         top = ttk.Frame(self.parent, padding=8)
         top.pack(side="top", fill="x")
 
-        ttk.Label(top, text="PTU FILE").pack(side="left", padx=(0, 6))
+        ttk.Label(top, text="PTU file:").pack(side="left", padx=(0, 6))
         self.path_var = tk.StringVar()
-        ttk.Entry(top, textvariable=self.path_var, font=("TkFixedFont", 9)
+        ttk.Entry(top, textvariable=self.path_var, font=FIXED_FONT
                   ).pack(side="left", fill="x", expand=True, padx=(0, 8))
-        ttk.Button(top, text="Open file...", command=self.on_open_file).pack(side="left")
-        self.process_btn = ttk.Button(top, text="Process", command=self.on_process)
+        button(top, "Open file...", self.on_open_file).pack(side="left")
+        self.process_btn = button(top, "Process", self.on_process, role="Run")
         self.process_btn.pack(side="left", padx=(6, 8))
         self.progress = ttk.Progressbar(top, length=180, mode="determinate")
         self.progress.pack(side="left", padx=(0, 8))
@@ -285,7 +286,7 @@ class FLIMViewer:
         body.pack(side="top", fill="both", expand=True)
 
         # ---- left: compute device + image size ----
-        left = ttk.LabelFrame(body, text="Compute device", padding=8)
+        left = group(body, "Compute device", padding=8)
         left.pack(side="left", fill="y", padx=4, pady=4)
 
         self.gpu_info = tk.StringVar(value="GPU: detecting...")
@@ -296,8 +297,8 @@ class FLIMViewer:
         self.gpu_check = ttk.Checkbutton(left, text="Use GPU", variable=self.use_gpu,
                                          state="disabled")
         self.gpu_check.pack(anchor="w", pady=2)
-        self.activate_btn = ttk.Button(left, text="Activate",
-                                       command=self.on_activate_gpu, state="disabled")
+        self.activate_btn = button(left, "Activate", self.on_activate_gpu,
+                                   state="disabled")
         self.activate_btn.pack(anchor="w", pady=4)
         self.device_status = tk.StringVar(value="current: CPU")
         ttk.Label(left, textvariable=self.device_status,
@@ -305,22 +306,20 @@ class FLIMViewer:
 
         ttk.Separator(left, orient="horizontal").pack(fill="x", pady=10)
 
-        size_frame = ttk.LabelFrame(left, text="Image size", padding=6)
+        size_frame = group(left, "Image size", padding=6)
         size_frame.pack(anchor="w", fill="x", pady=(0, 4))
 
         def _size_row(label, var, hint):
             r = ttk.Frame(size_frame)
             r.pack(anchor="w", fill="x", pady=2)
-            ttk.Label(r, text=label, width=7).pack(side="left")
-            ttk.Entry(r, textvariable=var, width=8,
-                      font=("TkFixedFont", 9)).pack(side="left")
+            ttk.Label(r, text=label, width=8).pack(side="left")
+            spin(r, var, 1, lo=1).pack(side="left")        # applied by "Apply size"
             ttk.Label(r, text=hint, foreground=INK_FAINT).pack(side="left", padx=(4, 0))
 
-        _size_row("Nx", self.nx_var, "(X px)")
-        _size_row("Ny", self.ny_var, "(Y line)")
-        _size_row("N_bins", self.nbins_var, "(dtime)")
-        ttk.Button(size_frame, text="Apply size",
-                   command=self.on_apply_size).pack(anchor="w", pady=(4, 0))
+        _size_row("Nx:", self.nx_var, "(X px)")
+        _size_row("Ny:", self.ny_var, "(Y line)")
+        _size_row("N_bins:", self.nbins_var, "(dtime)")
+        button(size_frame, "Apply size", self.on_apply_size).pack(anchor="w", pady=(4, 0))
         self.size_status = tk.StringVar(
             value=f"current: {NX_DEFAULT} x {NY_DEFAULT} x {NBINS_DEFAULT}")
         ttk.Label(size_frame, textvariable=self.size_status,
@@ -338,6 +337,7 @@ class FLIMViewer:
         self.ax_int = self.fig.add_subplot(2, 2, 1)
         self.ax_life = self.fig.add_subplot(2, 2, 2)
         self.ax_hist = self.fig.add_subplot(2, 1, 2)
+        self.ax_hist.set_navigate(False)      # redrawn on every hover; Home must not touch it
         for ax in (self.ax_int, self.ax_life, self.ax_hist):
             self._style_ax(ax)
         self.ax_int.set_title("FLIM Intensity Image (0-2 count)")
@@ -349,6 +349,9 @@ class FLIMViewer:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=right)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.toolbar = attach_toolbar(self.canvas, right,
+                                      before=self.canvas.get_tk_widget())
+        self.toolbar.push_current()
         self.canvas.mpl_connect("motion_notify_event", self.on_cursor_move)
 
     @staticmethod
@@ -533,8 +536,12 @@ class FLIMViewer:
 
         self.fig.tight_layout()
         self.canvas.draw()
+        self.toolbar.forget_history()
 
     def on_cursor_move(self, event):
+        # Not gated by locked(): the hover histogram works in zoom / pan mode too.
+        if self.toolbar.dragging():
+            return
         if self.hist is None or event.inaxes not in (self.ax_int, self.ax_life):
             return
         if event.xdata is None or event.ydata is None:

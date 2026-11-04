@@ -11,7 +11,7 @@ A Windows GUI program for post-processing PicoQuant PicoHarp 300 TCSPC measureme
 
 ![Main window](docs/images/00_overview.png)
 
-The latest version is **1.6**. What changed in each version is in the [version table below](#versions) and in [CHANGELOG.md](CHANGELOG.md) (in Korean).
+The latest version is **1.7**. What changed in each version is in the [version table below](#versions) and in [CHANGELOG.md](CHANGELOG.md) (in Korean).
 
 ## Contents
 
@@ -31,7 +31,7 @@ There are two ways. If you do not use Python, take the **executable**.
 
 ### Option 1. Executable (no Python needed)
 
-1. Download `TCSPC_analysis_1.6.zip` of the latest version from the [Releases](https://github.com/Myungsam/tres_analyzer/releases) page.
+1. Download `TCSPC_analysis_1.7.zip` of the latest version from the [Releases](https://github.com/Myungsam/tres_analyzer/releases) page.
 2. Before extracting, right-click the zip → **Properties** → tick **Unblock** at the bottom → OK. Otherwise Windows marks every extracted file as downloaded from the internet and checks each one on the first start.
 3. Right-click the zip and choose **Extract All**. Extract it to a **local folder that is not synced by OneDrive or similar** (e.g. `C:\Programs`). The zip holds a `TCSPC_analysis` folder, so this example gives `C:\Programs\TCSPC_analysis\TCSPC_analysis.exe`. In a synced folder the many files slow the sync down, and the program can start slowly while the files are fetched.
 4. Run `TCSPC_analysis.exe` in that folder. The other files in that folder (the `_internal` folder etc.) are used by the exe; do not move or delete them. For a desktop icon, right-click the exe → **Send to** → **Desktop (create shortcut)**.
@@ -57,7 +57,7 @@ From a command line, run `python -B run_tcspc_analysis.py [file.phu]` in this fo
 
 The pictures below were made with a measurement of a sample solution excited at 405 nm (`sample_ex405nm.phu`) and a measurement of the pure solvent under the same conditions (`solvent_ex405nm.phu`). Besides the sample's fluorescence, the sample measurement holds the solvent's laser scatter (around 400 nm) and Raman signal (around 455 nm); removing them with the solvent measurement is the core of this example.
 
-> The values in the pictures (BIN 32 ps, the crop range, solvent scale 0.2, mask 392–410 nm, the number of components) are **examples to show how the program is used**. The right values differ from measurement to measurement; choose them from your own data.
+> The values in the pictures (Bin 32 ps, the crop range, solvent scale 0.2, mask 392–410 nm, the number of components) are **examples to show how the program is used**. The right values differ from measurement to measurement; choose them from your own data.
 
 The steps:
 
@@ -73,27 +73,33 @@ The steps:
 
 ![Main window](docs/images/01_main.png)
 
-1. Click **Open file...** and open the sample's `.phu`. The FILE box shows the path (a Korean Windows font draws the `\` in it as `₩`); the right end of the Subtract solvent row shows the file's numbers (instrument, number of curves, wavelength range as stored in the file, number and width of bins, time per curve). Those wavelengths are before OFFSET, so they can differ from the map's axis.
-2. **BIN**: how many time bins are summed into one. The list shows the width after summing (4, 8, 16 ps … for a 4 ps file). The example uses 32 ps to reduce the noise. **TIME END** is the last delay (ps) shown on the map.
+The buttons run along the top: Open file, Crop and Mask, then the analysis windows (purple), then what writes files (blue). Under them are the groups **Data**, **Background**, **Solvent** and **Display**. The status bar at the bottom has two lines: the path and the file's numbers, then a guide to the mouse.
+
+1. Click **Open file...** and open the sample's `.phu`. The status bar shows the path and the file's numbers (instrument, number of curves, wavelengths of the first and the last curve, number and width of bins, time per curve). The first wavelength is that of the file's first curve, which is the IRF when there is one (455 nm in the example), so this need not be the span of the map. Both wavelengths are before **Offset:**.
+2. **Bin:** how many time bins are summed into one. The list is greyed out until a file is opened; then it holds that file's resolution × 1, 2, 4 … 64 (4, 8, 16 ps … 256 ps for a 4 ps file), so a width below the resolution cannot be chosen. The example uses 32 ps to reduce the noise. **Time end:** is where the map stops, in ps from the start of the record, whatever **t0 at IRF peak** says. With that on, the map's time axis ends lower by t0 (100024 in the box, about 86500 on the axis in the example).
 3. **First curve is IRF**: on (the default) when the first curve of the file is an IRF (instrument response) measurement. That curve then leaves the map and is only used for the IRF's peak position and width (FWHM). **t0 at IRF peak** moves time zero onto the IRF peak; the example has it on.
-4. **Subtract background**: the mean of each curve over the **BG WINDOW** (ps) is taken as its background and subtracted. The default window is the first 100 ps of the record; the orange text at the right of the same row shows the window actually used and the mean. Pick a window before the laser pulse, where there is no signal.
-5. **OFFSET**: how many nm to shift the wavelengths stored in the file (spectrograph calibration); press **Apply offset**. The default is −50 nm. The offset is always counted from the file's wavelengths (pressing twice does not shift twice).
+4. **Subtract background**: the mean of each curve over the **BG window:** (ps) is taken as its background and subtracted. The default window is 0–10,000 ps from the start of the record. It stops before the pulse: at three IRF widths (FWHM, at least one time bin) before the IRF peak, if that comes before 10,000 ps; the info line then says "(ends before IRF peak)". Without an IRF (a single curve, **First curve is IRF** off when the file is opened, or no measurable IRF peak) the window stays 0–10,000 ps and can lie on the pulse, so check it on such files. If almost no time is left before the pulse, the info line warns ("no pre-pulse region"); set the window by hand then. The program does not change the region of a window you type; opening another file starts from the default again. With **t0 at IRF peak** on, the boxes show the same region shifted (−13496 to −3496 in the example). The orange info line under the boxes shows the window actually used, in whole time bins (`bg -13,496--3,480 ps` in the example), and the mean. Pick a window before the laser pulse, where there is no signal. If more than 60 % of the map is below 0 while the sample's own background in the window (before any solvent is subtracted) is at least 1 count/bin, the same line warns that the window may lie on the signal; with the solvent on, it also names a solvent scale that is too high ("solvent scale too high, or window on signal?"). The mean shown in the line is after the solvent, so it can be lower than that.
+5. **Offset:** how many nm to shift the wavelengths stored in the file (spectrograph calibration); press **Apply offset**. The default is −50 nm. The offset is always counted from the file's wavelengths (pressing twice does not shift twice).
 6. The middle is the **TRES map** (wavelength across, time up, colour = counts). Hovering shows the decay at that point (Decay, left) and the spectrum (Spectrum, below); a click pins it (click again to release). The lower left is the steady-state spectrum, the sum over all delays. Dragging on the map zooms in, a right-click zooms back out.
 
-COLORMAP and **Log color** only change the colours. Dragging up or down on the colour bar on the right sets the contrast; **Auto contrast** or a right-click on the colour bar resets it.
+**Colormap:** and **Log color** only change the colours. Dragging up or down on the colour bar on the right sets the contrast; **Auto contrast** or a right-click on the colour bar resets it.
+
+Every figure, here and in the other windows, has its own toolbar above it: **Home**, **Back**, **Forward**, **Pan**, **Zoom**, **Subplots** and **Save**. **Home** returns to the full view; **Reset zoom** does the same on all plots of the main window. While **Pan** or **Zoom** is on, the program's own mouse actions pause (on the main map the drag zoom, the click pin and the right-click reset, and the colour-bar drag), and the read-out under the mouse keeps working. Click the button again to turn it off. **Save** stores the whole figure; **Save map image...** only the map.
+
+The arrows of a number box step its value (the Up and Down keys do the same); the mouse wheel does nothing there. Where a box takes effect at once, the change follows a moment after the last step. A typed value is applied as before.
 
 ### 2. Crop: cut the range
 
-**Crop...** under PREP opens the Crop window. It shows the whole record; the range to keep is the blue box, the rest is dimmed.
+**Crop...** in the top row opens the Crop window. It shows the whole record; the range to keep is the blue box, the rest is dimmed.
 
 ![Crop window: range](docs/images/02_crop_box.png)
 
-1. Type the range to keep into **λ … to … nm** and **t … to … ps**. Time here is **ps from the start of the record** (independent of t0 at IRF peak). Clicking two opposite corners on the map sets the box as well; Esc after the first click cancels it. **Full λ** and **Full t** go back to the whole range.
-2. The wheel zooms the map (Ctrl: time only, Shift: wavelength only), a right-button drag moves it. **Log color**, **Auto color**, **Log time** and **Fit view** in the VIEW row only change how the map is drawn, not the result.
+1. Type the range to keep into **λ:** … to … nm and **t:** … to … ps in the **Range** group. Time here is **ps from the start of the record** (independent of t0 at IRF peak). Clicking two opposite corners on the map sets the box as well; Esc after the first click cancels it. **Full λ** and **Full t** go back to the whole range.
+2. The wheel zooms the map (Ctrl: time only, Shift: wavelength only), a right-button drag moves it. **Log color**, **Auto color**, **Log time** and **Fit view** in the **View** group only change how the map is drawn, not the result.
 
 The example drops 300–380 nm, where there is no fluorescence, and everything after 50 ns, where the signal has ended, keeping 380–700 nm and 0–50,000 ps.
 
-> **Cutting the start of the time range**: the background window (BG WINDOW) has to lie inside the range you keep. If it does not, the program takes the edge bin of the kept range (the first bin when the window lies before it) as the background; if there is signal there (the tail of the previous pulse, for example), too much is subtracted. This example keeps about 12 ns before the pulse so the default background window (the first 100 ps of the record) stays in use. After Apply, check the window actually used in the orange text of the main window.
+> **Cutting the start of the time range**: the default background window needs the first 10 ns of the record kept. If the kept range starts inside the window, only the part that is kept is used. If the window lies wholly outside the range, the program takes the edge bin of the kept range (the first bin when the window lies before it) as the background; if there is signal there (the tail of the previous pulse, for example), too much is subtracted. This example keeps the time from 0, so the whole default window stays in use. After Apply, check the window actually used in the orange info line of the main window.
 
 The lower panel of this picture shows only the sample's steady state so far; the large peak at 400 nm is laser scatter.
 
@@ -103,69 +109,75 @@ In the same Crop window, load the measurement of the pure solvent and subtract i
 
 ![Crop window: solvent subtraction](docs/images/03_crop_solvent.png)
 
-1. **Load solvent...** opens the solvent's `.phu`. It has to be measured on the same wavelength / time grid as the sample: it is subtracted bin for bin, so a different grid (number of curves, wavelengths, time resolution, number of bins) is refused with the reason, while a different acquisition time only gives a warning. A loaded solvent always starts at scale 1. **Clear**, left of the file name, drops the loaded solvent.
-2. **SOLVENT SCALE**: the factor the solvent is multiplied by. The slider covers 0–2; larger values can be typed into the box. Adjust it until the scatter and Raman peaks are gone. The example uses 0.2.
-3. The lower panel previews the result. The faint lines are the steady state (sum over all delays) of the **sample**, the **s x solvent** (solvent times the scale) and the **subtracted** result; the bold lines are the same three at a single delay. Moving the mouse over the map moves that delay; a double-click pins it (the picture is pinned at the delay of the strongest scatter). The bottom line of the window shows the share of bins that went below 0. Negative values after the subtraction are kept as they are, not cut to 0.
+1. **Load solvent...** in the **Solvent** group opens the solvent's `.phu`. It has to be measured on the same wavelength / time grid as the sample: it is subtracted bin for bin, so a different grid (number of curves, wavelengths, time resolution, number of bins) is refused with the reason, while a different acquisition time only gives a warning. A loaded solvent always starts at scale 1. **Clear**, left of the file name, drops the loaded solvent.
+2. **Solvent scale:** the factor the solvent is multiplied by. The slider covers 0–2; larger values can be typed into the box. Adjust it until the scatter and Raman peaks are gone. The example uses 0.2.
+3. The lower panel previews the result. The faint lines are the steady state (sum over all delays) of the **sample**, the **s x solvent** (solvent times the scale) and the **subtracted** result; the bold lines are the same three at a single delay (the last one is labelled **difference**). Moving the mouse over the map moves that delay; a double-click pins it (the picture is pinned at the delay of the strongest scatter). The bottom line of the window shows the share of bins that went below 0. Negative values after the subtraction are kept as they are, not cut to 0.
 4. **Apply** hands the range and the solvent subtraction to the main window. **Reset (full)** sets the range back to the whole record and applies that to the main window at once; it leaves the solvent alone. **Close** closes the window.
 
 The main window after Apply:
 
 ![Main window with the solvent subtracted](docs/images/04_main_solvent.png)
 
-1. **Subtract solvent** is now on, with the scale, the solvent file name and the share of bins below 0 next to it. Unticking it shows the data before the subtraction for comparison (the solvent is kept). The share is as high as 30 % because the noise of the signal-free time before the pulse scatters around zero.
-2. Check that the background window lies inside the kept range: the window in the orange text should be the one typed into BG WINDOW.
+1. **Subtract solvent** is now on, with the scale, the solvent file name and the share of bins below 0 under it. Unticking it shows the data before the subtraction for comparison (the solvent is kept). The share is as high as 35 % because the noise of the signal-free time before the pulse scatters around zero.
+2. Check that the background window lies inside the kept range: the window in the orange info line should be the one in the **BG window:** boxes (rounded out to whole time bins).
 3. The Raman peak around 455 nm has nearly gone from the map and the steady-state spectrum. Around 400 nm a remnant of the scatter is left (the up-and-down spike in the steady state); the next step hides it.
 
 ### 4. Mask: hide the remaining scatter
 
-**Mask λ...** under PREP opens the Mask window. Masked wavelengths drop out of the map, the summed spectra and the fits (they become empty) and stay on the axis as a gap.
+**Mask λ...** in the top row opens the Mask window. Masked wavelengths drop out of the map, the summed spectra and the fits (they become empty) and stay on the axis as a gap.
 
 ![Mask window](docs/images/05_mask.png)
 
-1. Type the wavelengths (nm) to hide into **From** and **To** and press **Add region**. Clicking the start and then the end wavelength on the map fills the boxes as well.
-2. The masked bands collect in the **Masked regions** list. **Remove selected** removes the selected band, **Clear all** all of them.
+1. In the **Region** group, type the wavelengths (nm) to hide into **From:** and **To:** and press **Add region**. Clicking the start and then the end wavelength on the map fills the boxes as well.
+2. The masked bands collect in the list of the **Masked regions** group. **Remove selected** removes the selected band, **Clear all** all of them.
 3. Masked bands are hatched on the map.
 
-The example masks 392–410 nm.
+The example masks 392–410 nm. The share of bins below 0 in the main window then reads 36 %.
 
 ### 5. Kinetics: fit the decay at one wavelength
 
-**Kinetics...** under ANALYSIS opens a window that fits the decay at one wavelength with a sum of exponentials convolved with the IRF.
+**Kinetics...** in the top row opens a window that fits the decay at one wavelength with a sum of exponentials convolved with the IRF.
 
 ![Kinetics window](docs/images/06_kinetics.png)
 
-1. **λ (nm)**: the wavelength to fit. A **± half-width (nm)** above 0 averages the curves in that range. **Use cursor λ** takes the wavelength of the cursor pinned on the main map.
-2. **Components**: the number of components (1–4). The table sets, per component, the starting τ (τ_init), whether it is fixed (fix), whether it is a stretched exponential (stretch) and its β. **Include τ = ∞ offset** adds a constant component.
-3. **IRF (Gaussian)**: t₀ and FWHM of the IRF, taken as a Gaussian. The defaults are measured from the IRF curve and "fixed" is on; untick it to fit them too. **Stretched-IRF mode** applies only to components with stretch on: numerical convolves them with the IRF numerically, skip does not convolve but leaves the delays under the IRF out of the fit.
+The left column holds the **Fit setup** group, the **Export** group and the report.
+
+1. **λ (nm):** the wavelength to fit. A **± half-width (nm):** above 0 averages the curves in that range. **Use cursor λ** takes the wavelength of the cursor pinned on the main map.
+2. **Components:** the number of components (1–4). The table sets, per component, the starting τ (τ_init), whether it is fixed (fix), whether it is a stretched exponential (stretch) and its β. **Include τ = ∞ offset** adds a constant component.
+3. **IRF (Gaussian)**: t₀ and FWHM of the IRF, taken as a Gaussian. The defaults are measured from the IRF curve and "fixed" is on; untick it to fit them too. **Stretched-IRF mode:** applies only to components with stretch on: numerical convolves them with the IRF numerically, skip does not convolve but leaves the delays under the IRF out of the fit.
 4. **Fit range (ps)**: the time range to fit. **Full** is the whole range.
-5. **Run fit** starts the fit. It runs in the background, so the window stays usable, and **Stop** ends it. **Reset** puts the settings back to the defaults. **Time scale** is the time axis of the plots (Log / Linear).
-6. **Export results**: writes the data, the fit and the residual. The format (CSV / .opju) is chosen with the ticks in the main window (see [7. Export](#7-export)).
+5. **Run fit** (green) starts the fit. It runs in the background, so the window stays usable, and **Stop** (red) ends it. **Reset** puts the settings back to the defaults. **Time scale:** is the time axis of the plots (Log / Linear).
+6. **Export results** in the **Export** group (blue, orange while `.opju` is ticked): writes the data, the fit and the residual. The format (CSV / .opju) is chosen with the ticks in the main window (see [7. Export](#7-export)).
 7. The report: convergence, RMS, τ and amplitude (A) of each component. Anything to watch out for, such as a τ at the edge of its allowed range or amplitudes cancelling each other, is written here and in the status line.
 
-The example fits 520 nm with three components.
+The example fits 520 nm with three components: RMS 75.9, τ 35.29, 270.1 and 3335 ps.
 
 ### 6. Global analysis: fit the whole map
 
-**Global analysis...** under ANALYSIS opens a window that fits all wavelengths at once with shared lifetimes.
+**Global analysis...** in the top row opens a window that fits all wavelengths at once with shared lifetimes.
 
 ![Global analysis window](docs/images/07_global.png)
 
-1. **Components**: the number of components (1–5, default 3) and their starting τ; the table is the one of the Kinetics window. Below it, **Optimizer** chooses between TRF (fast) and Nelder-Mead; IRF and Fit range are as in the Kinetics window. Under Fit range the number of delay points the fit will use is shown.
+As in the Kinetics window, the left column holds the **Fit setup** group, the **Export** group and the report; the **Results** group is in the centre.
+
+1. **Components:** the number of components (1–5, default 3) and their starting τ; the table is the one of the Kinetics window. Below it, **Optimizer:** chooses between TRF (fast) and Nelder-Mead; **Stretched-IRF mode:**, IRF and Fit range are as in the Kinetics window. Under Fit range the number of delay points the fit will use is shown.
 2. **Run fit** / **Stop** / **Reset**: as in the Kinetics window.
 3. The report: RMS, iterations, τ of each component.
 4. The **data**, **global fit** and **residual** maps: the data, the map rebuilt from the fit, and their difference. Masked bands stay as an empty strip.
 5. **DADS** (the amplitude spectrum of each component) and **EADS** (the component spectra of a sequential model); on the right each one normalised (norm.).
-6. **λ (nm)** and **Use cursor λ**: the wavelength of the decay plot below. A click on any of the three maps above picks that wavelength as well. Time scale next to them is the time axis of that plot (Log / Linear).
+6. **λ (nm):** and **Use cursor λ**: the wavelength of the decay plot below. A click on any of the three maps above picks that wavelength as well. **Time scale:** next to them is the time axis of that plot (Log / Linear).
 7. The data and the fit at the chosen wavelength.
 
-**Export results** writes the DADS and EADS.
+The example fits with three components: RMS 36.94, τ 37.42, 315.72 and 5890 ps.
+
+**Export results** in the **Export** group writes the DADS and EADS.
 
 ### 7. Export
 
 ![Export buttons](docs/images/08_export.png)
 
-1. **Export data...** writes the TRES map and the steady-state spectrum together. The **CSV** and **.opju** ticks next to it choose the format; the same ticks are used by Export results in the Kinetics and Global-analysis windows. The map goes out over the whole processed range, whatever the zoom on screen.
-2. **Save map image...** saves the map as it is on screen (zoom included) as PNG, PDF or SVG.
+1. **Export data...** (blue, orange while `.opju` is ticked) writes the TRES map and the steady-state spectrum together. The **CSV** and **.opju** ticks next to it choose the format; the same ticks are used by Export results in the Kinetics and Global-analysis windows. The map goes out over the whole processed range, whatever the zoom on screen.
+2. **Save map image...**, left of Export data, saves the map as it is on screen (zoom included) as PNG, PDF or SVG.
 
 With CSV, a window asks for a name. The files below are written with suffixes added to that name (e.g. `sample_ex405nm`). The default folder is `Data` in the program folder when run from source, and `Documents\TCSPC_analysis\Data` for the executable.
 
@@ -176,7 +188,7 @@ With CSV, a window asks for a name. The files below are written with suffixes ad
 | `name_kinetics.csv` | Kinetics, Export results | `delay_ps, data, fit, residual` |
 | `name_DADS.csv`, `name_EADS.csv` | Global analysis, Export results | wavelength in the first column, then one spectrum per component (τ in the column name) |
 
-Every CSV starts with header lines beginning with `#`: the full path of the source file and the settings (BIN, background window, OFFSET, crop, mask, solvent and its scale). The map and steady-state files add the instrument and its serial number; the fit files add the fit result, the fit range and the parameters held fixed. To read past them use, for example, `pandas.read_csv(path, comment="#")`.
+Every CSV starts with header lines beginning with `#`: the full path of the source file and the settings (bin, background window, offset, crop, mask, solvent and its scale). The map and steady-state files add the instrument and its serial number; the fit files add the fit result, the fit range and the parameters held fixed. To read past them use, for example, `pandas.read_csv(path, comment="#")`.
 
 With **.opju**, a window asks for an Origin project. Picking an existing `.opju` adds to it; typing a new name creates one. The data goes into `Book1` of the project as the sheets `name_TRESmap` and `name_steadystate` (the fit results as `name_kinetics`, `name_DADS`, `name_EADS`). This works only on a **PC with OriginLab Origin installed**; without Origin, export as CSV.
 
@@ -190,7 +202,8 @@ With **.opju**, a window asks for an Origin project. Picking an existing `.opju`
 | | right-click | zooms back out (same as Reset zoom) |
 | Main colour bar | drag up / down | sets the contrast to that range |
 | | right-click | automatic contrast (same as Auto contrast) |
-| Main window boxes | Enter | applies TIME END, BG WINDOW, OFFSET (TIME END and BG WINDOW also when clicking elsewhere) |
+| Main window boxes | Enter | applies **Time end:**, **BG window:**, **Offset:** (Time end: and BG window: also when clicking elsewhere) |
+| Number boxes | arrows, Up / Down keys | step the value (the mouse wheel does nothing) |
 | Crop map | two clicks | the two corners of the box to keep |
 | | Esc | cancels the first corner |
 | | double-click | pins / releases the single-delay spectrum in the lower panel |
@@ -198,15 +211,15 @@ With **.opju**, a window asks for an Origin project. Picking an existing `.opju`
 | | right-button drag | moves the view |
 | Mask map | click | first From, then To wavelength |
 | Global-analysis maps | click | picks the wavelength of the decay plot |
-| Kinetics and Global-analysis plots | toolbar above them | zoom, pan, home view, save the figure (matplotlib tools) |
+| Every figure | toolbar above it | Home (full view), Back, Forward, Pan, Zoom, Subplots, Save (the whole figure). While Pan or Zoom is on, the window's own clicks, drags, wheel and right-click on that figure pause; the read-out under the mouse keeps working |
 
 ## FAQ
 
 **The fit report warns that a τ is at its lower limit.**
-In 1.6 both fits allow τ from a tenth of a time bin to 100 times the fit range. A component at the lower limit is an IRF-shaped component much faster than the IRF (scatter and the like); only its amplitude × τ means something. If scatter is the cause, subtract the solvent or mask that wavelength and fit again.
+Since 1.6 both fits allow τ from a tenth of a time bin to 100 times the fit range. A component at the lower limit is an IRF-shaped component much faster than the IRF (scatter and the like); only its amplitude × τ means something. If scatter is the cause, subtract the solvent or mask that wavelength and fit again.
 
 **How do I choose the solvent scale?**
-In the lower panel of the Crop window, adjust SOLVENT SCALE until the scatter (around the excitation wavelength) and the Raman peaks are flat in the subtracted line. The value can be far from 1 (0.2 in this example): a different acquisition time or laser power changes it by that ratio, and a sample solution that absorbs light also weakens the solvent's scatter and Raman signal. Subtracting too much takes that wavelength below 0 and raises the "bins below 0" share at the bottom of the window. That share also counts noise where there is no signal, so it need not reach 0.
+In the lower panel of the Crop window, adjust **Solvent scale:** until the scatter (around the excitation wavelength) and the Raman peaks are flat in the subtracted line. The value can be far from 1 (0.2 in this example): a different acquisition time or laser power changes it by that ratio, and a sample solution that absorbs light also weakens the solvent's scatter and Raman signal. Subtracting too much takes that wavelength below 0 and raises the "bins below 0" share at the bottom of the window. That share also counts noise where there is no signal, so it need not reach 0.
 
 **Loading the solvent gives "Solvent does not match the sample".**
 The solvent is subtracted bin for bin, so the number of curves, the wavelengths, the time resolution and the number of bins must match the sample. Use a measurement taken with the same settings.
@@ -217,8 +230,11 @@ A damaged `.phu`, or one whose curves differ in time resolution or number of bin
 **Opening a new file closed the Crop, Mask, Kinetics and Global-analysis windows.**
 Those windows belong to the data of the file that was open, so a new file closes them. Export fit results you want to keep before opening another file. The solvent, too, has to be loaded again for the new file.
 
+**The same file gives other values than in 1.6.**
+The default background window changed: 1.6 used the first 100 ps of the record, 1.7 uses 0–10,000 ps and stops before the pulse: at three IRF widths (FWHM, at least one time bin) before the IRF peak, if that comes before 10,000 ps. Without an IRF the window stays 0–10,000 ps, so check it on such files. The background, and so the map and the fit results, can differ. Typing the old window (0–100 ps of record time) into **BG window:** reproduces 1.6; with t0 at IRF peak on, subtract t0 from both numbers. See [CHANGELOG.md](CHANGELOG.md).
+
 **Text is blurry or windows have an odd size.**
-1.6 handles the Windows display scale (125 %, 150 %) itself. If there is a problem, set the environment variable `TCSPC_DPI_AWARE=0` before starting; how is in the Troubleshooting section of [SETUP.md](SETUP.md).
+Since 1.6 the program handles the Windows display scale (125 %, 150 %) itself. If there is a problem, set the environment variable `TCSPC_DPI_AWARE=0` before starting; how is in the Troubleshooting section of [SETUP.md](SETUP.md).
 
 **The `.opju` export fails.**
 Origin has to be installed. While Origin starts, the window may not respond for a moment. On a PC without Origin, export as CSV.
@@ -229,13 +245,13 @@ Origin has to be installed. While Origin starts, the window may not respond for 
 |---|---|
 | TCSPC | time-correlated single photon counting: counting when each photon arrives after the laser pulse to build a decay curve |
 | TRES | time-resolved emission spectra: the decays measured at each wavelength, put together into a wavelength × time map |
-| bin | one step of the time axis. The PicoHarp 300's native resolution is 4 ps; BIN sums several |
+| bin | one step of the time axis. The PicoHarp 300's native resolution is 4 ps; **Bin:** sums several |
 | IRF | instrument response function: the signal the setup gives for an infinitely short light pulse |
 | FWHM | full width at half maximum; here, the width of the IRF |
 | t₀ | the time origin. With t0 at IRF peak on, the IRF peak is at 0 |
 | steady-state spectrum | the counts of all delays summed per wavelength |
-| background | counts that arrive regardless of the laser pulse, measured as the mean over the BG WINDOW |
-| OFFSET | spectrograph calibration: nm added to the file's wavelengths |
+| background | counts that arrive regardless of the laser pulse, measured as the mean over the **BG window:** |
+| Offset | spectrograph calibration: nm added to the file's wavelengths |
 | solvent subtraction | subtracting a scaled measurement of the pure solvent from the sample measurement, to remove scatter and Raman signal |
 | Crop / Mask | the wavelength / time range to keep / wavelength bands left out of the analysis |
 | DADS | decay-associated (difference) spectra: the amplitude of each component plotted against wavelength |
@@ -248,7 +264,7 @@ From 1.4 on, when the window does not respond for 5 s or an internal error occur
 
 ## PTU · FLIM tab
 
-Builds an intensity image, a lifetime map and per-pixel decay histograms from a `.ptu` (PicoHarp 300 T3 record). This tab is carried over unchanged from 1.0 and assumes the following:
+Builds an intensity image, a lifetime map and per-pixel decay histograms from a `.ptu` (PicoHarp 300 T3 record). Its calculations are carried over unchanged from 1.0 (1.7 changes only the look: groups, number boxes, a toolbar over the figure, a green **Process**). It assumes the following:
 
 - Marker 1 in the record is read as the pixel clock and marker 2 as the line end. A scanner that sends other markers gives a wrong image.
 - The default image size is X 99, Y 100 with 4,096 time bins. After changing the values press **Apply size** for the next Process to use them.
@@ -273,13 +289,14 @@ Up to 1.4 each version is one source file. From 1.5 on, the one package `tcspc_a
 | 1.4.2 | `TCSPC_analysis_1.4ver.py` (same file) | stopping rules of the Kinetics fit and of Global analysis (Nelder-Mead) scaled to the data, so fits no longer run to the iteration limit for seconds |
 | 1.5 | `tcspc_analysis/` (package), `run_tcspc_analysis.py` | no change in function: the 1.4.2 code split into modules as it was |
 | 1.6 | `tcspc_analysis/` (tag `v1.6`) | fixes from a code review and a tidier screen; some fit and export results differ from 1.5 ([CHANGELOG.md](CHANGELOG.md)) |
+| 1.7 | `tcspc_analysis/` (tag `v1.7`) | new look: grouped controls, coloured buttons, number boxes, a toolbar on every figure; Bin: locked until a file is open; a new default background window, so maps and fit results can differ from 1.6 ([CHANGELOG.md](CHANGELOG.md)) |
 
 `TCSPC_analysis.bat` and the documents (`SETUP.md`, `ARCHITECTURE.md`) describe the package. No executable was released for 1.5 (its results are those of 1.4.2). To run a version up to 1.4 directly, name the file, e.g. `python TCSPC_analysis_1.2ver.py [file.phu]`.
 
-The program's structure is in [ARCHITECTURE.md](ARCHITECTURE.md); the regression tests and how to run them are in [tests/README.md](tests/README.md) (in Korean; two measurement files are needed separately).
+The program's structure is in [ARCHITECTURE.md](ARCHITECTURE.md); the regression tests and how to run them are in [tests/README.md](tests/README.md) (in Korean; measurement files are needed separately).
 
 ## License
 
 This program is released under the [MIT License](LICENSE); the earlier versions (1.0–1.6) are under the same terms. Anyone may use, change and redistribute it freely as long as the copyright notice and the license text go along; it comes without any warranty.
 
-The executable (zip) also contains software by others - Python, Tcl/Tk, numpy, scipy, matplotlib, pywin32, originpro and more - each under its own license. Their list and full license texts go into `THIRD-PARTY-NOTICES.txt` inside the zip from the next release on.
+The executable (zip) also contains software by others - Python, Tcl/Tk, numpy, scipy, matplotlib, pywin32, originpro and more - each under its own license. Their list and full license texts go into `THIRD-PARTY-NOTICES.txt` inside the zip from 1.7 on.

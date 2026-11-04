@@ -11,6 +11,7 @@ the single file used to do (the package's modules import each other's names with
     OLD = _versions.load("1.4")               # a single-file version
     X = _versions.load(path=r"...\\copy.py")   # some other single file
     Y = _versions.load_package(root=r"...")   # a (mutated) copy of the package in another folder
+    V = _versions.load_package(root=r"...", modules=_versions.MODULES_1_6)   # a copy of the 1.6 package
 """
 import importlib
 import json
@@ -21,15 +22,17 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKAGE = "tcspc_analysis"
 NEWEST = os.environ.get("TCSPC_VERSION", "1.5")
-MODULES = ["version", "paths", "phu", "util", "origin", "fitting", "model", "theme", "flim",
+MODULES = ["version", "paths", "phu", "util", "origin", "fitting", "model", "theme", "ui", "flim",
            "dialogs.common", "dialogs.crop_view", "dialogs.crop_slice", "dialogs.crop_solvent",
            "dialogs.crop", "dialogs.mask", "dialogs.kinetics",
            "dialogs.global_analysis", "viewer_figure", "viewer_export", "viewer", "freezelog", "app"]
+MODULES_1_6 = [m for m in MODULES if m != "ui"]      # the package up to 1.6 (a copy of it: load_package)
 _packages = {}
 
 
-def samples():
-    """Paths of the two sample records the tests were written for: (A, B).
+def samples(keys=("A", "B")):
+    """Paths of the two sample records the tests were written for: (A, B). ``keys=("C",)``: the third record,
+    the one the README's pictures show, which only test_v17.py needs.
 
     They are measurements and not part of the repository. tests/samples.json names them -
     {"A": "Data/....phu", "B": "Data/....phu"}, a relative path counts from the project folder - or, without
@@ -44,7 +47,7 @@ def samples():
     except OSError:
         pass
     out = []
-    for key in ("A", "B"):
+    for key in keys:
         path = named.get(key) or os.environ.get("TCSPC_SAMPLE_" + key, "")
         if path and not os.path.isabs(path):
             path = os.path.join(ROOT, path)
@@ -87,8 +90,9 @@ class Facade:
         return [mod.__file__ for mod in self._modules.values()]
 
 
-def load_package(root=None, name=None):
-    """The package under ``root`` (default: the project) as a Facade, loaded once per root."""
+def load_package(root=None, name=None, modules=None):
+    """The package under ``root`` (default: the project) as a Facade, loaded once per root. ``modules``: the
+    module names to load (default MODULES; MODULES_1_6 for a copy of 1.6, which has no ui.py)."""
     root = os.path.abspath(root or ROOT)
     if root in _packages:
         return _packages[root]
@@ -105,7 +109,7 @@ def load_package(root=None, name=None):
         pkg = importlib.util.module_from_spec(spec)
         sys.modules[name] = pkg
         spec.loader.exec_module(pkg)
-    modules = {m: importlib.import_module(f"{name}.{m}") for m in MODULES}
+    modules = {m: importlib.import_module(f"{name}.{m}") for m in (modules or MODULES)}
     _packages[root] = Facade(name, root, modules)
     return _packages[root]
 
@@ -134,7 +138,9 @@ def load(version=None, path=None):
 def rules_of_1_5(new=None):
     """Put back, in ``new`` (default: the package), the rules that 1.6 changed on purpose and that change
     results: the fits' limits and how they are held (A-1), the amplitude limit (A-10), how the IRF width is
-    measured (A-13), the first / last point of a default fit range (C-8), the digits of the map CSV (B-20).
+    measured (A-13), the first / last point of a default fit range (C-8), the digits of the map CSV (B-20),
+    and the default background window 1.7 changed (the first 100 ps instead of 0-10000 ps of the record, ending
+    three IRF widths before the IRF peak).
     With them back, a comparison against 1.4 checks that nothing ELSE changed. Returns a function that
     restores the 1.6 rules. Not switchable (they are not one name): the fixed skip mask (A-2, only with a
     free t0 / FWHM), the two extra preamble lines of a fit export (C-9), the unit of the Origin Counts column
@@ -168,8 +174,31 @@ def rules_of_1_5(new=None):
         except AttributeError:
             continue
         setattr(new, name, repl)
+    back_bg = bg_default_of_1_6(new)
 
     def restore():
+        back_bg()
         for name, value in saved.items():
             setattr(new, name, value)
+    return restore
+
+
+def bg_default_of_1_6(new=None):
+    """Put back, in ``new`` (default: the package), only the default background window of 1.6 and before:
+    the first 100 ps of the record, whatever the IRF (1.7: 0-10000 ps, ended three IRF widths before the IRF
+    peak - TRESModel.default_bg_window). For the tests that compare a run of the package with an older version
+    on background-subtracted data. Returns a function that restores the 1.7 default."""
+    new = new or load()
+    try:
+        saved = new.BG_WINDOW_PS
+        model = new.TRESModel
+        method = vars(model)["default_bg_window"]
+    except (AttributeError, KeyError):  # a state of the code without it: nothing to put back
+        return lambda: None
+    new.BG_WINDOW_PS = (0.0, 100.0)
+    model.default_bg_window = lambda self: (0.0, 100.0)
+
+    def restore():
+        new.BG_WINDOW_PS = saved
+        model.default_bg_window = method
     return restore

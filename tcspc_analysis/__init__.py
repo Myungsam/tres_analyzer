@@ -35,22 +35,22 @@ bin of the displayed record summed together, i.e. what a cw spectrometer would
 have recorded. The bottom-right panel is still the spectrum at the cursor
 delay only.
 
-OFFSET shifts the whole wavelength axis by the number of nm in the box, for
+"Offset:" shifts the whole wavelength axis by the number of nm in the box, for
 spectrograph calibration. It is absolute - always measured from the values
 stored in the file - so pressing the button twice does not shift twice. The
 box starts at -50 nm (the usual calibration for this setup); type 0 for the
 raw wavelengths in the file.
 
-Two preprocessing tools live under "PREP", each in its own pop-up:
+Two preprocessing tools have a button in the top row, each its own pop-up:
     Crop    keep only a rectangular (wavelength, time) window. The whole map is
             drawn once as a preview; drag two corners or type the bounds and the
             kept box updates live. Apply re-slices the pristine file, so the
             crop can be widened again (or Reset to full) without reloading. Its
-            upper time edge is the same value as the main TIME END box.
+            upper time edge is the same value as the main "Time end:" box.
             The same window subtracts a solvent: "Load solvent..." takes a
             pure-solvent .phu measured on the same grid (same curves,
             wavelengths, resolution and bin count - anything else is refused),
-            and SOLVENT SCALE (slider 0-2, or type a larger value) sets how much of it
+            and "Solvent scale:" (slider 0-2, or type a larger value) sets how much of it
             is taken off, bin for bin: sample - scale x solvent. The heatmap and
             the steady-state panel under it (sample, scaled solvent, subtracted)
             follow the scale as a preview; Apply hands it to the main window,
@@ -130,9 +130,9 @@ Mouse
     colorbar  drag        set the contrast range
               right-click auto contrast
 
-A background spectrum - the mean over a time window, by default the first
-0-100 ps of the record - is subtracted from every time bin. Untick "Subtract
-background" or type your own window to change it. The window is quoted on the
+A background spectrum - the mean over a time window, by default 0-10000 ps of
+the record, stopping 3 IRF widths before the IRF peak if sooner - is subtracted
+from every bin. Untick "Subtract background" or type a window. It is quoted on the
 displayed time axis and is re-quoted automatically when t0 moves, so it always
 keeps covering the same real delays.
 

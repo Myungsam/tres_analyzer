@@ -4,13 +4,12 @@ import queue
 
 import numpy as np
 
-from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
-
 import tkinter as tk
 from tkinter import ttk
 
 from ..fitting import FitInputError
-from ..theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, px, scaled_geometry
+from ..theme import ACCENT, BG, FIXED_FONT, INK, INK_DIM, INK_FAINT, LINE, PANEL, px, scaled_geometry
+from ..ui import button, group, spin
 
 
 def read_number(var, name):
@@ -29,6 +28,14 @@ def fmt_ps(value):
     """A time for an entry box, with every digit it needs to read back as the
     same delay (four digits wrote 21,824 ps as 2.182e+04)."""
     return f"{value:.10g}"
+
+
+def wl_step(wls):
+    """The arrow step of a wavelength box: the spacing of the curves, to
+    0.01 nm (a step of 0.531234 nm would write six decimals into the box)."""
+    wls = np.asarray(wls, float)
+    d = float(np.median(np.abs(np.diff(wls)))) if wls.size > 1 else 1.0
+    return max(round(d, 2), 0.01) if np.isfinite(d) else 1.0
 
 
 def in_range(t, lo, hi):
@@ -52,19 +59,6 @@ def _style_analysis_ax(ax):
     ax.xaxis.label.set_color(INK_DIM)
     ax.yaxis.label.set_color(INK_DIM)
     ax.title.set_color(INK_DIM)
-
-
-def _dark_toolbar(canvas, master):
-    """A matplotlib navigation toolbar tinted to match the theme."""
-    tb = NavigationToolbar2Tk(canvas, master, pack_toolbar=False)
-    tb.configure(bg=PANEL)
-    for child in tb.winfo_children():
-        try:
-            child.configure(bg=PANEL)
-        except tk.TclError:
-            pass
-    tb.update()
-    return tb
 
 
 class ComponentTable(ttk.Frame):
@@ -104,11 +98,11 @@ class ComponentTable(ttk.Frame):
                 value=prev[i]["beta_fixed"] if i < len(prev) else False)
             w0 = ttk.Label(self, text=str(i + 1))
             w1 = ttk.Entry(self, textvariable=tau_v, width=11,
-                           font=("TkFixedFont", 9))
+                           font=FIXED_FONT)
             w2 = ttk.Checkbutton(self, variable=fix_v)
             w3 = ttk.Checkbutton(self, variable=st_v)
             w4 = ttk.Entry(self, textvariable=beta_v, width=6,
-                           font=("TkFixedFont", 9))
+                           font=FIXED_FONT)
             w5 = ttk.Checkbutton(self, variable=bfix_v)
             rr = i + 1
             w0.grid(row=rr, column=0, padx=2, sticky="w")
@@ -181,7 +175,7 @@ class _AnalysisDialog:
         room = (self.win.winfo_screenwidth() - px(self.win, 40),
                 self.win.winfo_screenheight() - px(self.win, 100))
         self.win.minsize(*(min(px(self.win, v), r) for v, r in zip(minsize, room)))
-        self.win.configure(bg=BG)
+        self.win.configure(bg=PANEL)
         self.alive = True
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -217,6 +211,15 @@ class _AnalysisDialog:
         for name in [n for n, v in vars(self).items() if of_tk(v)]:
             setattr(self, name, None)
         gc.collect()        # the cycles just cut loose, finalised here
+
+    def _register_export(self, btn):
+        """An export button: blue, orange while the main window's ".opju" is
+        ticked (the viewer's ExportButtons keeps all of them in step)."""
+        reg = getattr(self.app, "_export_buttons", None)
+        if reg is not None:
+            return reg.add(btn)
+        btn.configure(style="Export.TButton")
+        return btn
 
     def _draw_when_sized(self, canvas):
         """The first picture of a new window. Its figure is made at a made-up
@@ -282,7 +285,7 @@ class _FitDialog(_AnalysisDialog):
     def _components_row(self, parent, default, most, **pack):
         """Number of components + the tau = inf tick. The table is the caller's."""
         n_row = ttk.Frame(parent); n_row.pack(fill="x", **pack)
-        ttk.Label(n_row, text="Components").pack(side="left")
+        ttk.Label(n_row, text="Components:").pack(side="left")
         self.var_n = tk.StringVar(value=str(default))
         cb = ttk.Combobox(n_row, textvariable=self.var_n,
                           values=[str(k) for k in range(1, most + 1)], width=4, state="readonly")
@@ -292,24 +295,23 @@ class _FitDialog(_AnalysisDialog):
         ttk.Checkbutton(n_row, text="Include τ = ∞ offset",
                         variable=self.var_inf).pack(side="left")
 
-    def _irf_row(self, parent, label, var, fix_var):
+    def _irf_row(self, parent, label, var, fix_var, lo=None):
         row = ttk.Frame(parent); row.pack(fill="x", pady=1)
-        ttk.Label(row, text=label, width=10).pack(side="left")
-        ttk.Entry(row, textvariable=var, width=10,
-                  font=("TkFixedFont", 9)).pack(side="left", padx=(4, 8))
+        ttk.Label(row, text=label, width=11).pack(side="left")
+        spin(row, var, 1, lo=lo, width=10).pack(side="left", padx=(4, 8))
         ttk.Checkbutton(row, text="fixed", variable=fix_var).pack(side="left")
 
     def _irf_box(self, parent):
         """The "IRF (Gaussian)" group: t0 and FWHM, each with its "fixed" tick."""
         t0d, fwd = self._irf_defaults()
-        irf = ttk.Labelframe(parent, text="IRF (Gaussian)", padding=6)
+        irf = group(parent, "IRF (Gaussian)")
         irf.pack(fill="x", pady=(2, 6))
         self.var_t0 = tk.StringVar(value=fmt_ps(t0d))
         self.var_t0_fix = tk.BooleanVar(value=True)
         self.var_fw = tk.StringVar(value=f"{fwd:.4g}")
         self.var_fw_fix = tk.BooleanVar(value=True)
-        self._irf_row(irf, "t₀ (ps)", self.var_t0, self.var_t0_fix)
-        self._irf_row(irf, "FWHM (ps)", self.var_fw, self.var_fw_fix)
+        self._irf_row(irf, "t₀ (ps):", self.var_t0, self.var_t0_fix)
+        self._irf_row(irf, "FWHM (ps):", self.var_fw, self.var_fw_fix, lo=0)
         return irf
 
     def _reset_irf(self):
@@ -317,18 +319,19 @@ class _FitDialog(_AnalysisDialog):
         self.var_t0.set(fmt_ps(t0d)); self.var_t0_fix.set(True)
         self.var_fw.set(f"{fwd:.4g}"); self.var_fw_fix.set(True)
 
-    def _range_entries(self, parent):
-        """From / To / Full of the fit range, packed into ``parent``. -> the two entries"""
+    def _range_entries(self, parent, on_change=None):
+        """From / To / Full of the fit range, packed into ``parent``: number
+        boxes stepping 1 ps, ``on_change()`` after the arrows. -> the two boxes"""
         m = self.model
         self.var_tmin = tk.StringVar(value=fmt_ps(m.times[0]))
         self.var_tmax = tk.StringVar(value=fmt_ps(m.times[-1]))
-        ttk.Label(parent, text="From").pack(side="left")
-        e0 = ttk.Entry(parent, textvariable=self.var_tmin, width=9, font=("TkFixedFont", 9))
+        ttk.Label(parent, text="From:").pack(side="left")
+        e0 = spin(parent, self.var_tmin, 1, on_change=on_change, width=9)
         e0.pack(side="left", padx=(4, 8))
-        ttk.Label(parent, text="To").pack(side="left")
-        e1 = ttk.Entry(parent, textvariable=self.var_tmax, width=9, font=("TkFixedFont", 9))
+        ttk.Label(parent, text="To:").pack(side="left")
+        e1 = spin(parent, self.var_tmax, 1, on_change=on_change, width=9)
         e1.pack(side="left", padx=(4, 8))
-        ttk.Button(parent, text="Full", command=self._t_full).pack(side="left")
+        button(parent, "Full", self._t_full, width=6).pack(side="left")
         return e0, e1
 
     def _t_full(self):
@@ -337,20 +340,23 @@ class _FitDialog(_AnalysisDialog):
         self.var_tmax.set(fmt_ps(m.times[-1]))
 
     def _run_buttons(self, parent):
-        self.btn_run = ttk.Button(parent, text="Run fit", command=self.run_fit)
+        self.btn_run = button(parent, "Run fit", self.run_fit, role="Run")
         self.btn_run.pack(side="left")
-        self.btn_stop = ttk.Button(parent, text="Stop", command=self.stop_fit,
-                                   state="disabled")
+        self.btn_stop = button(parent, "Stop", self.stop_fit, role="Stop",
+                               state="disabled")
         self.btn_stop.pack(side="left", padx=(6, 0))
-        ttk.Button(parent, text="Reset", command=self.reset).pack(side="left", padx=(6, 0))
+        button(parent, "Reset", self.reset).pack(side="left", padx=(6, 0))
 
     def _export_row(self, parent, hint):
-        row = ttk.Frame(parent); row.pack(fill="x")
-        ttk.Label(row, text="Export").pack(side="left")
-        ttk.Button(row, text="Export results",
-                   command=self.export_results).pack(side="left", padx=(6, 0))
-        ttk.Label(row, text=hint, style="Val.TLabel",
-                  foreground=INK_FAINT).pack(side="left", padx=(6, 0))
+        """The "Export" group: Export results (blue / orange) and what it writes."""
+        box = group(parent, "Export")
+        box.pack(fill="x", pady=(2, 6))
+        self.btn_export = self._register_export(
+            button(box, "Export results", self.export_results))
+        self.btn_export.pack(side="left")
+        ttk.Label(box, text=hint, style="Val.TLabel", foreground=INK_FAINT,
+                  wraplength=px(self.win, 220), justify="left").pack(side="left", padx=(8, 0))
+        return box
 
     def _report_box(self, parent, height, width, hint):
         """The status line and the text box the result is written into."""
@@ -359,7 +365,7 @@ class _FitDialog(_AnalysisDialog):
                   foreground=ACCENT).pack(anchor="w", pady=(6, 2))
         self.txt = tk.Text(parent, height=height, width=width, bg=BG, fg=INK,
                            insertbackground=INK, relief="flat",
-                           font=("TkFixedFont", 9), wrap="none")
+                           font=FIXED_FONT, wrap="none")
         self.txt.pack(fill="both", expand=True)
         self.txt.insert("1.0", hint)
 

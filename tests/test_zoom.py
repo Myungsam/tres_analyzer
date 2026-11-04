@@ -20,6 +20,9 @@ import _versions                              # noqa: E402
 # ZOOM_MODULE: the path of a (mutated) copy to test instead of the newest version
 NEW = _versions.load(path=os.environ["ZOOM_MODULE"]) if os.environ.get("ZOOM_MODULE") else _versions.load()
 OLD = _versions.load("1.2")
+# compared with 1.2 on background-subtracted data: the default window of 1.6 and before (1.7: 0-10000 ps,
+# ending three IRF widths before the IRF peak)
+_versions.bg_default_of_1_6(NEW)
 
 SAMPLE_A = _versions.samples()[0]
 fails, cb_errors, boxes = [], [], []

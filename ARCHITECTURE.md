@@ -9,7 +9,7 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 
 이 문서는 프로그램의 구성 요소와 그 사이의 데이터 흐름을 설명한다. 모든 다이어그램 아래에는 같은 내용을 표로 다시 적었다.
 
-- 대상: `tcspc_analysis/` 패키지 (파일 25개, 7,074줄)
+- 대상: `tcspc_analysis/` 패키지 (파일 26개, 7,846줄)
 - 실행: 프로젝트 폴더에서 `python -m tcspc_analysis [file.phu]`, 또는 같은 일을 하는 스크립트 `run_tcspc_analysis.py`
 - GUI: Tkinter(ttk) + matplotlib(TkAgg 백엔드)
 
@@ -27,21 +27,22 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 | `util.py` | 102 | 헬퍼: 파장 → RGB 변환, 피크/FWHM 계산 | `wavelength_to_rgb`, `fwhm_of`, `short_name` |
 | `origin.py` | 102 | Origin 쓰기: 워크북·워크시트 찾기와 채우기 | `_origin_book1`, `_origin_sheet`, `_origin_fill_tres`, `_origin_fill_steady`, `_origin_fill_table` |
 | `fitting.py` | 851 | 피팅 커널: IRF 컨볼루션 지수 모델, 단일 곡선 피팅, 전역 피팅, EADS 변환 | `exp_irf_conv`, `stretched_irf_conv`, `build_ga_basis`, `fit_single_trace`, `fit_global_analysis`, `compute_eads_from_dads` |
-| `model.py` | 356 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거. solvent 파일 호환성 검사, 지도의 파장 축 배치 | `TRESModel`, `solvent_mismatch`, `wavelength_grid` |
-| `theme.py` | 162 | 색상 상수, ttk 테마, 그림 축 꾸미기, 화면 배율 처리 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `dpi_aware`, `ui_scale`, `px`, `scaled_geometry` |
-| `flim.py` | 559 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
+| `model.py` | 400 | 모델: TRES 데이터의 리비닝, 자르기, solvent 차감, 마스크, 배경 제거. solvent 파일 호환성 검사, 지도의 파장 축 배치 | `TRESModel`, `solvent_mismatch`, `wavelength_grid`, `BG_WINDOW_PS` |
+| `theme.py` | 238 | 색상 상수(버튼 역할 색 포함), 이름 붙인 글꼴, ttk 테마와 역할별 버튼 스타일, 그림 축 꾸미기, 화면 배율 처리 | `apply_theme`, `shade_wl_masks`, `style_plot_ax`, `preview_norm_cmap`, `dpi_aware`, `ui_scale`, `px`, `scaled_geometry`, `ROLES`, `UI_FONT`, `FIXED_FONT` |
+| `ui.py` | 234 | 창들이 함께 쓰는 위젯 조각: 역할 색 버튼, 제목 있는 묶음, 화살표로 값을 바꾸는 숫자 칸, 그림 도구 막대, `.opju`에 따라 색이 바뀌는 내보내기 버튼 | `button`, `group`, `spin`, `NavToolbar`, `attach_toolbar`, `ExportButtons` |
+| `flim.py` | 566 | FLIM PTU 처리(T3 레코드 읽기, 픽셀별 감쇠 큐브, 이미지 계산, GPU 감지)와 FLIM 탭 화면 | `load_ptu_records`, `process_records_cpu`, `process_records_gpu`, `compute_intensity`, `compute_lifetime_map`, `detect_gpu`, `start_gpu_detection`, `FLIMViewer` |
 | `dialogs/__init__.py` | 0 | (비어 있음) | — |
-| `dialogs/common.py` | 517 | 팝업 창의 공통 기반, 두 피팅 창의 공통 기반, 성분 표 위젯, 피팅 결과 CSV 쓰기 | `ComponentTable`, `_AnalysisDialog`, `_FitDialog`, `write_fit_csv` |
-| `dialogs/crop_view.py` | 155 | Crop 창의 일부: 지도의 확대·이동, 색 척도, 시간 척도 | `_CropView` |
+| `dialogs/common.py` | 523 | 팝업 창의 공통 기반, 두 피팅 창의 공통 기반, 성분 표 위젯, 피팅 결과 CSV 쓰기 | `ComponentTable`, `_AnalysisDialog`, `_FitDialog`, `write_fit_csv` |
+| `dialogs/crop_view.py` | 158 | Crop 창의 일부: 지도의 확대·이동, 색 척도, 시간 척도 | `_CropView` |
 | `dialogs/crop_slice.py` | 85 | Crop 창의 일부: 마우스 위치의 시각별 스펙트럼(보관한 그림 위에 얹어 그림) | `_CropSlice` |
 | `dialogs/crop_solvent.py` | 109 | Crop 창의 일부: solvent 파일과 scale | `_CropSolvent` |
-| `dialogs/crop.py` | 614 | Crop 창 (범위 선택, solvent 차감 미리보기, Apply). 위 세 모듈의 클래스를 물려받음 | `CropDialog` |
-| `dialogs/mask.py` | 160 | Mask 창 | `MaskDialog` |
-| `dialogs/kinetics.py` | 412 | Kinetics 창 | `KineticsDialog` |
-| `dialogs/global_analysis.py` | 522 | Global analysis 창 | `GlobalAnalysisDialog` |
-| `viewer_figure.py` | 528 | TRES 탭의 일부: 그림(지도, decay, spectrum, steady state, 컬러바)을 그리는 일과 마우스 조작(커서, 고정, 확대 사각형) | `_MapFigure` |
+| `dialogs/crop.py` | 629 | Crop 창 (범위 선택, solvent 차감 미리보기, Apply). 위 세 모듈의 클래스를 물려받음 | `CropDialog` |
+| `dialogs/mask.py` | 172 | Mask 창 | `MaskDialog` |
+| `dialogs/kinetics.py` | 418 | Kinetics 창 | `KineticsDialog` |
+| `dialogs/global_analysis.py` | 539 | Global analysis 창 | `GlobalAnalysisDialog` |
+| `viewer_figure.py` | 827 | TRES 탭의 일부: 그림(지도, decay, spectrum, steady state, 컬러바)을 그리는 일과 마우스 조작(커서, 고정, 확대 사각형) | `_MapFigure` |
 | `viewer_export.py` | 611 | TRES 탭의 일부: 지도 그림, 지도·steady-state CSV, Origin 프로젝트 쓰기, 피팅 창의 내보내기가 거치는 경로 | `_Export`, `CSV_NUMBER` |
-| `viewer.py` | 561 | TRES 탭: 설정 줄, 파일 열기, 설정 적용, 팝업 창 관리. 위 두 모듈의 클래스를 물려받음 | `TRESViewer` |
+| `viewer.py` | 614 | TRES 탭: 설정 줄, 파일 열기, 설정 적용, 팝업 창 관리. 위 두 모듈의 클래스를 물려받음 | `TRESViewer` |
 | `freezelog.py` | 216 | 멈춤 기록 | `FreezeLog` |
 | `app.py` | 84 | 창과 탭을 만들고 이벤트 루프 시작 | `main` |
 
@@ -51,18 +52,19 @@ TCSPC_analysis는 PicoQuant PicoHarp 300 TCSPC 장비의 측정 파일을 후처
 |---|---|
 | `version.py`, `paths.py`, `phu.py`, `util.py`, `origin.py`, `fitting.py`, `theme.py` | (패키지의 다른 모듈을 쓰지 않음) |
 | `model.py` | `util.py` |
-| `flim.py` | `theme.py` |
-| `dialogs/common.py` | `fitting.py`, `theme.py` |
+| `ui.py` | `theme.py` |
+| `flim.py` | `theme.py`, `ui.py` |
+| `dialogs/common.py` | `fitting.py`, `theme.py`, `ui.py` |
 | `dialogs/crop_view.py` | `theme.py` |
 | `dialogs/crop_slice.py` | `theme.py` |
 | `dialogs/crop_solvent.py` | `phu.py`, `util.py`, `model.py` |
-| `dialogs/crop.py` | `model.py`, `theme.py`, `dialogs/common.py`, `dialogs/crop_view.py`, `dialogs/crop_slice.py`, `dialogs/crop_solvent.py` |
-| `dialogs/mask.py` | `theme.py`, `dialogs/common.py` |
-| `dialogs/kinetics.py` | `origin.py`, `fitting.py`, `theme.py`, `dialogs/common.py` |
-| `dialogs/global_analysis.py` | `origin.py`, `fitting.py`, `model.py`, `theme.py`, `dialogs/common.py` |
-| `viewer_figure.py` | `util.py`, `theme.py` |
+| `dialogs/crop.py` | `model.py`, `theme.py`, `ui.py`, `dialogs/common.py`, `dialogs/crop_view.py`, `dialogs/crop_slice.py`, `dialogs/crop_solvent.py` |
+| `dialogs/mask.py` | `theme.py`, `ui.py`, `dialogs/common.py` |
+| `dialogs/kinetics.py` | `origin.py`, `fitting.py`, `theme.py`, `ui.py`, `dialogs/common.py` |
+| `dialogs/global_analysis.py` | `origin.py`, `fitting.py`, `model.py`, `theme.py`, `ui.py`, `dialogs/common.py` |
+| `viewer_figure.py` | `util.py`, `theme.py`, `ui.py` |
 | `viewer_export.py` | `paths.py`, `origin.py`, `model.py`, `theme.py` |
-| `viewer.py` | `phu.py`, `util.py`, `model.py`, `theme.py`, `viewer_figure.py`, `viewer_export.py`, `dialogs/crop.py`, `dialogs/mask.py`, `dialogs/kinetics.py`, `dialogs/global_analysis.py` |
+| `viewer.py` | `phu.py`, `util.py`, `model.py`, `theme.py`, `ui.py`, `viewer_figure.py`, `viewer_export.py`, `dialogs/crop.py`, `dialogs/mask.py`, `dialogs/kinetics.py`, `dialogs/global_analysis.py` |
 | `freezelog.py` | `version.py`, `paths.py` |
 | `app.py` | `version.py`, `paths.py`, `theme.py`, `flim.py`, `viewer.py`, `freezelog.py` |
 
@@ -251,7 +253,7 @@ flowchart LR
 | 설정 | `t_min_ps`, `t_max_ps` | 사용할 시간 구간 |
 | 설정 | `first_is_irf` | 첫 곡선을 IRF로 취급할지 여부 |
 | 설정 | `t0_align` | 시간 원점을 IRF 피크에 맞출지 여부 |
-| 설정 | `bg_sub`, `bg_lo_ps`, `bg_hi_ps` | 배경 제거 여부와 배경 구간 |
+| 설정 | `bg_sub`, `bg_lo_ps`, `bg_hi_ps` | 배경 제거 여부와 배경 구간. 파일을 열 때의 기본값은 `default_bg_window`(기록 시간 0–10000 ps, IRF 봉우리에서 FWHM의 세 배 앞에서 끝남) |
 | 설정 | `wl_offset` | 파장 축 이동량(nm) |
 | 설정 | `crop_wl`, `masks` | 파장 자르기 범위, 마스크 대역 목록 |
 | 설정 | `solvent`, `solvent_scale`, `solvent_sub` | solvent 측정의 phu dict, 차감 비율, 차감 사용 여부 |
@@ -321,9 +323,9 @@ solvent 차감은 4단계에서만 일어난다. solvent의 곡선은 샘플과 
 | 입력 | 처리 메서드 | 바뀌는 대상 |
 |---|---|---|
 | 파일 열기 | `open_dialog` → `load_async`(작업 스레드에서 읽음) → `_show_loaded` | 새 `TRESModel` 생성. solvent 설정은 새 모델에 넘어가지 않음 |
-| TIME END, BIN, IRF·t0·배경 체크박스, 배경 구간 | `apply_params` | 모델 설정 → `rebuild` |
+| Time end, Bin, IRF·t0·배경 체크박스, BG window | `apply_params` | 모델 설정 → `rebuild` |
 | Subtract solvent 체크박스 | `apply_params` | `solvent_sub` → `rebuild`. 체크박스와 라벨은 `redraw`가 부르는 `_sync_solvent_ui`가 모델 상태에 맞춤 |
-| OFFSET | `apply_offset` | `wl_offset` → `rebuild` |
+| Offset | `apply_offset` | `wl_offset` → `rebuild` |
 | 컬러맵, Log color | `_recolor` | 화면만 |
 | 맵 위 마우스 이동·클릭 | `on_motion`, `on_release`, `_toggle_pin` | `cursor`, `pinned` |
 | 맵 드래그, 우클릭 | `on_press`, `on_release`, `reset_view` | `view` (확대 영역) |

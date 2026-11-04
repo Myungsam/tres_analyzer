@@ -8,6 +8,7 @@ import matplotlib
 from matplotlib.colors import LogNorm, Normalize
 
 import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import ttk
 
 
@@ -20,7 +21,8 @@ from tkinter import ttk
 # enough to read on white. Everything downstream refers to these names, so the
 # whole program (both tabs + the analysis windows) follows a change here.
 BG = "#ffffff"         # plot backgrounds and entry fields
-PANEL = "#eef1f6"      # widget / figure panels
+PANEL = "#f0f0f0"      # widget / figure panels (the Windows dialog grey)
+MASK_FILL = "#eef1f6"  # wash under the hatch of a masked band (PANEL up to 1.6)
 INK = "#161d28"        # primary text
 INK_DIM = "#3f4a5a"    # secondary text / titles
 INK_FAINT = "#5b6675"  # tick labels, faint traces, grid
@@ -29,10 +31,49 @@ ACCENT = "#1668c4"     # live decay / fit lines, highlights
 PIN = "#c8860a"        # background window + pinned overlays
 MASKED = "#b0364a"     # hatched bars over masked-out wavelength regions
 GOOD = "#2e9e5c"       # GPU available / "on" states in the FLIM panel
-BTN = "#e3e8ef"        # button / combobox face
-BTN_ACTIVE = "#d3dae4" # button hover
+WARN = "#b3261e"       # a warning in an info line
+BTN = "#e1e1e1"        # button / combobox face (Windows grey)
+BTN_ACTIVE = "#d4d4d4" # button hover
+BTN_BORDER = "#adadad" # button outline
+BTN_DISABLED_FG = "#8c8c8c"  # text of a button that cannot be pressed
 READOUT_FG = "#eef4ff" # map cursor read-out text (always light on its dark box)
 READOUT_BG = "#10151d" # map cursor read-out box (dark, reads over any colormap)
+
+# Buttons that do something beyond the window carry a role colour, always with
+# white text at a contrast of at least 4.5:1 (WCAG AA), hover and press included.
+ROLE_ANALYSIS = "#6f35a5"   # opens an analysis window (Kinetics, Global analysis)
+ROLE_EXPORT = "#1a5fb4"     # writes files
+ROLE_OPJU = "#b35400"       # writes files and drives Origin (".opju" ticked)
+ROLE_RUN = "#1e7b34"        # starts a fit
+ROLE_STOP = "#b3261e"       # stops it
+ROLE_FG = "#ffffff"
+
+
+def _shade(colour, factor):
+    """``colour`` with each channel times ``factor`` (below 1: darker)."""
+    return "#" + "".join(f"{min(255, int(round(int(colour[i:i + 2], 16) * factor))):02x}"
+                         for i in (1, 3, 5))
+
+
+# colour -> (face, hover, pressed); darker shades only raise the contrast
+ROLE_SHADES = {c: (c, _shade(c, 0.88), _shade(c, 0.76))
+               for c in (ROLE_ANALYSIS, ROLE_EXPORT, ROLE_OPJU, ROLE_RUN, ROLE_STOP)}
+# role name -> colour; the ttk style of a role is "<role>.TButton"
+ROLES = {"Analysis": ROLE_ANALYSIS, "Export": ROLE_EXPORT, "Opju": ROLE_OPJU,
+         "Run": ROLE_RUN, "Stop": ROLE_STOP}
+
+# Named fonts (made by apply_theme). Widgets and styles name them by these
+# strings. A font given as a tuple of "TkDefaultFont" and a size is not the
+# named font: Tk reads it as a family called "TkDefaultFont", which it does
+# not have, and on a Korean Windows falls back to Gulim.
+UI_FONT = "TcspcUI"             # Segoe UI 9: labels, buttons, boxes
+UI_FONT_BOLD = "TcspcUIBold"    # Segoe UI 10 bold: captions
+UI_FONT_TAB = "TcspcUITab"      # Segoe UI 10: the tab bar
+FIXED_FONT = "TcspcFixed"       # Consolas 9: numbers, paths, result text
+_FONTS = {UI_FONT: {"family": "Segoe UI", "size": 9},
+          UI_FONT_BOLD: {"family": "Segoe UI", "size": 10, "weight": "bold"},
+          UI_FONT_TAB: {"family": "Segoe UI", "size": 10},
+          FIXED_FONT: {"family": "Consolas", "size": 9}}
 
 
 def shade_wl_masks(ax, masks, wl_lo, wl_hi):
@@ -44,7 +85,7 @@ def shade_wl_masks(ax, masks, wl_lo, wl_hi):
     for a, b in masks:
         lo, hi = max(min(a, b), wl_lo), min(max(a, b), wl_hi)
         if hi > lo:
-            ax.axvspan(lo, hi, facecolor=PANEL, alpha=0.55, lw=0, zorder=4)
+            ax.axvspan(lo, hi, facecolor=MASK_FILL, alpha=0.55, lw=0, zorder=4)
             ax.axvspan(lo, hi, facecolor="none", edgecolor=MASKED, lw=0.9,
                        hatch="///", zorder=5)
 
@@ -122,34 +163,69 @@ def scaled_geometry(widget, geometry):
             f"x{min(px(widget, h), widget.winfo_screenheight() - px(widget, 100))}")
 
 
+def _named_fonts(root):
+    """Make the program's named fonts, once per Tk root, and point Tk's own
+    default fonts at Segoe UI 9. Sizes are in points (positive), so they follow
+    the display's scaling. The Font objects are kept on the root: a Font that
+    is garbage collected deletes its named font."""
+    keep = root.__dict__.setdefault("_tcspc_fonts", [])
+    have = set(tkfont.names(root))
+    for name, spec in _FONTS.items():
+        if name not in have:
+            keep.append(tkfont.Font(root=root, name=name, **spec))
+    for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
+        if name in have:
+            tkfont.nametofont(name, root=root).configure(family="Segoe UI", size=9)
+
+
 def apply_theme(root):
     """Configure the shared ttk light theme, once, for the whole window.
 
     ttk styles are per-interpreter, so this covers both tabs; the extra
     Notebook / Labelframe / Progressbar entries are what the FLIM tab needs on
-    top of the widgets the TRES tab already used.
+    top of the widgets the TRES tab already used. Calling it again (another
+    window of the same root) makes no second set of fonts.
     """
+    _named_fonts(root)
     st = ttk.Style(root)
     try:
         st.theme_use("clam")
     except tk.TclError:
         pass
-    st.configure(".", background=PANEL, foreground=INK, fieldbackground=BG)
+    st.configure(".", background=PANEL, foreground=INK, fieldbackground=BG, font=UI_FONT)
     st.configure("TFrame", background=PANEL)
-    st.configure("TLabel", background=PANEL, foreground=INK_FAINT, font=("TkDefaultFont", 9))
-    st.configure("Val.TLabel", foreground=INK, font=("TkFixedFont", 9))
-    st.configure("TButton", background=BTN, foreground=INK, borderwidth=1)
-    st.map("TButton", background=[("active", BTN_ACTIVE)])
+    st.configure("TLabel", background=PANEL, foreground=INK_FAINT, font=UI_FONT)
+    st.configure("Val.TLabel", foreground=INK, font=FIXED_FONT)
+    st.configure("TButton", background=BTN, foreground=INK, borderwidth=1, bordercolor=BTN_BORDER,
+                 lightcolor=BTN, darkcolor=BTN, focuscolor=INK_FAINT)
+    st.map("TButton", background=[("disabled", BTN), ("pressed", BTN_ACTIVE), ("active", BTN_ACTIVE)],
+           lightcolor=[("pressed", BTN_ACTIVE), ("active", BTN_ACTIVE)],
+           darkcolor=[("pressed", BTN_ACTIVE), ("active", BTN_ACTIVE)],
+           foreground=[("disabled", BTN_DISABLED_FG)])
+    # one style per role: white text on the role colour, grey when disabled
+    for role, colour in ROLES.items():
+        face, hover, pressed = ROLE_SHADES[colour]
+        name = f"{role}.TButton"
+        st.configure(name, background=face, foreground=ROLE_FG, bordercolor=pressed,
+                     lightcolor=face, darkcolor=face)
+        states = [("disabled", BTN), ("pressed", pressed), ("active", hover)]
+        st.map(name, background=states, lightcolor=states, darkcolor=states,
+               bordercolor=[("disabled", BTN_BORDER)],
+               foreground=[("disabled", BTN_DISABLED_FG)])
     st.configure("TCheckbutton", background=PANEL, foreground=INK_DIM)
     st.map("TCheckbutton", background=[("active", PANEL)])
     st.configure("TCombobox", fieldbackground=BG, background=BTN, foreground=INK)
     st.configure("TEntry", fieldbackground=BG, foreground=INK, insertcolor=INK)
-    # -- extras for the FLIM tab and the tab bar --
+    st.configure("TSpinbox", fieldbackground=BG, background=BTN, foreground=INK,
+                 insertcolor=INK, arrowcolor=INK_DIM, arrowsize=10)
+    # -- groups, the status bar, the tab bar and the FLIM tab --
     st.configure("TLabelframe", background=PANEL, bordercolor=LINE)
-    st.configure("TLabelframe.Label", background=PANEL, foreground=INK_DIM)
+    st.configure("TLabelframe.Label", background=PANEL, foreground=INK_DIM, font=UI_FONT)
+    st.configure("Status.TFrame", background=PANEL)
+    st.configure("Status.TLabel", background=PANEL, foreground=INK_FAINT, font=UI_FONT)
     st.configure("TNotebook", background=PANEL, bordercolor=LINE, tabmargins=(6, 6, 6, 0))
     st.configure("TNotebook.Tab", background=PANEL, foreground=INK_DIM,
-                 padding=(18, 7), font=("TkDefaultFont", 10))
+                 padding=(18, 7), font=UI_FONT_TAB)
     st.map("TNotebook.Tab",
            background=[("selected", BG)], foreground=[("selected", INK)])
     st.configure("TProgressbar", background=ACCENT, troughcolor="#dfe4ec", bordercolor=LINE)

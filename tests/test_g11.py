@@ -9,6 +9,7 @@ import numpy as np
 
 from _harness import *                        # noqa: F401,F403
 from _harness import SAMPLE_B, NEW, OLD, SAMPLE_A, TMP, boxes, check, finish, make_app, make_phu, pump, section, wait
+import _versions
 
 # ---------------------------------------------------------------------------------------------
 if section("A-18"):
@@ -241,8 +242,10 @@ if section("A-11"):
     check("... each row is still its own curve", np.array_equal(md.E_raw[row], p["counts"][2].reshape(-1, 4).sum(axis=1)[:md.n_t]),
           str(md.wls))
     check("... and a point is found on it", md.locate(590.0, float(md.times[3])) == (row, 3), str(md.locate(590.0, float(md.times[3]))))
-    # the usual file is untouched
+    # the usual file is untouched (compared with 1.4: its default background window)
+    back = _versions.bg_default_of_1_6(NEW)
     new, old = NEW.TRESModel(NEW.read_phu(SAMPLE_A)), OLD.TRESModel(OLD.read_phu(SAMPLE_A))
+    back()
     check("an evenly spaced file: wavelengths, map and axis edges are 1.4's",
           np.array_equal(new.wls, old.wls) and np.array_equal(new.E, old.E, equal_nan=True)
           and tuple(new.wl_edges) == tuple(old.wl_edges) and new.on_grid(new.E) is new.E)

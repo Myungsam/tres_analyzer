@@ -66,8 +66,8 @@ for bad in ("no_such_name_anywhere",):
         ok_set = True
     check("an unknown name raises on read and on assignment (no silent new attribute)", ok_get and ok_set)
 
-check("__file__ points into the package, sources() lists its 22 module files",
-      P.__file__.endswith(os.path.join("tcspc_analysis", "__init__.py")) and len(P.sources()) == 22
+check("__file__ points into the package, sources() lists its 23 module files",
+      P.__file__.endswith(os.path.join("tcspc_analysis", "__init__.py")) and len(P.sources()) == 23
       and all(os.path.exists(s) for s in P.sources()))
 
 # a copy in another folder loads beside the original, as its own set of modules

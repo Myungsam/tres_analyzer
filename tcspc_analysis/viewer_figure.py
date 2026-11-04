@@ -1,5 +1,6 @@
 """The TRES tab's figure: drawing and mouse interaction."""
 import numpy as np
+import tkinter as tk
 
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -9,8 +10,9 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import EngFormatter, MaxNLocator
 
+from .ui import attach_toolbar
 from .util import wavelength_to_rgb
-from .theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN, READOUT_BG, READOUT_FG, shade_wl_masks
+from .theme import ACCENT, BG, INK, INK_DIM, INK_FAINT, LINE, PANEL, PIN, READOUT_BG, READOUT_FG, WARN, shade_wl_masks
 
 
 class _MapFigure:
@@ -47,12 +49,181 @@ class _MapFigure:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        # matplotlib's toolbar above the figure. Home is Reset zoom; after any
+        # of its moves self.view is read back from the map's limits. The colour
+        # bar and the ribbon are not navigated: the bar's limits are the
+        # contrast (self.clim), and the ribbon follows the map.
+        self.cax.set_navigate(False)
+        self.ax_rib.set_navigate(False)
+        self.toolbar = attach_toolbar(self.canvas, self.parent,
+                                      before=self.canvas.get_tk_widget(),
+                                      on_home=self._home_view, on_nav=self._view_from_axes)
 
         self.canvas.mpl_connect("motion_notify_event", self.on_motion)
         self.canvas.mpl_connect("button_press_event", self.on_press)
         self.canvas.mpl_connect("button_release_event", self.on_release)
         self.canvas.mpl_connect("axes_leave_event", self.on_leave)
         self.canvas.mpl_connect("draw_event", self.on_draw)
+        self.canvas.mpl_connect("resize_event", self._on_resize)
+        self.canvas.get_tk_widget().bind("<Map>", self._on_map, add="+")
+        self.canvas.get_tk_widget().bind("<Destroy>", self._on_canvas_destroy, add="+")
+
+    # Room around the panels, in pixels: what their tick labels, axis labels
+    # and titles need. The GridSpec's fractions suit one window size only; in
+    # a small window the labels ran off the figure or under the next panel.
+    PAD_PX = 6           # free space beside every label
+    GAP_CBAR_PX = 18     # map -> colour bar (only ticks inside)
+    GAP_RIBBON_PX = 8    # map -> spectral ribbon
+    HOLD_PX = 3          # a smaller change does not move the panels
+    _over = None         # what _fit_layout last measured, panel -> reach of its labels
+    _relayouts = 0       # draws in a row that moved the panels
+    _layout_stale = False    # the panels moved since the last draw
+    _draw_queued = None      # the after_idle id of the draw that shows them
+
+    def _fit_layout(self):
+        """Place the panels so that every label and title is inside the figure
+        and off the other panels, at the canvas's present size; True when they
+        moved. The panels keep their arrangement and their width / height
+        ratios (the GridSpec's), and their edges sit on whole pixels.
+
+        It reads the labels as the last draw left them (on_draw calls it), so
+        it costs a few milliseconds, not a second layout of every axis; when
+        the panels had to move, on_draw draws once more. A new canvas size
+        places them with these same numbers before it draws (_on_resize): the
+        labels do not change with it, so that draw needs no second one."""
+        if not self.model or not self.ax_hist.get_visible():
+            return False    # the placeholder: one panel, the GridSpec places it
+        fig = self.fig
+        W, H = fig.bbox.width, fig.bbox.height
+        if W < 50 or H < 50:
+            return False
+        r = self.canvas.get_renderer()
+
+        def drawn_labels(axis):
+            """The tick labels the last draw put on ``axis`` (as Axis._update_ticks
+            pairs ticks with locations), and the axis label (or None)."""
+            lo, hi = sorted(axis.get_view_interval())
+            eps = (hi - lo) * 1e-9
+            ticks_out = []
+            for ticks, locs in ((axis.majorTicks, axis.get_majorticklocs()),
+                                (axis.minorTicks, axis.get_minorticklocs())):
+                for tick, loc in zip(ticks, locs):
+                    if lo - eps <= loc <= hi + eps:
+                        ticks_out += [t for t in (tick.label1, tick.label2) if t.get_visible() and t.get_text()]
+            label = axis.label if axis.label.get_visible() and axis.label.get_text() else None
+            return ticks_out, label
+
+        def extents(texts):
+            ext = [t.get_window_extent(r) for t in texts if t is not None]
+            return [e for e in ext if e.width > 0 and e.height > 0]
+
+        def over(ax):
+            """How far the labels of ``ax`` reach beyond it: (left, right, bottom, top) px.
+            What is drawn inside a panel is clipped to it.
+
+            A tick label is taken to reach half its width (x) or height (y) past
+            the panel's ends whether or not a tick sits at the end: whether one
+            does changes with the panel's size, and the layout would swing."""
+            b = ax.bbox
+            xt, xl = drawn_labels(ax.xaxis)
+            yt, yl = drawn_labels(ax.yaxis)
+            xe, ye = extents(xt), extents(yt)
+            titles = [t for t in (ax.title, ax._left_title, ax._right_title)
+                      if t.get_visible() and t.get_text()]
+            # (the "1e6" of a linear colour bar, above its top)
+            offsets = [t for t in (ax.xaxis.offsetText, ax.yaxis.offsetText)
+                       if t.get_visible() and t.get_text()]
+            ext = xe + ye + extents([xl, yl] + titles + offsets)
+            if not ext:
+                return 0.0, 0.0, 0.0, 0.0
+            half_w = max((e.width for e in xe), default=0.0) / 2
+            half_h = max((e.height for e in ye), default=0.0) / 2
+            return (max(b.x0 - min(e.x0 for e in ext), half_w, 0.0),
+                    max(max(e.x1 for e in ext) - b.x1, half_w, 0.0),
+                    max(b.y0 - min(e.y0 for e in ext), half_h, 0.0),
+                    max(max(e.y1 for e in ext) - b.y1, half_h, 0.0))
+        self._over = {name: over(getattr(self, name))
+                      for name in ("ax_hist", "ax_map", "cax", "ax_rib", "ax_ss", "ax_spec")}
+        return self._place_panels()
+
+    def _place_panels(self):
+        """Put the panels where the labels measured in self._over leave room;
+        True when they moved."""
+        fig, o = self.fig, self._over
+        W, H = fig.bbox.width, fig.bbox.height
+        if W < 50 or H < 50:
+            return False
+        p = self.PAD_PX
+        left = max(o["ax_hist"][0], o["ax_ss"][0]) + p
+        right = max(o["cax"][1], o["ax_spec"][1] - self.GAP_CBAR_PX - p, 0.0) + p
+        top = max(o["ax_hist"][3], o["ax_map"][3], o["cax"][3]) + p
+        bottom = max(o["ax_ss"][2], o["ax_spec"][2]) + p
+        gap_x = (max(o["ax_hist"][1], o["ax_ss"][1])
+                 + max(o["ax_map"][0], o["ax_spec"][0], o["ax_rib"][0]) + p)
+        gap_cb = max(self.GAP_CBAR_PX, o["ax_map"][1] + o["cax"][0] + p)
+        gap_r0 = max(self.GAP_RIBBON_PX, o["ax_map"][2] + o["ax_rib"][3] + p)
+        gap_r1 = o["ax_rib"][2] + o["ax_spec"][3] + p
+        avail_h = H - top - bottom - gap_r0 - gap_r1
+        avail_w = W - left - right - gap_x - gap_cb
+        if avail_h < 60 or avail_w < 60:
+            return False
+        hr = np.array([3.0, 0.10, 1.35]) / 4.45
+        h_map, h_rib = hr[0] * avail_h, hr[1] * avail_h
+        # the Decay panel's x labels hang into the column's empty middle row;
+        # the steady-state panel starts below them
+        need = o["ax_hist"][2] + o["ax_ss"][3] + p
+        short = need - (gap_r0 + h_rib + gap_r1)
+        if short > 0:
+            gap_r1 += short
+            avail_h -= short
+            h_map, h_rib = hr[0] * avail_h, hr[1] * avail_h
+        h_spec = hr[2] * avail_h
+        wr = np.array([1.0, 3.6, 0.06]) / 4.66
+        w0, w1, w2 = wr * avail_w
+        x0 = left
+        x1 = x0 + w0 + gap_x
+        x2 = x1 + w1 + gap_cb
+        y_spec = bottom
+        y_rib = y_spec + h_spec + gap_r1
+        y_map = y_rib + h_rib + gap_r0
+
+        target = {self.ax_hist: (x0, y_map, w0, h_map), self.ax_map: (x1, y_map, w1, h_map),
+                  self.cax: (x2, y_map, w2, h_map), self.ax_rib: (x1, y_rib, w1, h_rib),
+                  self.ax_ss: (x0, y_spec, w0, h_spec), self.ax_spec: (x1, y_spec, w1, h_spec)}
+        edges = {ax: (round(x), round(y), round(x + w), round(y + h)) for ax, (x, y, w, h) in target.items()}
+        # Within HOLD_PX of where they are (the padding covers that) the panels
+        # stay: a move can add or drop a tick label, and the layout would
+        # otherwise swing between two places a pixel or two apart.
+        now = {ax: tuple(ax.bbox.extents) for ax in target}
+        if all(abs(a - b) <= self.HOLD_PX for ax in target for a, b in zip(edges[ax], now[ax])):
+            return False
+        for ax, (xa, ya, xb, yb) in edges.items():
+            ax.set_position([xa / W, ya / H, (xb - xa) / W, (yb - ya) / H])
+        return True
+
+    def _on_resize(self, event):
+        """The canvas has a new size and is about to be drawn at it."""
+        if self.model and self._over and self.ax_hist.get_visible():
+            self._place_panels()
+
+    def _on_map(self, event):
+        """The window came on screen: show the panels if they moved before it did."""
+        if self._layout_stale:
+            self._queue_draw()
+
+    def _queue_draw(self):
+        """Draw the moved panels once Tk is idle. Queued with Tk: a draw_idle()
+        asked for during matplotlib's own idle draw (a resize) would be dropped."""
+        if self._draw_queued is None:
+            self._draw_queued = self.canvas.get_tk_widget().after_idle(self._draw_relaid)
+
+    def _on_canvas_destroy(self, event):
+        if self._draw_queued is not None:
+            try:
+                event.widget.after_cancel(self._draw_queued)
+            except tk.TclError:
+                pass
+            self._draw_queued = None
 
     def _show_placeholder(self):
         for ax in (self.ax_hist, self.ax_ss, self.ax_spec, self.ax_rib, self.cax):
@@ -77,20 +248,88 @@ class _MapFigure:
         ti = int(np.clip((t_ps + m.t0 - m.t_off_ps) // m.dt_ps, 0, m.n_t - 1))
         return wi, ti
 
-    def _clamp_view(self):
-        """Keep a zoom rectangle inside the axes after the model was rebuilt."""
-        if not self.view:
-            return
-        m = self.model
-        w_lo, w_hi = m.wl_edges
-        x0, x1, y0, y1 = self.view
-        x0, x1 = max(x0, w_lo), min(x1, w_hi)
-        y0, y1 = max(y0, m.t_lo), min(y1, m.t_hi)
-        self.view = (x0, x1, y0, y1) if (x1 > x0 and y1 > y0) else None
+    def _clamp_view(self, draw=False):
+        """Keep a zoom rectangle inside the map and give the map those limits,
+        so that the axes and self.view never disagree.
 
-    def reset_view(self):
+        After the model was rebuilt the rectangle is trimmed to the new map (as
+        up to 1.6). ``draw`` - the toolbar moved the view - slides it back
+        inside instead, so a pan past an edge keeps the zoom's size (a view
+        wider than the map becomes the whole map), and shows it now."""
+        m = self.model
+        if not m:
+            return
+        w_lo, w_hi = m.wl_edges
+        if self.view:
+            x0, x1, y0, y1 = self.view
+            if draw:
+                x0, x1 = self._slide_inside(x0, x1, w_lo, w_hi)
+                y0, y1 = self._slide_inside(y0, y1, m.t_lo, m.t_hi)
+            else:
+                x0, x1 = max(x0, w_lo), min(x1, w_hi)
+                y0, y1 = max(y0, m.t_lo), min(y1, m.t_hi)
+            self.view = (x0, x1, y0, y1) if (x1 > x0 and y1 > y0) else None
+        x0, x1, y0, y1 = self.view if self.view else (w_lo, w_hi, m.t_lo, m.t_hi)
+        self.ax_map.set_xlim(x0, x1)
+        self.ax_map.set_ylim(y0, y1)
+        if draw:
+            self.canvas.draw_idle()
+
+    @staticmethod
+    def _slide_inside(a, b, lo, hi):
+        """The range a..b moved into lo..hi, its width kept (all of lo..hi
+        when it is wider)."""
+        width = b - a
+        if width >= hi - lo:
+            return lo, hi
+        if a < lo:
+            return lo, lo + width
+        if b > hi:
+            return hi - width, hi
+        return a, b
+
+    def _view_from_axes(self):
+        """After a toolbar move (zoom, pan, Back, Forward): self.view is what
+        the map shows now - None when that is the whole map."""
+        m = self.model
+        if not m or getattr(self, "im", None) is None or self.im.axes is None:
+            return
+        x0, x1 = sorted(self.ax_map.get_xlim())
+        y0, y1 = sorted(self.ax_map.get_ylim())
+        self.view = (x0, x1, y0, y1)
+        self._clamp_view(draw=True)
+        w_lo, w_hi = m.wl_edges
+        full = (w_lo, w_hi, m.t_lo, m.t_hi)
+        if self.view and all(abs(a - b) <= 1e-9 * max(abs(b), 1.0)
+                             for a, b in zip(self.view, full)):
+            self.view = None
+
+    def _home_view(self):
+        """The toolbar's Home: the whole map, as Reset zoom - without a new
+        history entry, so Forward still leads back."""
         self.view = None
         self._reframe()
+
+    def reset_view(self):
+        """Reset zoom (the button, or a right-click on the map): the whole map,
+        and every panel the toolbar zoomed back as it was drawn (the base entry
+        of the toolbar's history). The toolbar's Back returns to the zoom it left."""
+        if not self.model:
+            self.view = None
+            return
+        tb = self.toolbar
+        tb.ensure_base()
+        base = tb._nav_stack[0]
+
+        def limits():
+            return [(tuple(ax.get_xlim()), tuple(ax.get_ylim())) for ax in list(base)]
+        before, zoomed = limits(), self.view is not None
+        for ax, (view, _pos) in list(base.items()):
+            ax._set_view(view)
+        self.view = None
+        self._reframe()
+        if zoomed or limits() != before:
+            tb.push_current()
 
     def reset_contrast(self):
         self.clim = None
@@ -268,13 +507,22 @@ class _MapFigure:
             self.ax_hist.axhspan(b0, b1, color=PIN, alpha=0.14, lw=0)
             self.ax_spec.plot(m.wls, np.maximum(m.bg_spec, 0.7), color=PIN,
                               ls=":", lw=1.0, alpha=0.8)
+            note, warn = self._bg_note()
+            self.lbl_bginfo.configure(foreground=WARN if warn else PIN)
+            bg_mean = float(np.nanmean(m.bg_spec))
+            # Below one count per bin most bins of a sparse map hold 0 or 1
+            # count, so taking the background off sends the empty ones below 0:
+            # a large negative share then says nothing about the window. The
+            # level is the sample's own: an over-scaled solvent makes bg_spec
+            # negative, and that is one of the things to warn about.
             self.var_bginfo.set(
-                f"bg {b0:,.0f}-{b1:,.0f} ps (mean {np.nanmean(m.bg_spec):,.1f} cts/bin)"
+                f"bg {b0:,.0f}-{b1:,.0f} ps (mean {bg_mean:,.1f} cts/bin)" + note
                 + (f"  ** {m.neg_frac:.0%} of the map is negative - "
                    + ("solvent scale too high, or window on signal?" if m.solvent_active
                       else "window is on signal?")
-                   if m.neg_frac > 0.6 else ""))
+                   if m.neg_frac > 0.6 and m.bg_sample_mean() >= 1.0 else ""))
         else:
+            self.lbl_bginfo.configure(foreground=PIN)
             self.var_bginfo.set("bg off")
 
         # ---- steady-state spectrum: every delay of the record summed together ----
@@ -333,16 +581,41 @@ class _MapFigure:
                 title.set_color(INK_DIM)
 
         # ---- zoom: applied last, the shared axes follow ----
-        x0, x1, y0, y1 = self.view if self.view else (w_lo, w_hi, m.t_lo, m.t_hi)
-        self.ax_map.set_xlim(x0, x1)
-        self.ax_map.set_ylim(y0, y1)
+        # The axes were cleared and drawn anew: what the toolbar remembered
+        # belongs to the old picture. The whole map is its new Home (the base
+        # entry), and a zoom kept from before is the entry after it.
+        self.ax_map.set_xlim(w_lo, w_hi)
+        self.ax_map.set_ylim(m.t_lo, m.t_hi)
+        self.toolbar.forget_history()
+        if self.view:
+            x0, x1, y0, y1 = self.view
+            self.ax_map.set_xlim(x0, x1)
+            self.ax_map.set_ylim(y0, y1)
+            self.toolbar.push_current()
 
         self.canvas.draw()      # on_draw() puts the cursor artists back
 
     def on_draw(self, event):
         """Re-capture clean backgrounds after every full redraw (incl. resize)."""
-        if not self.model:
+        # (a savefig draws too, on another renderer and maybe another canvas:
+        # nothing of it may stay in this window)
+        if not self.model or event.canvas.is_saving():
             return
+        # new tick labels or a new canvas size: the panels may have to move
+        # (a few times at most - a move can change the tick labels again), but
+        # not under a pan in progress: its release draws, and they move then.
+        self._layout_stale = False
+        if self._relayouts < 3 and not self.toolbar.dragging() and self._fit_layout():
+            # what was drawn is about to be replaced: nothing to blit onto. A
+            # window not on screen yet (a file named at start) gets no second
+            # draw: it is about to be drawn at its real size anyway.
+            self._relayouts += 1
+            self._layout_stale = True
+            self._bg = {}
+            if self.canvas.get_tk_widget().winfo_ismapped():
+                self._queue_draw()
+            return
+        self._relayouts = 0
         self._bg = {
             "map": self.canvas.copy_from_bbox(self.ax_map.bbox),
             "hist": self.canvas.copy_from_bbox(self.ax_hist.bbox),
@@ -353,6 +626,18 @@ class _MapFigure:
         # not paint them, so put them back on the fresh backgrounds (a resize
         # or an uncovered window draws without going through redraw())
         self.update_cursor()
+
+    def _draw_relaid(self):
+        """Draw the panels where _fit_layout moved them (unless the tab is gone,
+        or a resize has drawn them by now)."""
+        self._draw_queued = None
+        if not self._layout_stale:
+            return
+        try:
+            if self.canvas.get_tk_widget().winfo_exists():
+                self.canvas.draw()
+        except tk.TclError:
+            pass
 
     def update_cursor(self):
         """Update the live slices by blitting - fast enough for every mouse move."""
@@ -423,7 +708,8 @@ class _MapFigure:
     DRAG_PX = 5      # below this a press/release pair counts as a plain click
 
     def on_press(self, event):
-        if not self.model or not self._bg:
+        # while the toolbar's pan / zoom mode holds the canvas, the mouse is its
+        if not self.model or not self._bg or self.toolbar.locked():
             return
         if event.inaxes is self.ax_map:
             if event.button == 3:
@@ -441,7 +727,12 @@ class _MapFigure:
         if not self.model:
             return
         if self._drag is not None:
-            self._draw_rubber(event)
+            if not self.toolbar.locked():
+                self._draw_rubber(event)
+            return
+        # the read-out follows the mouse in pan / zoom mode too, only not
+        # while the toolbar is dragging
+        if self.toolbar.dragging():
             return
         if self.pinned or event.inaxes is not self.ax_map:
             return
@@ -456,6 +747,10 @@ class _MapFigure:
         drag, self._drag = self._drag, None
         if not self.model or drag is None:
             return
+        if self.toolbar.locked():       # pan / zoom mode was switched on meanwhile
+            self.rect.set_visible(False)
+            self.crect.set_visible(False)
+            return
 
         if drag["kind"] == "zoom":
             moved = (abs(event.x - drag["px"]) > self.DRAG_PX or
@@ -464,8 +759,10 @@ class _MapFigure:
                 x0, x1 = sorted((drag["x0"], drag["x1"]))
                 y0, y1 = sorted((drag["y0"], drag["y1"]))
                 if x1 > x0 and y1 > y0:
+                    self.toolbar.ensure_base()
                     self.view = (x0, x1, y0, y1)
                     self._reframe()
+                    self.toolbar.push_current()     # Back returns to the view before
                     return
             if event.inaxes is self.ax_map:
                 self._toggle_pin(event)
@@ -482,6 +779,8 @@ class _MapFigure:
 
     def _draw_rubber(self, event):
         """Blit the drag rectangle over the clean background of its own axes."""
+        if not self._bg:            # the panels just moved; the next draw brings it back
+            return
         d = self._drag
         if d["kind"] == "zoom":
             if event.inaxes is self.ax_map and event.xdata is not None:
@@ -521,7 +820,7 @@ class _MapFigure:
         self.update_cursor()
 
     def on_leave(self, event):
-        if self._drag is not None:
+        if self._drag is not None or self.toolbar.dragging():
             return
         if self.model and not self.pinned and event.inaxes is self.ax_map:
             self.cursor = None

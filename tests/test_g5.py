@@ -368,7 +368,9 @@ if section("C-22"):
     retired_exact = ["No data", "Nothing to save", "Nothing to export", "TIME SPAN", "WINDOW", "SCALE", "Scale", "Setup",
                      "Stretched-IRF", "τ = ∞ offset", "Include τ = ∞", "Fit", "Run Fit", "intensity", "amplitude",
                      "wavelength (nm)", "delay (ps)", "Centre λ (nm)", "Kinetics λ (nm)", "± hw", "Masked regions (NaN)",
-                     "Fit window (delay, ps)", "Fit t-range (ps)", "(uses main CSV / .opju)"]
+                     "Fit window (delay, ps)", "Fit t-range (ps)", "(uses main CSV / .opju)",
+                     # 1.7: the upper-case captions became labels in normal case with a colon (spec R9)
+                     "TIME END", "BG WINDOW", "SOLVENT SCALE", "COLORMAP", "OFFSET", "BIN"]
     retired_part = ["Tick CSV and/or", "uses main CSV", "objective evals", " iters)", "avg of", " px)", "lambda   "]
     found, hangul = [], []
     for path in NEW.sources():
@@ -406,13 +408,15 @@ if section("C-22"):
         return out
     main, crop, mask = texts(top), texts(app._crop_win.win), texts(app._mask_win.win)
     kin, glob = texts(app._kinetics_win.win), texts(app._global_win.win)
-    want = [("main window", main, ["TIME END", "BG WINDOW", "Apply offset"]),
-            ("Crop", crop, ["SOLVENT SCALE", "Fit view", "Log time"]),
+    # (1.7: labels in normal case with a colon, spec R9; README glossary follows at the release step)
+    want = [("main window", main, ["Time end:", "Bin:", "BG window:", "Offset:", "Colormap:", "Apply offset"]),
+            ("Crop", crop, ["Solvent scale:", "Fit view", "Log time"]),
             ("Mask", mask, ["Masked regions"]),
-            ("Kinetics", kin, ["Fit setup", "λ (nm)", "± half-width (nm)", "Include τ = ∞ offset", "Stretched-IRF mode",
-                               "Fit range (ps)", "Time scale", "Run fit", "(formats chosen in the main window)"]),
-            ("Global", glob, ["Fit setup", "λ (nm)", "Include τ = ∞ offset", "Stretched-IRF mode", "Fit range (ps)",
-                              "Time scale", "Run fit"])]
+            ("Kinetics", kin, ["Fit setup", "λ (nm):", "± half-width (nm):", "Include τ = ∞ offset",
+                               "Stretched-IRF mode:", "Fit range (ps)", "Time scale:", "Run fit",
+                               "(formats chosen in the main window)"]),
+            ("Global", glob, ["Fit setup", "λ (nm):", "Include τ = ∞ offset", "Stretched-IRF mode:", "Fit range (ps)",
+                              "Time scale:", "Run fit"])]
     for name, have, need in want:
         lack = [n for n in need if n not in have]
         check(f"{name}: the glossary's wording is what the widgets show", not lack, f"missing {lack}")

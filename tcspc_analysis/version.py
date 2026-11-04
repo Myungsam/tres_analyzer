@@ -1,2 +1,2 @@
 """The version of the program."""
-APP_VERSION = "1.6"
+APP_VERSION = "1.7"

@@ -15,7 +15,7 @@ mkdir -p "$OUT"
 # (check_doc below compares ARCHITECTURE.md's line counts with the code; sync_doc_ranges.py, run by hand
 #  after an edit, brings them in step - it is not run here, so a stale document shows as a failure)
 BAD=0
-for t in test_numeric test_gui test_slice test_zoom test_v14 test_v14_native test_fatol test_facade test_paths test_dpi \
+for t in test_numeric test_gui test_slice test_zoom test_v14 test_v14_native test_fatol test_facade test_paths test_dpi test_v17 \
          $(ls test_g?.py test_g??.py 2>/dev/null | grep -v test_gui | sed 's/\.py$//') check_doc; do
     "$VPY" -B $t.py > "$OUT/$t.out" 2>&1
     RC=$?

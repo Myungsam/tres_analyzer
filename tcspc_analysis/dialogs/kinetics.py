@@ -15,8 +15,9 @@ from tkinter import messagebox, ttk
 from ..origin import _origin_fill_table
 from ..fitting import FitStopped, fit_single_trace
 from ..theme import ACCENT, INK, INK_DIM, LINE, PANEL, PIN, px
-from .common import (ComponentTable, _FitDialog, _dark_toolbar, _style_analysis_ax, in_range, ink_legend,
-                     read_number, set_time_scale, write_fit_csv)
+from ..ui import attach_toolbar, button, group, spin
+from .common import (ComponentTable, _FitDialog, _style_analysis_ax, in_range, ink_legend,
+                     read_number, set_time_scale, wl_step, write_fit_csv)
 
 
 class KineticsDialog(_FitDialog):
@@ -45,23 +46,26 @@ class KineticsDialog(_FitDialog):
         outer = ttk.Frame(self.win, padding=8)
         outer.pack(fill="both", expand=True)
 
-        left = ttk.Labelframe(outer, text="Fit setup", padding=8)
-        left.pack(side="left", fill="y")
-        left.configure(width=px(self.win, 430))
-        left.pack_propagate(False)
+        # the left column has a fixed width: Fit setup, then Export, then
+        # the report
+        column = ttk.Frame(outer)
+        column.pack(side="left", fill="y")
+        column.configure(width=px(self.win, 430))
+        column.pack_propagate(False)
+        left = group(column, "Fit setup", padding=8)
+        left.pack(fill="x")
 
         # wavelength + averaging window
         wl_row = ttk.Frame(left); wl_row.pack(fill="x")
-        ttk.Label(wl_row, text="λ (nm)").pack(side="left")
+        ttk.Label(wl_row, text="λ (nm):").pack(side="left")
         self.var_wl = tk.StringVar(value=f"{self._cursor_wl():.2f}")
-        e_wl = ttk.Entry(wl_row, textvariable=self.var_wl, width=9,
-                         font=("TkFixedFont", 9))
-        e_wl.pack(side="left", padx=(4, 8))
-        ttk.Label(wl_row, text="± half-width (nm)").pack(side="left")
+        step = wl_step(self.model.wls)
+        e_wl = spin(wl_row, self.var_wl, step, on_change=self._on_wl_change, width=8)
+        e_wl.pack(side="left", padx=(4, 6))
+        ttk.Label(wl_row, text="± half-width (nm):").pack(side="left")
         self.var_hw = tk.StringVar(value="0")
-        e_hw = ttk.Entry(wl_row, textvariable=self.var_hw, width=6,
-                         font=("TkFixedFont", 9))
-        e_hw.pack(side="left", padx=(4, 8))
+        e_hw = spin(wl_row, self.var_hw, step, lo=0, on_change=self._on_wl_change, width=5)
+        e_hw.pack(side="left", padx=(4, 6))
         # editing λ / half-width must redraw the trace (Enter or focus-out) -
         # without this the data points stay on the old wavelength
         for e in (e_wl, e_hw):
@@ -70,8 +74,7 @@ class KineticsDialog(_FitDialog):
         # remembers the last (λ, hw) actually drawn, so a focus-out that did
         # not change anything does not needlessly drop a good fit
         self._wl_key = (self.var_wl.get().strip(), self.var_hw.get().strip())
-        ttk.Button(wl_row, text="Use cursor λ",
-                   command=self._use_cursor).pack(side="left")
+        button(wl_row, "Use cursor λ", self._use_cursor).pack(side="left")
 
         # component count + inf offset
         self._components_row(left, default=2, most=4, pady=(8, 4))
@@ -83,32 +86,32 @@ class KineticsDialog(_FitDialog):
         # IRF group
         irf = self._irf_box(left)
         mode_row = ttk.Frame(irf); mode_row.pack(fill="x", pady=(2, 0))
-        ttk.Label(mode_row, text="Stretched-IRF mode").pack(side="left")
+        ttk.Label(mode_row, text="Stretched-IRF mode:").pack(side="left")
         self.var_irf_mode = tk.StringVar(value="numerical")
         ttk.Combobox(mode_row, textvariable=self.var_irf_mode,
                      values=["numerical", "skip"], width=11,
                      state="readonly").pack(side="left", padx=(6, 0))
 
         # fit window
-        win_row = ttk.Labelframe(left, text="Fit range (ps)", padding=6)
+        win_row = group(left, "Fit range (ps)")
         win_row.pack(fill="x", pady=(2, 6))
         self._range_entries(win_row)
 
         # scale + run
         run_row = ttk.Frame(left); run_row.pack(fill="x", pady=(2, 6))
-        ttk.Label(run_row, text="Time scale").pack(side="left")
+        ttk.Label(run_row, text="Time scale:").pack(side="left")
         self.var_scale = tk.StringVar(value="Log")
         sc = ttk.Combobox(run_row, textvariable=self.var_scale,
                           values=["Log", "Linear"], width=8, state="readonly")
         sc.pack(side="left", padx=(4, 10))
         sc.bind("<<ComboboxSelected>>", lambda e: self._refresh_plot())
         self._run_buttons(run_row)
-        self._export_row(left, "(formats chosen in the main window)")
-        self._report_box(left, height=12, width=48,
+        self._export_row(column, "(formats chosen in the main window)")
+        self._report_box(column, height=12, width=48,
                          hint="Set up the fit on the left, then Run fit.")
 
         # right: plots
-        right = ttk.Labelframe(outer, text="Trace, fit, residual", padding=6)
+        right = group(outer, "Trace, fit, residual", padding=6)
         right.pack(side="left", fill="both", expand=True, padx=(8, 0))
         self.fig = Figure(figsize=(7, 6), dpi=100, facecolor=PANEL)
         self.ax_main = self.fig.add_subplot(2, 1, 1)
@@ -116,9 +119,10 @@ class KineticsDialog(_FitDialog):
         self.fig.subplots_adjust(left=0.12, right=0.97, top=0.95, bottom=0.1,
                                  hspace=0.18)
         self.canvas = FigureCanvasTkAgg(self.fig, master=right)
-        tb = _dark_toolbar(self.canvas, right)
-        tb.pack(fill="x")
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Home goes back to the view _refresh_plot last drew
+        self.toolbar = attach_toolbar(self.canvas, right,
+                                      before=self.canvas.get_tk_widget())
 
     def model_changed(self):
         """The data behind the window changed. When the time axis was
@@ -359,6 +363,8 @@ class KineticsDialog(_FitDialog):
         ax.set_title(f"λ = {wl:.2f} nm   (average of {n_avg} curves)")
         ink_legend(ax.legend(loc="best", fontsize=8, facecolor=PANEL, edgecolor=LINE), INK)
         ax.grid(True, color=LINE, alpha=0.4); axR.grid(True, color=LINE, alpha=0.4)
+        # the axes were cleared: the old views are gone, this one is Home
+        self.toolbar.forget_history()
         if draw:
             self.canvas.draw_idle()
 

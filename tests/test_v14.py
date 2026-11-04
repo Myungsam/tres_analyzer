@@ -107,7 +107,7 @@ pump(0.5)
 check("log: Python's fault handler is left as it was (no 'fatal exception' entries for caught errors)",
       not faulthandler.is_enabled())
 check("log: opened with a start line that names the version",
-      f"started, version {NEW.APP_VERSION}" in text() and NEW.APP_VERSION == "1.6", text()[:200])
+      f"started, version {NEW.APP_VERSION}" in text() and NEW.APP_VERSION == "1.7", text()[:200])
 check("log: installs itself as the Tk callback-error handler",
       root.report_callback_exception == log._callback_error)
 

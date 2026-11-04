@@ -8,6 +8,7 @@ import numpy as np
 
 from _harness import *                        # noqa: F401,F403
 from _harness import NEW, OLD, SAMPLE_A, TMP, boxes, cb_errors, check, finish, make_app, pump, section, wait
+import _versions
 
 
 def exported(dialog):
@@ -92,7 +93,11 @@ if section("C-9"):
 
 # ---------------------------------------------------------------------------------------------
 if section("C-5"):
+    # 1.6's default background window (the first 100 ps), with which the sums below were measured; 1.7's
+    # default (0-10000 ps, ending three IRF widths before the IRF peak) gives other sums
+    back_bg = _versions.bg_default_of_1_6(NEW)
     top, app = make_app(SAMPLE_A)
+    back_bg()
     m = app.model
     solvent = dict(m.phu)
     solvent["counts"] = (m.phu["counts"] * 0.3).astype(m.phu["counts"].dtype)
@@ -317,13 +322,16 @@ if section("A-9"):
                              t0_init=3000.0, t0_fixed=True, fwhm_init=300.0, fwhm_fixed=True, has_inf=True)
     check("a decay of 1500 ps on that noise: the fitted offset is 0 within 0.5 counts (it was +5), tau within 2 %",
           abs(r["A"][-1]) < 0.5 and abs(r["tau"][0] / 1500.0 - 1) < 0.02, f"tau {r['tau'][0]:.5g}, offset {r['A'][-1]:+.4g}")
-    # without a solvent nothing changed
+    # without a solvent nothing changed (compared with 1.4: its default background window, as in the
+    # window below, whose share below 0 was measured with it)
+    back_bg = _versions.bg_default_of_1_6(NEW)
     plain = NEW.TRESModel(p)
     old = OLD.TRESModel(OLD.read_phu(SAMPLE_A))
     check("no solvent: the map is 1.4's", np.array_equal(plain.E, old.E, equal_nan=True)
           and np.array_equal(plain.spec_total, old.spec_total, equal_nan=True))
     # the windows
     top, app = make_app(SAMPLE_A)
+    back_bg()
     mm = app.model
     solvent = dict(mm.phu)
     solvent["counts"] = (mm.phu["counts"] * 0.9).astype(mm.phu["counts"].dtype)

@@ -4,6 +4,7 @@ import os
 
 from _harness import *                        # noqa: F401,F403
 from _harness import SAMPLE_B, NEW, SAMPLE_A, TMP, boxes, cb_errors, check, finish, make_app, make_phu, np, pump, section, wait
+import _versions
 
 
 def counted(app):
@@ -189,7 +190,9 @@ if section("A-8"):
               not err and mdl.n_t >= 1 and mdl.E.shape == (mdl.n_w, mdl.n_t)
               and mdl.t_off_ps + mdl.n_t * rb * phu["res_ps"] <= full + 1e-6, err or f"{mdl.E.shape}")
     from _harness import OLD
+    back = _versions.bg_default_of_1_6(NEW)     # compared with 1.4: its default background window
     a, b = NEW.TRESModel(phu), OLD.TRESModel(phu)
+    back()
     for mm in (a, b):
         mm.rebin, mm.t_min_ps, mm.t_max_ps = 4, 2000.0, 20000.0
         mm.rebuild()
@@ -366,7 +369,10 @@ if section("C-11"):
 
 # ---------------------------------------------------------------------------------------------
 if section("B-24"):
-    # a change in the main window reaches the open windows
+    # a change in the main window reaches the open windows. The fit's RMS below was measured with the
+    # default background window of 1.6 (the first 100 ps); 1.7's default (0-10000 ps, ending three IRF widths
+    # before the IRF peak: 0-2287 ps here) gives other numbers
+    back_bg = _versions.bg_default_of_1_6(NEW)
     top, app = make_app(SAMPLE_A)
     app.open_crop(); app.open_mask(); app.open_kinetics(); app.open_global_analysis(); pump(0.4)
     c, mk, k, g = app._crop_win, app._mask_win, app._kinetics_win, app._global_win
@@ -410,6 +416,7 @@ if section("B-24"):
     check("... a Kinetics fit on the renumbered axis is as good as before (RMS about 275, not thousands)",
           k._last is not None and k._last["info"]["rms"] < 400, str(None if k._last is None else k._last["info"]["rms"]))
     top.destroy()
+    back_bg()
 
 # ---------------------------------------------------------------------------------------------
 if section("C-15"):
